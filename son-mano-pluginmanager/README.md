@@ -1,0 +1,1 @@
+implementation of the pluginmanager component

@@ -1,0 +1,1 @@
+Plugin base class, helpers and utilities.
