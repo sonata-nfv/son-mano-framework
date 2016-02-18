@@ -1,0 +1,1 @@
+all MANO plugins are placed within this folder
