@@ -1,6 +1,13 @@
+"""
+Created by Manuel Peuster <manuel@peuster.de>
+
+This is the main module of the plugin manager component.
+"""
+
 import logging
 import json
 import time
+import uuid
 import sys
 
 sys.path.append("../../son-mano-base")
@@ -8,55 +15,94 @@ from sonmanobase.plugin import ManoBasePlugin
 
 
 class SonPluginManager(ManoBasePlugin):
+    """
+    This is the core of SONATA's plugin manager component.
+    All plugins that want to interact with the system have to register
+    themselves to it by doing a registration call.
+    """
 
     def __init__(self):
         # plugin management: simple dict for bookkeeping
         self.plugins = {}
         # call super class to do all the messaging and registration overhead
-        super(self.__class__, self).__init__()
+        super(self.__class__, self).__init__(auto_register=False)
 
     def declare_subscriptions(self):
         """
         Declare topics to which we want to listen and define callback methods.
         """
-        self.manoconn.subscribe(self.on_register, "platform.management.plugins.register")
-        self.manoconn.subscribe(self.on_deregister, "platform.management.plugins.deregister")
-        self.manoconn.subscribe(self.on_list, "platform.management.plugins.list")
-        self.manoconn.subscribe(self.callback_print, "platform.management.plugins.heartbeat")
-        self.manoconn.subscribe(self.callback_print, "#")
-        time.sleep(1)  # TODO: quick hack: Lets wait a bit until our subscriptions are stable. (should work without with persistence? shouldn't it?
+        self.manoconn.register_async_endpoint(self._on_register, "platform.management.plugin.register")
+        self.manoconn.register_async_endpoint(self._on_deregister, "platform.management.plugin.deregister")
+        self.manoconn.register_async_endpoint(self._on_list, "platform.management.plugin.list")
 
     def run(self):
+        """
+        Just go into an endless loop and wait for new plugins.
+        """
         while True:
             time.sleep(1)  # lets block for now
 
-    def on_register(self, ch, method, properties, body):
-        sender = properties.app_id
-        message = json.loads(body)
+    def _on_register(self, properties, message):
+        """
+        Event method that is called when a registration request is received.
+        Registers the new plugin in the internal data model and returns
+        a fresh UUID that is used to identify it.
+        :param properties: request properties
+        :param message: request body
+        :return: response message
+        """
+        message = json.loads(message)
+        pid = str(uuid.uuid4())
         # simplified example for plugin bookkeeping
-        self.plugins[message.get("plugin")] = message
-        logging.info("REGISTERED: %r" % message.get("plugin"))
+        self.plugins[pid] = message
+        logging.info("REGISTERED: %r with UUID %r" % (message.get("name"), pid))
+        # return result
+        response = {
+            "status": "OK",
+            "uuid": pid,
+            "error": None
+        }
+        return json.dumps(response)
 
-    def on_deregister(self, ch, method, properties, body):
-        sender = properties.app_id
-        message = json.loads(body)
+    def _on_deregister(self, properties, message):
+        """
+        Event method that is called when a de-registration request is received.
+        Removes the given plugin from the internal data model.
+        :param properties: request properties
+        :param message: request body (contains UUID to identify plugin)
+        :return: response message
+        """
+        message = json.loads(message)
         # simplified example for plugin bookkeeping
-        self.plugins[sender] = message
-        logging.info("DE-REGISTERED: %r" % message.get("plugin"))
+        if message.get("uuid") in self.plugins:
+            del self.plugins[message.get("uuid")]
+        logging.info("DE-REGISTERED: %r" % properties.app_id)
+        # return result
+        response = {
+            "status" : "OK"
+        }
+        return json.dumps(response)
 
-    def on_list(self, ch, method, properties, body):
-        sender = properties.app_id
-        message = json.loads(body)
-        if message.get("type") == "REQ":
-            # we have a request, lets answer
-            message = {"type": "REP",
-                       "plugins": self.plugins}
-            self.manoconn.publish("platform.management.plugins.list", json.dumps(message))
+    def _on_list(self, properties, message):
+        """
+        Event method that is called when a plugin wants to request a
+        list of all plugins that are currently registered to the system.
+        :param properties: request properties
+        :param message: request body
+        :return: response message
+        """
+        # generate result
+        response = {"status": "OK",
+                    "list": self.plugins,
+                    "error": None}
+        logging.info("LIST requested by: %r" % properties.app_id)
+        # return result
+        return json.dumps(response)
 
 
 def main():
     logging.basicConfig(level=logging.DEBUG)
-    spm = SonPluginManager()
+    SonPluginManager()
 
 if __name__ == '__main__':
     main()
