@@ -2,6 +2,15 @@
 SONATA's Service Platform MANO Framework
 
 
+## Folder structure
+
+* `plugins` contains MANO plugin implementations
+* `son-mano-base` abstract plugin classes, helpers used by all plugins, ...
+* `son-mano-broker` the message broker (start with a Dockerimage containing a default RabbitMQ installation)
+* `son-mano-pluginmanager` the plugin manager component
+* ... (there will be more)
+
+
 ## TODOs:
 * Prepare for CI/CD integration
     * Dockerfiles for each component
