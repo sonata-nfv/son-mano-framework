@@ -28,6 +28,7 @@ SONATA's Service Platform MANO Framework
  * `python __main__.py`
 
 What will happen? The example plugin will ...
+
 1. connect to the broker
 2. register itself to the plugin manager
 3. periodically send heartbeat messages to the plugin manager
