@@ -42,7 +42,7 @@ class DemoPlugin1(ManoBasePlugin):
         Plugin logic. Does nothing in our example.
         """
         # do nothing and waste time
-        time.sleep(5)
+        time.sleep(2)
 
     def on_registration_ok(self):
         """

@@ -114,6 +114,7 @@ class ManoBasePlugin(object):
         """
         Send a deregister event to the plugin manager component.
         """
+        logging.info("De-registering plugin...")
         message = {"uuid": self.uuid}
         self.manoconn.call_async(self._on_deregister_response,
                                  "platform.management.plugin.deregister",
