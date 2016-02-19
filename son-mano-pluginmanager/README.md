@@ -1,1 +1,1 @@
-implementation of the pluginmanager component
+implementation of the plugin manager component

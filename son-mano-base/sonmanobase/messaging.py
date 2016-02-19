@@ -7,6 +7,7 @@ communication.
 """
 
 # TODO: Add API for synchronous request / reply calls
+# TODO: Add error handling when broker is not reachable
 # TODO: Add RMQ ack mechanism (cf: http://pika.readthedocs.org/en/latest/examples/asynchronous_publisher_example.html)
 
 import pika

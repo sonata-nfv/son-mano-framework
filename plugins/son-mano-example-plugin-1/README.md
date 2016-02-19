@@ -1,1 +1,1 @@
-this is a placeholder for our first MANO plugin to be implemented
+Example MANO plugin
