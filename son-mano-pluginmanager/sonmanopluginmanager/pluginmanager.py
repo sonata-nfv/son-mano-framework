@@ -7,6 +7,7 @@ This is the main module of the plugin manager component.
 import logging
 import json
 import time
+import datetime
 import uuid
 import sys
 
@@ -25,7 +26,8 @@ class SonPluginManager(ManoBasePlugin):
         # plugin management: simple dict for bookkeeping
         self.plugins = {}
         # call super class to do all the messaging and registration overhead
-        super(self.__class__, self).__init__(auto_register=False)
+        super(self.__class__, self).__init__(auto_register=False,
+                                             auto_heartbeat_rate=0)
 
     def declare_subscriptions(self):
         """
@@ -34,6 +36,7 @@ class SonPluginManager(ManoBasePlugin):
         self.manoconn.register_async_endpoint(self._on_register, "platform.management.plugin.register")
         self.manoconn.register_async_endpoint(self._on_deregister, "platform.management.plugin.deregister")
         self.manoconn.register_async_endpoint(self._on_list, "platform.management.plugin.list")
+        self.manoconn.register_notification_endpoint(self._on_heartbeat, "platform.management.plugin.heartbeat")
 
     def run(self):
         """
@@ -53,8 +56,12 @@ class SonPluginManager(ManoBasePlugin):
         """
         message = json.loads(message)
         pid = str(uuid.uuid4())
-        # simplified example for plugin bookkeeping
+        # simplified example for plugin bookkeeping (replace this with real functionality)
         self.plugins[pid] = message
+        # add some fields to record
+        self.plugins[pid]["state"] = "REGISTERED"
+        self.plugins[pid]["resgister_time"] = str(datetime.datetime.now())
+        self.plugins[pid]["last_heartbeat"] = None
         logging.info("REGISTERED: %r with UUID %r" % (message.get("name"), pid))
         # return result
         response = {
@@ -98,6 +105,12 @@ class SonPluginManager(ManoBasePlugin):
         logging.info("LIST requested by: %r" % properties.app_id)
         # return result
         return json.dumps(response)
+
+    def _on_heartbeat(self, properties, message):
+        message = json.loads(message)
+        pid = message.get("uuid")
+        if pid in self.plugins:
+            self.plugins[pid]["last_heartbeat"] = str(datetime.datetime.now())
 
 
 def main():

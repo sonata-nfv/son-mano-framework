@@ -7,6 +7,7 @@ Base class to simplify the implementation of new MANO plugins.
 import logging
 import json
 import time
+import threading
 
 import messaging
 
@@ -19,6 +20,9 @@ class ManoBasePlugin(object):
     - send/receive async/sync request/response calls
     - send/receive notifications
     - register / de-register plugin to plugin manager
+
+    It also implements a automatic heartbeat mechanism that periodically sends
+    heartbeat notifications.
     """
 
     def __init__(self,
@@ -26,7 +30,8 @@ class ManoBasePlugin(object):
                  version=None,
                  description=None,
                  auto_register=True,
-                 wait_for_registration=True):
+                 wait_for_registration=True,
+                 auto_heartbeat_rate=0.5):
         """
         Performs plugin initialization steps, e.g., connection setup
         :param name: Plugin name prefix
@@ -34,6 +39,7 @@ class ManoBasePlugin(object):
         :param description: A description string
         :param auto_register: Automatically register on init
         :param wait_for_registration: Wait for registration before returning from init
+        :param auto_heartbeat_rate: rate of automatic heartbeat notifications 1/n seconds. 0=deactivated
         :return:
         """
         self.name = "%s.%s" % (name, self.__class__.__name__)
@@ -52,6 +58,8 @@ class ManoBasePlugin(object):
             self.register()
             if wait_for_registration:
                 self._wait_for_registration()
+        # kick-off automatic heartbeat mechanism
+        self._auto_heartbeat(auto_heartbeat_rate)
         # jump to run
         self.run()
 
@@ -64,6 +72,31 @@ class ManoBasePlugin(object):
         self.deregister()
         self.manoconn.stop_connection()
         del self.manoconn
+
+    def _auto_heartbeat(self, rate):
+        """
+        A simple periodic heartbeat mechanism.
+        (much room for improvements here)
+        :param rate: rate of heartbeat notifications
+        :return:
+        """
+        if rate <= 0:
+            return
+
+        def run():
+            while True:
+                if self.uuid is not None:
+                    self.manoconn.notify(
+                        "platform.management.plugin.heartbeat",
+                        json.dumps({"uuid": self.uuid,
+                        "state": "RUNNING"}))
+                time.sleep(1/rate)
+
+        # run heartbeats in separated thread
+        t = threading.Thread(target=run)
+        t.daemon = True
+        t.start()
+
 
     def declare_subscriptions(self):
         """

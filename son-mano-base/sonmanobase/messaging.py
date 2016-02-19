@@ -6,8 +6,8 @@ provides a set of sync. and async. methods for topic-based
 communication.
 """
 
+# TODO: Add API for synchronous request / reply calls
 # TODO: Add RMQ ack mechanism (cf: http://pika.readthedocs.org/en/latest/examples/asynchronous_publisher_example.html)
-# TODO: Extend req/resp API to support sync calls
 
 import pika
 import logging
@@ -207,9 +207,11 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
 
         def run(cbf, func, args):
             result = func(props, args)
-            cbf(props, result)
+            if cbf is not None:
+                cbf(props, result)
 
         t = threading.Thread(target=run, args=(cbf, func, args))
+        t.daemon = True
         t.start()
         logging.debug("Async execution started: %r." % str(func))
 
@@ -222,6 +224,9 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         :return: None
         """
         logging.debug("Async execution finished.")
+        # check if we have a response destination
+        if props.reply_to is None:
+            return  # do not send a response
         # we cannot send None
         result = "" if result is None else result
         assert(isinstance(result, basestring))
@@ -244,9 +249,14 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         key = "%s.%s" % (method.routing_key, props.headers.get("key"))
         logging.debug("Async request for key %r received." % str(key))
         if key in self._async_calls_endpoints:
-            func = self._async_calls_endpoints.get(key)
+            ep = self._async_calls_endpoints.get(key)
             # call the remote procedure asynchronously
-            self._execute_async(self._on_execute_async_finished, func, (body), props=props)
+            self._execute_async(
+                # set a finish method if we want to send a response
+                self._on_execute_async_finished if not ep.is_notification else None,
+                ep.cbf,
+                (body),
+                props=props)
         else:
             logging.error("Endpoint not implemented: %r" % key)
 
@@ -285,36 +295,63 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         corr_id = str(uuid.uuid4())
         # define response topic
         response_topic = "%s.response" % topic
-        # create subscription for responses
-        if topic not in self._async_calls_response_topics:
-            self._async_calls_response_topics.append(topic)
-            self.subscribe(self._on_call_async_response_received, response_topic)
-        # keep track of request
-        self._async_calls_pending[corr_id] = cbf
+        # initialize response subscription if a callback function was defined
+        if cbf is not None:
+            # create subscription for responses
+            if topic not in self._async_calls_response_topics:
+                self._async_calls_response_topics.append(topic)
+                self.subscribe(self._on_call_async_response_received, response_topic)
+                # keep track of request
+                self._async_calls_pending[corr_id] = cbf
         # setup request message properties
         properties = pika.BasicProperties(
                 app_id=self.app_id,
                 content_type='application/json',
-                reply_to=response_topic,
+                reply_to=response_topic if cbf is not None else None,
                 correlation_id=corr_id,
                 headers={"key": key})
         # publish request message
         self.publish(topic, msg, properties=properties)
 
-    def register_async_endpoint(self, cbf, topic, key="default"):
+    def register_async_endpoint(self, cbf, topic, key="default", is_notification=False):
         """
         Executed by callees that want to expose the functionality implemented in cbf
         to callers that are connected to the broker.
         :param cbf: function to be called when requests with the given topic and key are received
         :param topic: topic for requests and responses
         :param key:  optional identifier for endpoints (enables more than 1 endpoint per topic)
+        :param isnotification: define endpoint as notification so that it will not send a response
         :return: None
         """
         # TODO: Can we implement this as a Python function annotation?
         if topic not in self._async_calls_request_topics:
             self._async_calls_request_topics.append(topic)
             self.subscribe(self._on_call_async_request_received, topic)
-        self._async_calls_endpoints["%s.%s" % (topic, key)] = cbf
+        self._async_calls_endpoints["%s.%s" % (topic, key)] = AsyncEndpoint(
+            cbf, topic, key, is_notification)
+
+    def notify(self, topic, msg, key="default"):
+        """
+        Wrapper for the call_async method that does not have a callback function since
+        it sends notifications instead of requests.
+        :param topic: topic for communication (callee has to be described to it)
+        :param key: optional identifier for endpoints (enables more than 1 endpoint per topic)
+        :param msg: actual message
+        :return: None
+        """
+        self.call_async(None, topic, msg, key=key)
+
+    def register_notification_endpoint(self, cbf, topic, key="default"):
+        """
+        Wrapper for register_async_endpoint that allows to register
+        notification endpoints that to not send responses after executing
+        the callback function.
+        :param cbf: function to be called when requests with the given topic and key are received
+        :param topic: topic for requests and responses
+        :param key:  optional identifier for endpoints (enables more than 1 endpoint per topic)
+        :return: None
+        """
+        return self.register_async_endpoint(cbf, topic, key=key, is_notification=True)
 
     def callback_print(self, ch, method, properties, msg):
         """
@@ -322,4 +359,16 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         """
         logging.debug("RECEIVED from %r on %r: %r" % (
             properties.app_id, method.routing_key, str(msg)))
+
+
+class AsyncEndpoint(object):
+    """
+    Class that represents a async. messaging endpoint.
+    """
+
+    def __init__(self, cbf, topic, key, is_notifiaction=False):
+        self.cbf = cbf
+        self.topic = topic
+        self.key = key
+        self.is_notification = is_notifiaction
 

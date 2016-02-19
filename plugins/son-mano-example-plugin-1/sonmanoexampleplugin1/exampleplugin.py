@@ -29,6 +29,9 @@ class DemoPlugin1(ManoBasePlugin):
         # call super class to do all the messaging and registration overhead
         super(self.__class__, self).__init__(version="0.1-dev")
 
+    def __del__(self):
+        super(self.__class__, self).__del__()
+
     def declare_subscriptions(self):
         """
         Declare topics to listen.
@@ -42,7 +45,8 @@ class DemoPlugin1(ManoBasePlugin):
         Plugin logic. Does nothing in our example.
         """
         # do nothing and waste time
-        time.sleep(2)
+        time.sleep(4)
+        self.__del__()
 
     def on_registration_ok(self):
         """
@@ -78,7 +82,7 @@ class DemoPlugin1(ManoBasePlugin):
             # we have a reply, lets print it
             print "-" * 30 + " Plugins " + "-" * 30
             for k, v in response.get("list").iteritems():
-                print "%s, %s, %s" % (k, v.get("name"), v.get("version"))
+                print "%s, %s, %s, %s" % (k[:8], v.get("name"), v.get("version"), v.get("last_heartbeat"))
             print "-" * 69
         else:
             print "List request error."
