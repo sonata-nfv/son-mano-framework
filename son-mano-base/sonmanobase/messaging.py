@@ -367,9 +367,9 @@ class AsyncEndpoint(object):
     Class that represents a async. messaging endpoint.
     """
 
-    def __init__(self, cbf, topic, key, is_notifiaction=False):
+    def __init__(self, cbf, topic, key, is_notification=False):
         self.cbf = cbf
         self.topic = topic
         self.key = key
-        self.is_notification = is_notifiaction
+        self.is_notification = is_notification
 
