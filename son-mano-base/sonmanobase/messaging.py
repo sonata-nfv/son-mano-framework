@@ -324,7 +324,6 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         :param isnotification: define endpoint as notification so that it will not send a response
         :return: None
         """
-        # TODO: Can we implement this as a Python function annotation?
         if topic not in self._async_calls_request_topics:
             self._async_calls_request_topics.append(topic)
             self.subscribe(self._on_call_async_request_received, topic)
