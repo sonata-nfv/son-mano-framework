@@ -36,7 +36,14 @@ class DemoPlugin1(ManoBasePlugin):
         """
         Declare topics to listen.
         """
-        pass
+        # Examples to demonstrate how a plugin can listen to certain events:
+        self.manoconn.register_async_endpoint(
+            self._on_example_request,  # call back method (expected to return a response message)
+            "example.plugin.request")
+        self.manoconn.register_notification_endpoint(
+            self._on_example_notification,  # call back method
+            "example.plugin.notification")
+
         # Activate this to sniff and print all messages on the broker
         #self.manoconn.subscribe(self.manoconn.callback_print, "#")
 
@@ -45,7 +52,18 @@ class DemoPlugin1(ManoBasePlugin):
         Plugin logic. Does nothing in our example.
         """
         # do nothing and waste time
-        time.sleep(4)
+        time.sleep(2)
+        # Example that shows how to send a request/response message
+        self.manoconn.call_async(
+                        self._on_example_request_response,
+                        "example.plugin.request",
+                        json.dumps({"content": "my request"}))
+        time.sleep(1)
+        # Example that shows how to send a notification message
+        self.manoconn.notify(
+                        "example.plugin.notification",
+                        json.dumps({"conent": "my notification"}))
+        time.sleep(1)
         self.__del__()
 
     def on_registration_ok(self):
@@ -86,6 +104,25 @@ class DemoPlugin1(ManoBasePlugin):
             print "-" * 69
         else:
             print "List request error."
+
+    def _on_example_request(self, properties, message):
+        """
+        Only used for the examples.
+        """
+        print "Example message: %r " % message
+        return json.dumps({"content" : "my response"})
+
+    def _on_example_request_response(self, properties, message):
+        """
+        Only used for the examples.
+        """
+        print "Example message: %r " % message
+
+    def _on_example_notification(self, properties, message):
+        """
+        Only used for the examples.
+        """
+        print "Example message: %r " % message
 
 
 def main():
