@@ -1,4 +1,9 @@
 import pluginmanager
 
-if __name__ == '__main__':
+
+def main():
     pluginmanager.main()
+
+
+if __name__ == '__main__':
+    main()

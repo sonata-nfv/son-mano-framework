@@ -1,1 +1,1 @@
-Example MANO plugin
+Example MANO plugin to showcase how a plugin for SONATA's MANO framework can be developed using son-mano-base.

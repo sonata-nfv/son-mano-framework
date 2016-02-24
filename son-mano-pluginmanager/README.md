@@ -1,1 +1,1 @@
-implementation of the plugin manager component
+Plugin manager: SONATA MANO framework component that is responsible to manage MANO plugins connected to the broker.
