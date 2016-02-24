@@ -13,14 +13,10 @@ SONATA's Service Platform MANO Framework
 
 ## TODOs:
 * Prepare for CI/CD integration
-    * Dockerfiles for each component
     * Tests
-* Add automated setup to each component
-    * Python: https://docs.python.org/2/distutils/introduction.html
-    * Python: http://docs.python-guide.org/en/latest/writing/structure/
-     
 
-## Run the PoC code
+
+## Run the PoC code locally
 
 ### Requirements
 * Running RabbitMQ broker instance on local machine (localhost)
@@ -43,3 +39,19 @@ What will happen? The example plugin will ...
 3. periodically send heartbeat messages to the plugin manager
 4. request a list of active plugins from the plugin manager
 5. de-register and stop itself after a few seconds
+
+## Docker support
+### Build Docker containers for each component
+
+* `docker build -t broker -f son-mano-broker/Dockerfile .`
+* `docker build -t pluginmanager -f son-mano-pluginmanager/Dockerfile .`
+* `docker build -t exampleplugin -f plugins/son-mano-example-plugin-1/Dockerfile .`
+
+### Run each component as a container
+
+* `docker run -d -p 5672:5672 --name broker broker`
+* `docker run --net=host -i --name pluginmanager pluginmanager`
+* `docker run --net=host -i --name exampleplugin exampleplugin`
+
+
+(using the hosts network stack is not optimal, but ok for now)
