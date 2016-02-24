@@ -50,15 +50,18 @@ class ManoBrokerConnection(object):
         # setup RabbitMQ connection
         self._connection = self._connect()
 
-        def connection_thrad():
+        def connection_thread():
             # run connection IO loop
-            self._connection.ioloop.start()
+            try:
+                self._connection.ioloop.start()
+            except e as Exception:
+                logging.info("Connection lost.")
 
         if blocking:
-            connection_thrad()
+            connection_thread()
             return self._connection
 
-        t = threading.Thread(target=connection_thrad, args=())
+        t = threading.Thread(target=connection_thread, args=())
         t.daemon = True
         t.start()
 
