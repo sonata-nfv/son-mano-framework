@@ -7,7 +7,6 @@ communication.
 """
 
 # TODO: Add API for synchronous request / reply calls
-# TODO: Add error handling when broker is not reachable
 # TODO: Add RMQ ack mechanism (cf: http://pika.readthedocs.org/en/latest/examples/asynchronous_publisher_example.html)
 
 import pika
@@ -15,6 +14,7 @@ import logging
 import threading
 import time
 import uuid
+import os
 logging.getLogger('pika').setLevel(logging.ERROR)
 
 RABBITMQ_URL = "amqp://guest:guest@localhost:5672/%2F"
@@ -54,8 +54,8 @@ class ManoBrokerConnection(object):
             # run connection IO loop
             try:
                 self._connection.ioloop.start()
-            except e as Exception:
-                logging.info("Connection lost.")
+            except Exception as e:
+                logging.exception("Connection lost.")
 
         if blocking:
             connection_thread()
@@ -80,10 +80,12 @@ class ManoBrokerConnection(object):
         return pika.SelectConnection(parameters=None,
                                      on_open_callback=self._on_connection_open,
                                      on_close_callback=self._on_connection_closed,
+                                     on_open_error_callback=self._on_connection_error,
                                      stop_ioloop_on_close=False)
 
     def _reconnect(self):
-        self._connection.ioloop.stop()
+        if self._connection is not None:
+            self._connection.ioloop.stop()
         if not self._closing:
             self.setup_connection()
 
@@ -126,6 +128,11 @@ class ManoBrokerConnection(object):
             logging.warning("Connection closed, reopening in 5 seconds: (%s) %s",
                             reply_code, reply_text)
             self._connection.add_timeout(5, self._reconnect)
+
+    def _on_connection_error(self, connection_unused, error_message=None):
+        connection_unused.ioloop.stop()
+        logging.error("Could not connect to message broker. Abort.")
+        os._exit(1)
 
     def _on_channel_closed(self, channel, reply_code, reply_text):
         logging.warning("Channel %i was closed: (%s) %s",
