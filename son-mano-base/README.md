@@ -1,1 +1,1 @@
-Plugin base class, helpers and utilities.
+Plugin base classes, helpers and utilities of the SONATA MANO framework.

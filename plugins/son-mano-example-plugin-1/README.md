@@ -1,1 +1,1 @@
-this is a placeholder for our first MANO plugin to be implemented
+Example MANO plugin to showcase how a plugin for SONATA's MANO framework can be developed using son-mano-base.
