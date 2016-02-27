@@ -16,7 +16,7 @@ SONATA's Service Platform MANO Framework
     * Tests
 
 
-## Run the PoC code locally
+## Run the PoC code locally (see below for simpler Docker Compose based execution)
 
 ### Requirements
 * Running RabbitMQ broker instance on local machine (localhost)
@@ -50,8 +50,25 @@ What will happen? The example plugin will ...
 ### Run each component as a container
 
 * `docker run -d -p 5672:5672 --name broker broker`
-* `docker run --net=host -i --name pluginmanager pluginmanager`
-* `docker run --net=host -i --name exampleplugin exampleplugin`
+* `docker run -it --link broker:broker --name pluginmanager pluginmanager`
+* `docker run -it --link broker:broker --name exampleplugin exampleplugin`
 
 
 (using the hosts network stack is not optimal, but ok for now)
+
+## Docker Compose support
+
+Using [Docker Compose](https://docs.docker.com/compose/) allows us to deploy all components of the MANO framework in individual containers with a single command.
+
+### Build (and Re-build)
+
+* `docker-compose build`
+
+### Start
+
+* `docker-compose up`
+
+### Stop (in second terminal)
+
+* `docker-compose down`
+

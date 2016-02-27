@@ -7,6 +7,9 @@ RUN apt-get update && \
 
 ADD son-mano-base /son-mano-base
 ADD plugins/son-mano-example-plugin-1 /plugins/son-mano-example-plugin-1
+ADD plugins/son-mano-example-plugin-1/broker.config /etc/son-mano/broker.config
+ADD delayedstart.sh /delayedstart.sh
+
 
 WORKDIR /son-mano-base
 RUN python setup.py install
@@ -16,5 +19,4 @@ RUN python setup.py install
 
 CMD ["son-mano-exampleplugin1"]
 
-EXPOSE 5672
 

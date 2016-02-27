@@ -15,10 +15,15 @@ import threading
 import time
 import uuid
 import os
+import json
 logging.getLogger('pika').setLevel(logging.ERROR)
 
-RABBITMQ_URL = "amqp://guest:guest@localhost:5672/%2F"
-RABBITMQ_EXCHANGE = "son-kernel"
+# path where a broker configuration file is searched (contains e.g. the broker URL)
+BROKER_CONFIG_PATH = "/etc/son-mano/broker.config"
+# if we don't find a broker configuration file, we use this URL as default
+RABBITMQ_URL_FALLBACK = "amqp://guest:guest@localhost:5672/%2F"
+# if we don't find a broker configuration file, we use this exchange as default
+RABBITMQ_EXCHANGE_FALLBACK = "son-kernel"
 
 
 class ManoBrokerConnection(object):
@@ -30,16 +35,41 @@ class ManoBrokerConnection(object):
 
     def __init__(self, app_id, blocking=False):
         self.app_id = app_id
+
+        # do configuration
+        self._configs = {}
+        self._configs["broker"] = self._load_broker_configuration()
+        self.rabbitmq_url = self._configs["broker"]["broker_url"]
+        self.rabbitmq_exchange = self._configs["broker"]["exchange"]
+        self.rabbitmq_exchange_type = "topic"
+
+        # create additional members
         self._connection = None
         self._channel = None
-        self.rabbitmq_url = RABBITMQ_URL
-        self.rabbitmq_exchange = RABBITMQ_EXCHANGE
-        self.rabbitmq_exchange_type = "topic"
         self.base_queue = "%s.%s" % (self.rabbitmq_exchange, self.app_id)
         self._connected = False
         self._closing = False
         # trigger connection setup (without blocking)
         self.setup_connection()
+
+    def _load_broker_configuration(self, path=BROKER_CONFIG_PATH):
+        """
+        Tries to load the broker configuration file (if present).
+        File is given in JSON.
+        :param path: path to check for the config file
+        :return: dictionary
+        """
+        try:
+            with open(path) as f:
+                config = json.loads(f.read())
+                logging.info("Broker configuration found: %r" % path)
+                return config
+        except Exception as e:
+            logging.info("No broker configuration found in %r. Using defaults." % path)
+            logging.exception(e)
+        return dict(broker_url=RABBITMQ_URL_FALLBACK,
+                    exchange=RABBITMQ_EXCHANGE_FALLBACK)
+
 
     def setup_connection(self, blocking=False):
         """
@@ -77,7 +107,7 @@ class ManoBrokerConnection(object):
     def _connect(self):
         # connect to RabbitMQ
         logging.info("Connecting to RabbitMQ on %r...", self.rabbitmq_url)
-        return pika.SelectConnection(parameters=None,
+        return pika.SelectConnection(parameters=pika.URLParameters(self.rabbitmq_url),
                                      on_open_callback=self._on_connection_open,
                                      on_close_callback=self._on_connection_closed,
                                      on_open_error_callback=self._on_connection_error,
@@ -132,6 +162,7 @@ class ManoBrokerConnection(object):
     def _on_connection_error(self, connection_unused, error_message=None):
         connection_unused.ioloop.stop()
         logging.error("Could not connect to message broker. Abort.")
+        logging.debug(str(error_message))
         os._exit(1)
 
     def _on_channel_closed(self, channel, reply_code, reply_text):
