@@ -66,7 +66,7 @@ class ManoBrokerConnection(object):
                 return config
         except Exception as e:
             logging.info("No broker configuration found in %r. Using defaults." % path)
-            logging.exception(e)
+            # logging.exception(e)
         return dict(broker_url=RABBITMQ_URL_FALLBACK,
                     exchange=RABBITMQ_EXCHANGE_FALLBACK)
 

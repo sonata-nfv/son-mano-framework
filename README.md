@@ -20,7 +20,8 @@ SONATA's Service Platform MANO Framework
 
 ### Requirements
 * Running RabbitMQ broker instance on local machine (localhost)
-* Python Pika: `sudo pip install pika`
+* Python pika: `sudo pip install pika`
+* Python nose testframework: `sudo pip install nose`
 
 ### Run simple example:
 * Terminal 1: Run the plugin manager component
@@ -71,4 +72,20 @@ Using [Docker Compose](https://docs.docker.com/compose/) allows us to deploy all
 ### Stop (in second terminal)
 
 * `docker-compose down`
+
+
+## Automated Tests
+
+### son-mano-base
+
+* Run tests using the following steps:
+    * NOTICE: The tests need a running RabbitMQ broker to test the messaging subsystem! Without this, tests will fail.
+    * `cd son-mano-base/`
+    * `nosetests` or `nosetests -v -s`
+
+
+
+## CI Integration:
+
+* TODO
 
