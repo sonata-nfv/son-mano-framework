@@ -6,17 +6,13 @@ RUN apt-get update && \
     apt-get install -y python python-dev python-distribute python-pip
 
 ADD son-mano-base /son-mano-base
-ADD plugins/son-mano-example-plugin-1 /plugins/son-mano-example-plugin-1
-ADD plugins/son-mano-example-plugin-1/broker.config /etc/son-mano/broker.config
+ADD son-mano-base/broker.config /etc/son-mano/broker.config
 ADD delayedstart.sh /delayedstart.sh
 
 
 WORKDIR /son-mano-base
 RUN python setup.py install
 
-WORKDIR /plugins/son-mano-example-plugin-1
-RUN python setup.py install
-
-CMD ["son-mano-exampleplugin1"]
+CMD ["nosetests",  "-s", "-v"]
 
 

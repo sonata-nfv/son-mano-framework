@@ -10,8 +10,9 @@ RUN apt-get update && \
     apt-get update && \
     apt-get install -y rabbitmq-server && \
     rm -rf /var/lib/apt/lists/* && \
-    rabbitmq-plugins enable rabbitmq_management && \
-    echo "[{rabbit, [{loopback_users, []}]}]." > /etc/rabbitmq/rabbitmq.config
+    rabbitmq-plugins enable rabbitmq_management
+
+COPY son-mano-broker/rabbitmq.config /etc/rabbitmq/rabbitmq.config
 
 CMD ["rabbitmq-server"]
 

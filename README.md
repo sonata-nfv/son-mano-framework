@@ -16,11 +16,12 @@ SONATA's Service Platform MANO Framework
     * Tests
 
 
-## Run the PoC code locally
+## Run the PoC code locally (see below for simpler Docker Compose based execution)
 
 ### Requirements
 * Running RabbitMQ broker instance on local machine (localhost)
-* Python Pika: `sudo pip install pika`
+* Python pika: `sudo pip install pika`
+* Python nose testframework: `sudo pip install nose`
 
 ### Run simple example:
 * Terminal 1: Run the plugin manager component
@@ -50,8 +51,44 @@ What will happen? The example plugin will ...
 ### Run each component as a container
 
 * `docker run -d -p 5672:5672 --name broker broker`
-* `docker run --net=host -i --name pluginmanager pluginmanager`
-* `docker run --net=host -i --name exampleplugin exampleplugin`
+* `docker run -it --link broker:broker --name pluginmanager pluginmanager`
+* `docker run -it --link broker:broker --name exampleplugin exampleplugin`
 
 
 (using the hosts network stack is not optimal, but ok for now)
+
+## Docker Compose support
+
+Using [Docker Compose](https://docs.docker.com/compose/) allows us to deploy all components of the MANO framework in individual containers with a single command.
+
+### Build (and Re-build)
+
+* `docker-compose build`
+
+### Start
+
+* `docker-compose up`
+
+### Stop (in second terminal)
+
+* `docker-compose down`
+
+
+## Automated Tests
+
+### son-mano-base
+
+* Run tests using the following steps:
+    * NOTICE: The tests need a running RabbitMQ broker to test the messaging subsystem! Without this, tests will fail.
+    * `cd son-mano-base/`
+    * `nosetests` or `nosetests -v -s`
+
+
+
+## CI Integration:
+
+* Test entrypoint scripts are located in: test/
+* Trigger test execution: `find -path "*test/*" -name "test_*.sh" -type f -execdir {} \;`
+* Will start all components in independent Docker containers, run the tests, and cleanup everything
+* Exitcode of each script is either 0 = test OK or 1 = test FAIL
+
