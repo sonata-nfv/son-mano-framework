@@ -87,5 +87,8 @@ Using [Docker Compose](https://docs.docker.com/compose/) allows us to deploy all
 
 ## CI Integration:
 
-* TODO
+* Test entrypoint scripts are located in: test/
+* Trigger test execution: `find -path "*test/*" -name "test_*.sh" -type f -execdir {} \;`
+* Will start all components in independent Docker containers, run the tests, and cleanup everything
+* Exitcode of each script is either 0 = test OK or 1 = test FAIL
 
