@@ -1,0 +1,1 @@
+Lets use this folder for other support libraries of the framework so that we can keep son-mano-base clean.
