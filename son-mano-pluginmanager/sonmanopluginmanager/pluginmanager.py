@@ -46,13 +46,7 @@ class SonPluginManager(ManoBasePlugin):
         Just go into an endless loop and wait for new plugins.
         """
         while True:
-            time.sleep(5)  # lets wait a bit
-            # TODO here we need some real logic to coordinate plugin startup
-            # lets send start signals to all new plugins
-            for pid, p in self.plugins.iteritems():
-                if not p.get("started"):
-                    self.send_start_notification(p)
-                    p["started"] = True
+            time.sleep(1)  # lets wait and do nothing
 
     def send_start_notification(self, plugin):
         """
@@ -131,6 +125,13 @@ class SonPluginManager(ManoBasePlugin):
         pid = message.get("uuid")
         if pid in self.plugins:
             self.plugins[pid]["last_heartbeat"] = str(datetime.datetime.now())
+            # TODO ugly: state management of plugins should be hidden with plugin class
+            if message.get("state") == "READY" and self.plugins[pid]["state"] != "READY":
+                # a plugin just announced that it is ready, lets start it
+
+                self.send_start_notification(self.plugins[pid])
+            # lets keep track of the reported state
+            self.plugins[pid]["state"] = message.get("state")
 
 
 def main():
