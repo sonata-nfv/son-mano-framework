@@ -36,7 +36,7 @@ class SonPluginManager(ManoBasePlugin):
         self.manoconn.register_async_endpoint(self._on_register, "platform.management.plugin.register")
         self.manoconn.register_async_endpoint(self._on_deregister, "platform.management.plugin.deregister")
         self.manoconn.register_async_endpoint(self._on_list, "platform.management.plugin.list")
-        self.manoconn.register_notification_endpoint(self._on_heartbeat, "platform.management.plugin.heartbeat")
+        self.manoconn.register_notification_endpoint(self._on_heartbeat, "platform.management.plugin.*.heartbeat")
 
     def run(self):
         """

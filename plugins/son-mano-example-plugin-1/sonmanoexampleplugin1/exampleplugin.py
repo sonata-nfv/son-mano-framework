@@ -39,10 +39,10 @@ class DemoPlugin1(ManoBasePlugin):
         # Examples to demonstrate how a plugin can listen to certain events:
         self.manoconn.register_async_endpoint(
             self._on_example_request,  # call back method (expected to return a response message)
-            "example.plugin.request")
+            "example.plugin.*.request")
         self.manoconn.register_notification_endpoint(
             self._on_example_notification,  # call back method
-            "example.plugin.notification")
+            "example.plugin.(a-very-specific-uuid).notification")
 
         # Activate this to sniff and print all messages on the broker
         #self.manoconn.subscribe(self.manoconn.callback_print, "#")
@@ -63,7 +63,7 @@ class DemoPlugin1(ManoBasePlugin):
         self.manoconn.notify(
                         "example.plugin.notification",
                         json.dumps({"conent": "my notification"}))
-        time.sleep(1)
+        time.sleep(10)
         self.__del__()
 
     def on_registration_ok(self):

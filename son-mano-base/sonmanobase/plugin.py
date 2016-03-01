@@ -45,7 +45,7 @@ class ManoBasePlugin(object):
         self.name = "%s.%s" % (name, self.__class__.__name__)
         self.version = version
         self.description = description
-        self.uuid = None # uuid given by plugin manager on registration
+        self.uuid = None  # uuid given by plugin manager on registration
 
         logging.info(
             "Starting MANO Plugin: %r ..." % self.name)
@@ -87,7 +87,7 @@ class ManoBasePlugin(object):
             while True:
                 if self.uuid is not None:
                     self.manoconn.notify(
-                        "platform.management.plugin.heartbeat",
+                        "platform.management.plugin.%s.heartbeat" % str(self.uuid),
                         json.dumps({"uuid": self.uuid,
                         "state": "RUNNING"}))
                 time.sleep(1/rate)

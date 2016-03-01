@@ -203,15 +203,17 @@ class ManoBrokerConnection(object):
         Basic publish/subscribe API.
         Subscribes to the given topic and calls callback whenever a
         message is received.
+        :return: consumer tag
         """
         topic_receive_queue = self.base_queue + "." + topic
         self._setup_queue(topic_receive_queue, topic)
         # define a callback function to be called whenever a message arrives in our queue
-        self._channel.basic_consume(
-            cbf,
-            queue=topic_receive_queue,
-            no_ack=True)
+        bc = self._channel.basic_consume(
+                cbf,
+                queue=topic_receive_queue,
+                no_ack=True)
         logging.debug("SUBSCRIBED to %r", topic)
+        return bc
 
 
 class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
@@ -288,21 +290,22 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         :param body: message body
         :return: None
         """
-        key = "%s.%s" % (method.routing_key, props.headers.get("key"))
         logging.debug(
             "Async request on topic %r with key %r received." % (
                 method.routing_key, str(props.headers.get("key"))))
-        if key in self._async_calls_endpoints:
-            ep = self._async_calls_endpoints.get(key)
+        if method.consumer_tag in self._async_calls_endpoints:
+            ep = self._async_calls_endpoints.get(method.consumer_tag)
             # call the remote procedure asynchronously
             self._execute_async(
                 # set a finish method if we want to send a response
                 self._on_execute_async_finished if not ep.is_notification else None,
                 ep.cbf,
-                (body),
+                body,
                 props=props)
         else:
-            logging.error("Endpoint not implemented: %r" % key)
+            logging.error(
+                "Endpoint not implemented: %r that should listen on: " % (
+                    method.consumer_tag, method.routing_key))
 
     def _on_call_async_response_received(self, ch, method, props, body):
         """
@@ -369,8 +372,8 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         """
         if topic not in self._async_calls_request_topics:
             self._async_calls_request_topics.append(topic)
-            self.subscribe(self._on_call_async_request_received, topic)
-        self._async_calls_endpoints["%s.%s" % (topic, key)] = AsyncEndpoint(
+            bc = self.subscribe(self._on_call_async_request_received, topic)
+        self._async_calls_endpoints[str(bc)] = AsyncEndpoint(
             cbf, topic, key, is_notification)
 
     def notify(self, topic, msg, key="default"):
@@ -409,8 +412,9 @@ class AsyncEndpoint(object):
     Class that represents a async. messaging endpoint.
     """
 
-    def __init__(self, cbf, topic, key, is_notification=False):
+    def __init__(self, cbf, bc, topic, key, is_notification=False):
         self.cbf = cbf
+        self.bc = bc  # basic consumer (created by subscribe method)
         self.topic = topic
         self.key = key
         self.is_notification = is_notification
