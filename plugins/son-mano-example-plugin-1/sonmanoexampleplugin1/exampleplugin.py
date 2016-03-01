@@ -36,6 +36,8 @@ class DemoPlugin1(ManoBasePlugin):
         """
         Declare topics to listen.
         """
+        # We have to call our super class here
+        super(self.__class__, self).declare_subscriptions()
         # Examples to demonstrate how a plugin can listen to certain events:
         self.manoconn.register_async_endpoint(
             self._on_example_request,  # call back method (expected to return a response message)
@@ -51,20 +53,9 @@ class DemoPlugin1(ManoBasePlugin):
         """
         Plugin logic. Does nothing in our example.
         """
-        # do nothing and waste time
-        time.sleep(2)
-        # Example that shows how to send a request/response message
-        self.manoconn.call_async(
-                        self._on_example_request_response,
-                        "example.plugin.request",
-                        json.dumps({"content": "my request"}))
-        time.sleep(1)
-        # Example that shows how to send a notification message
-        self.manoconn.notify(
-                        "example.plugin.notification",
-                        json.dumps({"conent": "my notification"}))
-        time.sleep(10)
-        self.__del__()
+        # go into infinity loop (we could do anything here)
+        while True:
+            time.sleep(1)
 
     def on_registration_ok(self):
         """
@@ -75,6 +66,20 @@ class DemoPlugin1(ManoBasePlugin):
         print "Requesting plugin list from SonPluginManager..."
         # Lets request the list of active plugins from the plugin manager
         self.list_plugins()
+
+    def on_lifecycle_start(self, properties, message):
+        # Example that shows how to send a request/response message
+        self.manoconn.call_async(
+                        self._on_example_request_response,
+                        "example.plugin.%s.request" % str(self.uuid),
+                        json.dumps({"content": "my request"}))
+        time.sleep(1)
+        # Example that shows how to send a notification message
+        self.manoconn.notify(
+                        "example.plugin.%s.notification" % str(self.uuid),
+                        json.dumps({"conent": "my notification"}))
+        time.sleep(10)
+        self.__del__()
 
     def list_plugins(self):
         """
@@ -126,7 +131,7 @@ class DemoPlugin1(ManoBasePlugin):
 
 
 def main():
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     DemoPlugin1()
 
 if __name__ == '__main__':

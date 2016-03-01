@@ -327,7 +327,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         else:
             logging.debug("Received unmatched call response. Ignore it.")
 
-    def call_async(self, cbf, topic, msg, key="default", response_topic_postfix=""):
+    def call_async(self, cbf, topic, msg=None, key="default", response_topic_postfix=""):
         """
         Client method to async. call an endpoint registered and bound to the given topic by any
         other component connected to the broker.
@@ -337,6 +337,8 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         :param msg: actual message
         :return: None
         """
+        if msg is None:
+            msg = "{}"
         assert(isinstance(msg, basestring))
         # generate uuid to match requests and responses
         corr_id = str(uuid.uuid4())
@@ -373,10 +375,13 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         if topic not in self._async_calls_request_topics:
             self._async_calls_request_topics.append(topic)
             bc = self.subscribe(self._on_call_async_request_received, topic)
+        # we have to match this subscription to our callback method.
+        # we use the consumer tag returned by self.subscribe for this.
+        # (using topics instead would break wildcard symbol support)
         self._async_calls_endpoints[str(bc)] = AsyncEndpoint(
             cbf, topic, key, is_notification)
 
-    def notify(self, topic, msg, key="default"):
+    def notify(self, topic, msg=None, key="default"):
         """
         Wrapper for the call_async method that does not have a callback function since
         it sends notifications instead of requests.

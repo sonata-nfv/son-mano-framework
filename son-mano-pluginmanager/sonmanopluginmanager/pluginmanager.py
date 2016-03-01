@@ -4,6 +4,9 @@ Created by Manuel Peuster <manuel@peuster.de>
 This is the main module of the plugin manager component.
 """
 
+# TODO encapsulate plugin objects in a class
+# TODO make plugin registration state persistant in a DB (Mongo?)
+
 import logging
 import json
 import time
@@ -43,7 +46,22 @@ class SonPluginManager(ManoBasePlugin):
         Just go into an endless loop and wait for new plugins.
         """
         while True:
-            time.sleep(1)  # lets block for now
+            time.sleep(5)  # lets wait a bit
+            # TODO here we need some real logic to coordinate plugin startup
+            # lets send start signals to all new plugins
+            for pid, p in self.plugins.iteritems():
+                if not p.get("started"):
+                    self.send_start_notification(p)
+                    p["started"] = True
+
+    def send_start_notification(self, plugin):
+        """
+        Send lifecycle.start notification to given plugin.
+        :param plugin:
+        :return:
+        """
+        self.manoconn.notify(
+            "platform.management.plugin.%s.lifecycle.start" % str(plugin.get("uuid")))
 
     def _on_register(self, properties, message):
         """
@@ -59,9 +77,11 @@ class SonPluginManager(ManoBasePlugin):
         # simplified example for plugin bookkeeping (replace this with real functionality)
         self.plugins[pid] = message
         # add some fields to record
+        self.plugins[pid]["uuid"] = pid
         self.plugins[pid]["state"] = "REGISTERED"
         self.plugins[pid]["resgister_time"] = str(datetime.datetime.now())
         self.plugins[pid]["last_heartbeat"] = None
+        self.plugins[pid]["started"] = False
         logging.info("REGISTERED: %r with UUID %r" % (message.get("name"), pid))
         # return result
         response = {

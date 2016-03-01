@@ -100,7 +100,8 @@ class ManoBasePlugin(object):
 
     def declare_subscriptions(self):
         """
-        To be overwritten by subclass
+        Can be overwritten by subclass.
+        But: The this superclass method should be called in any case.
         """
         pass
 
@@ -109,6 +110,25 @@ class ManoBasePlugin(object):
         To be overwritten by subclass
         """
         pass
+
+    def on_lifecycle_start(self, properties, message):
+        """
+        To be overwritten by subclass
+        """
+        pass
+
+    def on_lifecycle_pause(self, properties, message):
+        """
+        To be overwritten by subclass
+        """
+        pass
+
+    def on_lifecycle_stop(self, properties, message):
+        """
+        To be overwritten by subclass
+        """
+        self.deregister()
+        exit(0)
 
     def on_registration_ok(self):
         """
@@ -140,6 +160,8 @@ class ManoBasePlugin(object):
             exit(1)
         self.uuid = response.get("uuid")
         logging.info("Plugin registered with UUID: %r" % response.get("uuid"))
+        # add additional subscriptions
+        self._register_lifecycle_endpoints()
         # jump to on_registration_ok()
         self.on_registration_ok()
 
@@ -179,3 +201,18 @@ class ManoBasePlugin(object):
         while self.uuid is None and c < timeout:
             time.sleep(sleep_interval)
             c += sleep_interval
+
+    def _register_lifecycle_endpoints(self):
+        if self.uuid is not None:
+            # lifecycle.start
+            self.manoconn.register_notification_endpoint(
+                self.on_lifecycle_start,  # call back method
+                "platform.management.plugin.%s.lifecycle.start" % str(self.uuid))
+            # lifecycle.pause
+            self.manoconn.register_notification_endpoint(
+                self.on_lifecycle_pause,  # call back method
+                "platform.management.plugin.%s.lifecycle.pause" % str(self.uuid))
+            # lifecycle.stop
+            self.manoconn.register_notification_endpoint(
+                self.on_lifecycle_stop,  # call back method
+                "platform.management.plugin.%s.lifecycle.stop" % str(self.uuid))
