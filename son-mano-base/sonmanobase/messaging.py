@@ -289,7 +289,9 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         :return: None
         """
         key = "%s.%s" % (method.routing_key, props.headers.get("key"))
-        logging.debug("Async request for key %r received." % str(key))
+        logging.debug(
+            "Async request on topic %r with key %r received." % (
+                method.routing_key, str(props.headers.get("key"))))
         if key in self._async_calls_endpoints:
             ep = self._async_calls_endpoints.get(key)
             # call the remote procedure asynchronously
@@ -320,9 +322,9 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
             # remove from pending calls
             del self._async_calls_pending[props.correlation_id]
         else:
-            logging.warning("Received malformed call response.")
+            logging.debug("Received unmatched call response. Ignore it.")
 
-    def call_async(self, cbf, topic, msg, key="default"):
+    def call_async(self, cbf, topic, msg, key="default", response_topic_postfix=""):
         """
         Client method to async. call an endpoint registered and bound to the given topic by any
         other component connected to the broker.
@@ -336,7 +338,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         # generate uuid to match requests and responses
         corr_id = str(uuid.uuid4())
         # define response topic
-        response_topic = "%s.response" % topic
+        response_topic = "%s.%s" % (topic, response_topic_postfix)
         # initialize response subscription if a callback function was defined
         if cbf is not None:
             # create subscription for responses
