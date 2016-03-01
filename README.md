@@ -88,7 +88,8 @@ Using [Docker Compose](https://docs.docker.com/compose/) allows us to deploy all
 ## CI Integration:
 
 * Test entrypoint scripts are located in: test/
-* Trigger test execution: ```for i in `find ${WORKSPACE} -name test_*.sh -type f`; do $i; if [ $? -ne 0 ]; then exit 1; fi; done```
+* Trigger test execution from Jenkins: ```for i in `find ${WORKSPACE} -name test_*.sh -type f`; do $i; if [ $? -ne 0 ]; then exit 1; fi; done```
+* Trigger test execution locally by hand: ```find -path "*test/*" -name "test_*.sh" -type f -execdir {} \;```
 * Will start all components in independent Docker containers, run the tests, and cleanup everything
 * Exitcode of each script is either 0 = test OK or 1 = test FAIL
 
