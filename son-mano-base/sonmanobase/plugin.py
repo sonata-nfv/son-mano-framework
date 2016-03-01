@@ -45,7 +45,8 @@ class ManoBasePlugin(object):
         self.name = "%s.%s" % (name, self.__class__.__name__)
         self.version = version
         self.description = description
-        self.uuid = None # uuid given by plugin manager on registration
+        self.uuid = None  # uuid given by plugin manager on registration
+        self.state = None  # the state of this plugin READY/RUNNING/PAUSED/FAILED
 
         logging.info(
             "Starting MANO Plugin: %r ..." % self.name)
@@ -86,10 +87,7 @@ class ManoBasePlugin(object):
         def run():
             while True:
                 if self.uuid is not None:
-                    self.manoconn.notify(
-                        "platform.management.plugin.heartbeat",
-                        json.dumps({"uuid": self.uuid,
-                        "state": "RUNNING"}))
+                    self._send_heartbeat()
                 time.sleep(1/rate)
 
         # run heartbeats in separated thread
@@ -97,10 +95,16 @@ class ManoBasePlugin(object):
         t.daemon = True
         t.start()
 
+    def _send_heartbeat(self):
+        self.manoconn.notify(
+            "platform.management.plugin.%s.heartbeat" % str(self.uuid),
+            json.dumps({"uuid": self.uuid,
+            "state": str(self.state)}))
 
     def declare_subscriptions(self):
         """
-        To be overwritten by subclass
+        Can be overwritten by subclass.
+        But: The this superclass method should be called in any case.
         """
         pass
 
@@ -109,6 +113,25 @@ class ManoBasePlugin(object):
         To be overwritten by subclass
         """
         pass
+
+    def on_lifecycle_start(self, properties, message):
+        """
+        To be overwritten by subclass
+        """
+        self.state = "RUNNING"
+
+    def on_lifecycle_pause(self, properties, message):
+        """
+        To be overwritten by subclass
+        """
+        self.state = "PAUSED"
+
+    def on_lifecycle_stop(self, properties, message):
+        """
+        To be overwritten by subclass
+        """
+        self.deregister()
+        exit(0)
 
     def on_registration_ok(self):
         """
@@ -140,8 +163,13 @@ class ManoBasePlugin(object):
             exit(1)
         self.uuid = response.get("uuid")
         logging.info("Plugin registered with UUID: %r" % response.get("uuid"))
+        # add additional subscriptions
+        self._register_lifecycle_endpoints()
         # jump to on_registration_ok()
         self.on_registration_ok()
+        # mark this plugin to be ready to be started
+        self.state = "READY"
+        self._send_heartbeat()
 
     def deregister(self):
         """
@@ -179,3 +207,18 @@ class ManoBasePlugin(object):
         while self.uuid is None and c < timeout:
             time.sleep(sleep_interval)
             c += sleep_interval
+
+    def _register_lifecycle_endpoints(self):
+        if self.uuid is not None:
+            # lifecycle.start
+            self.manoconn.register_notification_endpoint(
+                self.on_lifecycle_start,  # call back method
+                "platform.management.plugin.%s.lifecycle.start" % str(self.uuid))
+            # lifecycle.pause
+            self.manoconn.register_notification_endpoint(
+                self.on_lifecycle_pause,  # call back method
+                "platform.management.plugin.%s.lifecycle.pause" % str(self.uuid))
+            # lifecycle.stop
+            self.manoconn.register_notification_endpoint(
+                self.on_lifecycle_stop,  # call back method
+                "platform.management.plugin.%s.lifecycle.stop" % str(self.uuid))

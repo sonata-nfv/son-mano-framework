@@ -8,6 +8,7 @@ import logging
 import json
 import time
 import sys
+import os
 
 sys.path.append("../../../son-mano-base")
 from sonmanobase.plugin import ManoBasePlugin
@@ -36,13 +37,15 @@ class DemoPlugin1(ManoBasePlugin):
         """
         Declare topics to listen.
         """
+        # We have to call our super class here
+        super(self.__class__, self).declare_subscriptions()
         # Examples to demonstrate how a plugin can listen to certain events:
         self.manoconn.register_async_endpoint(
             self._on_example_request,  # call back method (expected to return a response message)
-            "example.plugin.request")
+            "example.plugin.*.request")
         self.manoconn.register_notification_endpoint(
             self._on_example_notification,  # call back method
-            "example.plugin.notification")
+            "example.plugin.*.notification")
 
         # Activate this to sniff and print all messages on the broker
         #self.manoconn.subscribe(self.manoconn.callback_print, "#")
@@ -51,30 +54,38 @@ class DemoPlugin1(ManoBasePlugin):
         """
         Plugin logic. Does nothing in our example.
         """
-        # do nothing and waste time
-        time.sleep(2)
-        # Example that shows how to send a request/response message
-        self.manoconn.call_async(
-                        self._on_example_request_response,
-                        "example.plugin.request",
-                        json.dumps({"content": "my request"}))
-        time.sleep(1)
-        # Example that shows how to send a notification message
-        self.manoconn.notify(
-                        "example.plugin.notification",
-                        json.dumps({"conent": "my notification"}))
-        time.sleep(1)
-        self.__del__()
+        # go into infinity loop (we could do anything here)
+        while True:
+            time.sleep(1)
 
     def on_registration_ok(self):
         """
         Event that is triggered after a successful registration process.
         """
-        # Wait a bit for a nicer presentation
+        logging.info("Registration OK.")
+
+    def on_lifecycle_start(self, properties, message):
+        super(self.__class__, self).on_lifecycle_start(properties, message)
+
+        # Lets request the list of active plugins from the plugin manager
         time.sleep(1)
         print "Requesting plugin list from SonPluginManager..."
-        # Lets request the list of active plugins from the plugin manager
         self.list_plugins()
+
+        # Example that shows how to send a request/response message
+        time.sleep(1)
+        self.manoconn.call_async(
+                        self._on_example_request_response,
+                        "example.plugin.%s.request" % str(self.uuid),
+                        json.dumps({"content": "my request"}))
+        time.sleep(1)
+        # Example that shows how to send a notification message
+        self.manoconn.notify(
+                        "example.plugin.%s.notification" % str(self.uuid),
+                        json.dumps({"content": "my notification"}))
+
+        time.sleep(5)
+        os._exit(0)
 
     def list_plugins(self):
         """
@@ -100,7 +111,7 @@ class DemoPlugin1(ManoBasePlugin):
             # we have a reply, lets print it
             print "-" * 30 + " Plugins " + "-" * 30
             for k, v in response.get("list").iteritems():
-                print "%s, %s, %s, %s" % (k[:8], v.get("name"), v.get("version"), v.get("last_heartbeat"))
+                print "%s, %s, %s, %s" % (k[:8], v.get("name"), v.get("version"), v.get("state"))
             print "-" * 69
         else:
             print "List request error."
