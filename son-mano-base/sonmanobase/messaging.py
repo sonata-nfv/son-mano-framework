@@ -49,6 +49,7 @@ class ManoBrokerConnection(object):
         self.base_queue = "%s.%s" % (self.rabbitmq_exchange, self.app_id)
         self._connected = False
         self._closing = False
+        self._queue_setup_lock = threading.Event()
         # trigger connection setup (without blocking)
         self.setup_connection()
 
@@ -95,7 +96,7 @@ class ManoBrokerConnection(object):
         t.daemon = True
         t.start()
 
-        # TODO: quick-hack! Basic connection setup should behave synchronous.
+        # FIXME: quick-hack! Basic connection setup should behave synchronous.
         while not self._connected:
             time.sleep(0.001)
         return self._connection
@@ -138,6 +139,10 @@ class ManoBrokerConnection(object):
             exchange=self.rabbitmq_exchange,
             queue=queue,
             routing_key=topic)
+        # FIXME: quick-hack! we have to wait for our queue to be bound here!
+        self._queue_setup_lock.clear()
+        if not self._queue_setup_lock.wait(0.5):
+            logging.warning("Timeout on queue bind for topic: %r" % topic)
 
     def _on_connection_open(self, connection):
         logging.debug("Connected: %r" % connection)
@@ -180,6 +185,7 @@ class ManoBrokerConnection(object):
 
     def _on_queue_bound(self, f):
         logging.debug("Queue bound: %r" % f)
+        self._queue_setup_lock.set()
 
     def publish(self, topic, message, properties=None):
         """
@@ -275,9 +281,10 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         result = "" if result is None else result
         assert(isinstance(result, basestring))
         # return its result
-        properties=pika.BasicProperties(
+        properties = pika.BasicProperties(
             app_id=self.app_id,
-            correlation_id=props.correlation_id)
+            correlation_id=props.correlation_id,
+            headers={"type": "RESPONSE", "key": None})
         self.publish(props.reply_to, result, properties=properties)
 
     def _on_call_async_request_received(self, ch, method, props, body):
@@ -290,9 +297,12 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         :param body: message body
         :return: None
         """
+        # check if we really have a request, not a response
+        if props.headers is None or props.headers.get("type") != "REQUEST":
+            logging.debug("Non-request message dropped at request endpoint.")
+            return
         logging.debug(
-            "Async request on topic %r with key %r received." % (
-                method.routing_key, str(props.headers.get("key"))))
+            "Async request on topic %r received." % method.routing_key)
         if method.consumer_tag in self._async_calls_endpoints:
             ep = self._async_calls_endpoints.get(method.consumer_tag)
             # call the remote procedure asynchronously
@@ -304,8 +314,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
                 props=props)
         else:
             logging.error(
-                "Endpoint not implemented: %r that should listen on: " % (
-                    method.consumer_tag, method.routing_key))
+                "Endpoint not implemented: %r " % (method.consumer_tag))
 
     def _on_call_async_response_received(self, ch, method, props, body):
         """
@@ -318,6 +327,10 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         :param body: message body
         :return: None
         """
+        # check if we really have a response, not a request
+        if props.headers is None or props.headers.get("type") != "RESPONSE":
+            logging.debug("Non-response message dropped at response endpoint.")
+            return
         if props.correlation_id in self._async_calls_pending:
             logging.debug("Async response received. Matches to corr_id: %r" % props.correlation_id)
             # call callback
@@ -343,14 +356,14 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         # generate uuid to match requests and responses
         corr_id = str(uuid.uuid4())
         # define response topic
-        response_topic = "%s.%s" % (topic, response_topic_postfix)
+        response_topic = "%s%s" % (topic, response_topic_postfix)
         # initialize response subscription if a callback function was defined
         if cbf is not None:
             # create subscription for responses
             if topic not in self._async_calls_response_topics:
-                self._async_calls_response_topics.append(topic)
                 self.subscribe(self._on_call_async_response_received, response_topic)
                 # keep track of request
+                self._async_calls_response_topics.append(topic)
                 self._async_calls_pending[corr_id] = cbf
         # setup request message properties
         properties = pika.BasicProperties(
@@ -358,7 +371,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
                 content_type='application/json',
                 reply_to=response_topic if cbf is not None else None,
                 correlation_id=corr_id,
-                headers={"key": key})
+                headers={"type": "REQUEST", "key": key})
         # publish request message
         self.publish(topic, msg, properties=properties)
 
