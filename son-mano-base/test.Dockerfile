@@ -11,8 +11,11 @@ ADD delayedstart.sh /delayedstart.sh
 
 
 WORKDIR /son-mano-base
-RUN python setup.py install
-
-CMD ["nosetests",  "-s", "-v"]
+# we need to reset the __pycache__ for correct test discovery
+RUN rm -rf test/__pycache__
+# we need to install in develop mode in order to use py.test
+RUN python setup.py develop
+# run all discovered unittests
+CMD ["py.test",  "-v"]
 
 

@@ -11,21 +11,15 @@ SONATA's Service Platform MANO Framework
 * ... (there will be more)
 
 
-## TODOs:
-* Prepare for CI/CD integration
-    * Tests
-
-
 ## Run the PoC code locally (see below for simpler Docker Compose based execution)
 
 ### Requirements
 * Running RabbitMQ broker instance on local machine (localhost)
-* Python pika: `sudo pip install pika`
-* Python nose testframework: `sudo pip install nose`
+* Python pika: `sudo pip install pika pytest`
 
 ### Run simple example:
 * Terminal 1: Run the plugin manager component
- * `cd cd son-mano-pluginmanager/sonmanopluginmanager/`
+ * `cd son-mano-pluginmanager/sonmanopluginmanager/`
  * `python __main__.py`
 
 
@@ -57,7 +51,7 @@ What will happen? The example plugin will ...
 
 (using the hosts network stack is not optimal, but ok for now)
 
-## Docker Compose support
+## Docker Compose support (should be used to deploy the platform)
 
 Using [Docker Compose](https://docs.docker.com/compose/) allows us to deploy all components of the MANO framework in individual containers with a single command.
 
@@ -74,21 +68,21 @@ Using [Docker Compose](https://docs.docker.com/compose/) allows us to deploy all
 * `docker-compose down`
 
 
-## Automated Tests
-
-### son-mano-base
+## Unit tests
 
 * Run tests using the following steps:
     * NOTICE: The tests need a running RabbitMQ broker to test the messaging subsystem! Without this, tests will fail.
-    * `cd son-mano-base/`
-    * `nosetests` or `nosetests -v -s`
+    * `cd son-mano-framework`
+    * `py.test -v`
 
 
+## CI Integration (fully automated tests)
 
-## CI Integration:
+These tests are used by our CI/CD system and are fully automated. They spin up required support functions, e.g., the RabbitMQ broker in separated Docker containers and remove them after each test run.
 
 * Test entrypoint scripts are located in: test/
-* Trigger test execution: `find -path "*test/*" -name "test_*.sh" -type f -execdir {} \;`
-* Will start all components in independent Docker containers, run the tests, and cleanup everything
+* Trigger test execution from Jenkins: ```for i in `find ${WORKSPACE} -name test_*.sh -type f`; do $i; if [ $? -ne 0 ]; then exit 1; fi; done```
+* Trigger test execution locally by hand: ```find -path "*test/*" -name "test_*.sh" -type f -execdir {} \;```
+* This will start all components in independent Docker containers, run the tests, and cleanup everything
 * Exitcode of each script is either 0 = test OK or 1 = test FAIL
 
