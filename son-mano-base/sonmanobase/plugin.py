@@ -59,6 +59,8 @@ class ManoBasePlugin(object):
             self.register()
             if wait_for_registration:
                 self._wait_for_registration()
+        # add additional subscriptions
+        self._register_lifecycle_endpoints()
         # kick-off automatic heartbeat mechanism
         self._auto_heartbeat(auto_heartbeat_rate)
         # jump to run
@@ -173,16 +175,15 @@ class ManoBasePlugin(object):
         """
         response = json.loads(response)
         if response.get("status") != "OK":
+            logging.debug("Response %r" % response)
             logging.error("Plugin registration failed. Exit.")
             exit(1)
         self.uuid = response.get("uuid")
-        logging.info("Plugin registered with UUID: %r" % response.get("uuid"))
-        # add additional subscriptions
-        self._register_lifecycle_endpoints()
-        # jump to on_registration_ok()
-        self.on_registration_ok()
         # mark this plugin to be ready to be started
         self.state = "READY"
+        logging.info("Plugin registered with UUID: %r" % response.get("uuid"))
+        # jump to on_registration_ok()
+        self.on_registration_ok()
         self._send_heartbeat()
 
     def deregister(self):
@@ -216,6 +217,7 @@ class ManoBasePlugin(object):
         :param sleep_interval: sleep interval
         :return: None
         """
+        # FIXME: Use threading.Event() for this?
         c = 0
         logging.debug("Waiting for registration (timeout=%d) ..." % timeout)
         while self.uuid is None and c < timeout:

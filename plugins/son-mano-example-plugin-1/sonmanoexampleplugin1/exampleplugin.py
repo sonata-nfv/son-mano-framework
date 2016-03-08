@@ -67,11 +67,6 @@ class DemoPlugin1(ManoBasePlugin):
     def on_lifecycle_start(self, properties, message):
         super(self.__class__, self).on_lifecycle_start(properties, message)
 
-        # Lets request the list of active plugins from the plugin manager
-        time.sleep(1)
-        print "Requesting plugin list from SonPluginManager..."
-        self.list_plugins()
-
         # Example that shows how to send a request/response message
         time.sleep(1)
         self.manoconn.call_async(
@@ -86,35 +81,6 @@ class DemoPlugin1(ManoBasePlugin):
 
         time.sleep(5)
         os._exit(0)
-
-    def list_plugins(self):
-        """
-        Request the list of active plugins from the plugin manager.
-        :return:
-        """
-        message = {"filter": None}
-        self.manoconn.call_async(self._on_list_response,
-                                 "platform.management.plugin.list",
-                                 json.dumps(message))
-
-    def _on_list_response(self, props, response):
-        """
-        Event that is triggered when the response of the list request arrives.
-        :param props: response properties
-        :param response: response body
-        :return:
-        """
-        print "Received plugin list:"
-        sender = props.app_id
-        response = json.loads(response)
-        if response.get("status") == "OK":
-            # we have a reply, lets print it
-            print "-" * 30 + " Plugins " + "-" * 30
-            for k, v in response.get("list").iteritems():
-                print "%s, %s, %s, %s" % (k[:8], v.get("name"), v.get("version"), v.get("state"))
-            print "-" * 69
-        else:
-            print "List request error."
 
     def _on_example_request(self, properties, message):
         """
