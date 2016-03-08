@@ -106,7 +106,10 @@ class ManoBasePlugin(object):
         Can be overwritten by subclass.
         But: The this superclass method should be called in any case.
         """
-        pass
+        # plugin status update subscription
+        self.manoconn.register_notification_endpoint(
+            self.on_plugin_status_update,  # call back method
+            "platform.management.plugin.status")
 
     def run(self):
         """
@@ -118,26 +121,37 @@ class ManoBasePlugin(object):
         """
         To be overwritten by subclass
         """
+        logging.info("Received lifecycle.start event.")
         self.state = "RUNNING"
 
     def on_lifecycle_pause(self, properties, message):
         """
         To be overwritten by subclass
         """
+        logging.info("Received lifecycle.pause event.")
         self.state = "PAUSED"
 
     def on_lifecycle_stop(self, properties, message):
         """
         To be overwritten by subclass
         """
+        logging.info("Received lifecycle.stop event.")
         self.deregister()
         exit(0)
 
-    def on_registration_ok(self):
+    def on_plugin_status_update(self, properties, message):
+        """
+        To be overwritten by subclass.
+        Called when a plugin list status update
+        is received from the plugin manager.
+        """
+        logging.info("Received plugin status update %r." % str(message))
+
+    def on_lifecycle_pause(self, properties, message):
         """
         To be overwritten by subclass
         """
-        pass
+        self.state = "PAUSED"
 
     def register(self):
         """
