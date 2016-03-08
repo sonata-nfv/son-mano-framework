@@ -38,7 +38,6 @@ class SonPluginManager(ManoBasePlugin):
         """
         self.manoconn.register_async_endpoint(self._on_register, "platform.management.plugin.register")
         self.manoconn.register_async_endpoint(self._on_deregister, "platform.management.plugin.deregister")
-        self.manoconn.register_async_endpoint(self._on_list, "platform.management.plugin.list")
         self.manoconn.register_notification_endpoint(self._on_heartbeat, "platform.management.plugin.*.heartbeat")
 
     def run(self):
@@ -56,6 +55,20 @@ class SonPluginManager(ManoBasePlugin):
         """
         self.manoconn.notify(
             "platform.management.plugin.%s.lifecycle.start" % str(plugin.get("uuid")))
+
+    def send_plugin_status_update(self):
+        """
+        Broadcast a plugin status update message to all interested plugins.
+        The message always contains the entire list of registered plugins as well
+        as status information for each of these plugins.
+        This method should always be called when the status of a plugin changes.
+        """
+        # generate status update message
+        message = {"timestamp": str(datetime.datetime.now()),
+                    "plugin_dict": self.plugins}
+        # broadcast plugin status update message
+        self.manoconn.notify(
+            "platform.management.plugin.status", json.dumps(message))
 
     def _on_register(self, properties, message):
         """
@@ -77,6 +90,8 @@ class SonPluginManager(ManoBasePlugin):
         self.plugins[pid]["last_heartbeat"] = None
         self.plugins[pid]["started"] = False
         logging.info("REGISTERED: %r with UUID %r" % (message.get("name"), pid))
+        # broadcast a plugin status update to the other plugin
+        self.send_plugin_status_update()
         # return result
         response = {
             "status": "OK",
@@ -98,40 +113,29 @@ class SonPluginManager(ManoBasePlugin):
         if message.get("uuid") in self.plugins:
             del self.plugins[message.get("uuid")]
         logging.info("DE-REGISTERED: %r" % properties.app_id)
+        # broadcast a plugin status update to the other plugin
+        self.send_plugin_status_update()
         # return result
         response = {
-            "status" : "OK"
+            "status": "OK"
         }
-        return json.dumps(response)
-
-    def _on_list(self, properties, message):
-        """
-        Event method that is called when a plugin wants to request a
-        list of all plugins that are currently registered to the system.
-        :param properties: request properties
-        :param message: request body
-        :return: response message
-        """
-        # generate result
-        response = {"status": "OK",
-                    "list": self.plugins,
-                    "error": None}
-        logging.info("LIST requested by: %r" % properties.app_id)
-        # return result
         return json.dumps(response)
 
     def _on_heartbeat(self, properties, message):
         message = json.loads(message)
         pid = message.get("uuid")
+
         if pid in self.plugins:
             self.plugins[pid]["last_heartbeat"] = str(datetime.datetime.now())
             # TODO ugly: state management of plugins should be hidden with plugin class
             if message.get("state") == "READY" and self.plugins[pid]["state"] != "READY":
                 # a plugin just announced that it is ready, lets start it
-
                 self.send_start_notification(self.plugins[pid])
-            # lets keep track of the reported state
-            self.plugins[pid]["state"] = message.get("state")
+            if message.get("state") != self.plugins[pid]["state"]:
+                # lets keep track of the reported state update
+                self.plugins[pid]["state"] = message.get("state")
+                # there was a state change lets schedule an plugin status update notification
+                self.send_plugin_status_update()
 
 
 def main():
