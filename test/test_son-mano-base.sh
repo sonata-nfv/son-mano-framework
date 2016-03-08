@@ -17,7 +17,6 @@ trap "docker kill test.broker; docker rm test.broker; docker rm test.sonmanobase
 set -e
 
 echo "test_son-mano-base.sh"
-cd ..;  # use root dir as working dir
 # build Docker images
 docker build -t test.broker -f son-mano-broker/Dockerfile .
 docker build -t test.sonmanobase -f son-mano-base/test.Dockerfile .
