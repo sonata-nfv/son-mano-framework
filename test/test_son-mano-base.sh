@@ -25,6 +25,6 @@ docker run -d -p 5672:5672 --name test.broker test.broker
 # wait a bit for broker startup
 sleep 10
 # spin up the son-mano-base test container and execute its unittests
-docker run -it --link test.broker:broker --name test.sonmanobase test.sonmanobase
+docker run --link test.broker:broker --name test.sonmanobase test.sonmanobase
 
 echo "done."
