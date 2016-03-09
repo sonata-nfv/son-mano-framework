@@ -1,3 +1,5 @@
+[![Build Status](http://jenkins.sonata-nfv.eu/buildStatus/icon?job=son-mano-framework)](http://jenkins.sonata-nfv.eu/job/son-mano-framework)
+
 # son-mano-framework
 ## SONATA's Service Platform MANO Framework
 
