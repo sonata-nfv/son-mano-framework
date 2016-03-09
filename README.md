@@ -30,7 +30,7 @@ The following lead developers are responsible for this repository and have admin
 * `utils/` helper functionality, scripts, tools
 
 
-## Run the PoC
+## Run MANO framework
 
 (see below for simpler Docker Compose based execution)
 
