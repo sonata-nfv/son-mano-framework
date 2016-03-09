@@ -14,6 +14,27 @@ pluginmanager:
 exampleplugin:
   build: .
   dockerfile: plugins/son-mano-example-plugin-1/Dockerfile
-  entrypoint: /bin/bash /delayedstart.sh 6 son-mano-exampleplugin1
+  entrypoint: /bin/bash /delayedstart.sh 6 son-mano-example-plugin-1
+  links:
+  - broker
+
+servicelifecyclemanagement:
+  build: .
+  dockerfile: plugins/son-mano-service-lifecycle-management/Dockerfile
+  entrypoint: /bin/bash /delayedstart.sh 7 son-mano-service-lifecycle-management
+  links:
+  - broker
+
+functionlifecyclemanagement:
+  build: .
+  dockerfile: plugins/son-mano-function-lifecycle-management/Dockerfile
+  entrypoint: /bin/bash /delayedstart.sh 7 son-mano-function-lifecycle-management
+  links:
+  - broker
+
+placementexecutive:
+  build: .
+  dockerfile: plugins/son-mano-placement/Dockerfile
+  entrypoint: /bin/bash /delayedstart.sh 7 son-mano-placement
   links:
   - broker

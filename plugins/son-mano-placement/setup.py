@@ -7,7 +7,7 @@ from os import path
 here = path.abspath(path.dirname(__file__))
 
 # configure plugin name here
-PLUGIN_NAME = "son-mano-example-plugin-1"
+PLUGIN_NAME = "son-mano-placement"
 
 # generate a name without dashes
 PLUGIN_NAME_CLEAR = PLUGIN_NAME.replace("-", "")
@@ -24,7 +24,7 @@ setup(
     # https://packaging.python.org/en/latest/single_source_version.html
     version='0.0.1',
 
-    description='SONATA example plugin 1',
+    description='SONATA placement executive plugin',
     long_description=long_description,
 
     # The project's main homepage.

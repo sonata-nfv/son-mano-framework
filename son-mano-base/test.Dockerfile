@@ -7,7 +7,7 @@ RUN apt-get update && \
 
 ADD son-mano-base /son-mano-base
 ADD son-mano-base/broker.config /etc/son-mano/broker.config
-ADD delayedstart.sh /delayedstart.sh
+ADD utils/delayedstart.sh /delayedstart.sh
 
 
 WORKDIR /son-mano-base
