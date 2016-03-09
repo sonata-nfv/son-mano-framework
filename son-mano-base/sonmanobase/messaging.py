@@ -275,7 +275,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         """
         logging.debug("Async execution finished.")
         # check if we have a response destination
-        if props.reply_to is None:
+        if props.reply_to is None or props.reply_to == "NO_RESPONSE":
             return  # do not send a response
         # we cannot send None
         result = "" if result is None else result
@@ -284,7 +284,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         properties = pika.BasicProperties(
             app_id=self.app_id,
             correlation_id=props.correlation_id,
-            headers={"type": "RESPONSE", "key": None})
+            headers={"key": None})
         self.publish(props.reply_to, result, properties=properties)
 
     def _on_call_async_request_received(self, ch, method, props, body):
@@ -298,7 +298,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         :return: None
         """
         # check if we really have a request, not a response
-        if props.headers is None or props.headers.get("type") != "REQUEST":
+        if props.reply_to is None:
             logging.debug("Non-request message dropped at request endpoint.")
             return
         logging.debug(
@@ -328,7 +328,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         :return: None
         """
         # check if we really have a response, not a request
-        if props.headers is None or props.headers.get("type") != "RESPONSE":
+        if props.reply_to is not None:
             logging.debug("Non-response message dropped at response endpoint.")
             return
         if props.correlation_id in self._async_calls_pending:
@@ -369,9 +369,9 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         properties = pika.BasicProperties(
                 app_id=self.app_id,
                 content_type='application/json',
-                reply_to=response_topic if cbf is not None else None,
+                reply_to=response_topic if cbf is not None else "NO_RESPONSE",
                 correlation_id=corr_id,
-                headers={"type": "REQUEST", "key": key})
+                headers={"key": key})
         # publish request message
         self.publish(topic, msg, properties=properties)
 
