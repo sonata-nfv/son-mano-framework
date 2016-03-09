@@ -27,7 +27,7 @@ The following lead developers are responsible for this repository and have admin
 * `son-mano-broker/` the message broker (a Dockerimage containing a default RabbitMQ installation)
 * `son-mano-pluginmanager/` the plugin manager component
 * `test/` entry points (bash scripts) to trigger tests of sub-components (e.g., for CI/CD)
-* ... (there will be more)
+* `utils/` helper functionality, scripts, tools
 
 
 ## Run the PoC

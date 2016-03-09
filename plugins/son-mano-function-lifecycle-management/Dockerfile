@@ -2,7 +2,7 @@ FROM ubuntu:trusty
 MAINTAINER SONATA
 
 # define plugin name once
-ENV PLUGIN_BASE son-mano-example-plugin-1
+ENV PLUGIN_BASE son-mano-function-lifecycle-management
 
 # install basic python environment
 RUN apt-get update && \
