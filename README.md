@@ -1,6 +1,11 @@
 # son-mano-framework
 SONATA's Service Platform MANO Framework
 
+## Lead Developers
+The following lead developers are responsible for this repository and have admin rights. They can, for example, merge pull requests.
+
+* Manuel Peuster (mpeuster)
+* Felipe Vicens (felipevicens)
 
 ## Folder structure
 
