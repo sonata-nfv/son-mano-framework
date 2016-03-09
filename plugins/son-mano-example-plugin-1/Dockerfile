@@ -1,22 +1,29 @@
 FROM ubuntu:trusty
-MAINTAINER Manuel Peuster <manuel.peuster@upb.de>
+MAINTAINER SONATA
 
+# define plugin name once
+ENV PLUGIN_BASE son-mano-example-plugin-1
 
+# install basic python environment
 RUN apt-get update && \
     apt-get install -y python python-dev python-distribute python-pip
 
+# add generic project files
 ADD son-mano-base /son-mano-base
-ADD plugins/son-mano-example-plugin-1 /plugins/son-mano-example-plugin-1
-ADD plugins/son-mano-example-plugin-1/broker.config /etc/son-mano/broker.config
 ADD delayedstart.sh /delayedstart.sh
 
+# add plugin related files
+ADD plugins/${PLUGIN_BASE}/broker.config /etc/son-mano/broker.config
+ADD plugins/${PLUGIN_BASE} /plugins/${PLUGIN_BASE}
 
+# install son-mano-base to be able to use the plugin base class etc.
 WORKDIR /son-mano-base
 RUN python setup.py install
 
-WORKDIR /plugins/son-mano-example-plugin-1
+# install actual plugin
+WORKDIR /plugins/${PLUGIN_BASE}
 RUN python setup.py install
 
-CMD ["son-mano-exampleplugin1"]
+CMD ["${PLUGIN_BASE}"]
 
 

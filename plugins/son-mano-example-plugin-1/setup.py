@@ -6,12 +6,18 @@ from os import path
 
 here = path.abspath(path.dirname(__file__))
 
+# configure plugin name here
+PLUGIN_NAME = "son-mano-example-plugin-1"
+
+# generate a name without dashes
+PLUGIN_NAME_CLEAR = PLUGIN_NAME.replace("-", "")
+
 # Get the long description from the README file
 with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name='sonmanoexampleplugin1',
+    name=PLUGIN_NAME_CLEAR,
 
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
@@ -22,17 +28,14 @@ setup(
     long_description=long_description,
 
     # The project's main homepage.
-    url='https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-example-plugin-1',
+    url='https://github.com/sonata-nfv/son-mano-framework/',
 
     # Author details
-    author='Manuel Peuster',
-    author_email='manuel.peuster@upb.de',
+    author='SONATA',
+    author_email='info@sonata-nfv.eu',
 
     # Choose your license
     license='Apache 2.0',
-
-    # What does your project relate to?
-    keywords='NFV orchestrator',
 
     packages=find_packages(),
     install_requires=['pika', 'pytest'],
@@ -43,7 +46,7 @@ setup(
     # pip to create the appropriate form of executable for the target platform.
     entry_points={
         'console_scripts': [
-            'son-mano-exampleplugin1=sonmanoexampleplugin1.__main__:main',
+            '%s=%s.__main__:main' % (PLUGIN_NAME, PLUGIN_NAME_CLEAR),
         ],
     },
 )

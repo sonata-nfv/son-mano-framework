@@ -14,6 +14,6 @@ pluginmanager:
 exampleplugin:
   build: .
   dockerfile: plugins/son-mano-example-plugin-1/Dockerfile
-  entrypoint: /bin/bash /delayedstart.sh 6 son-mano-exampleplugin1
+  entrypoint: /bin/bash /delayedstart.sh 6 son-mano-example-plugin-1
   links:
   - broker
