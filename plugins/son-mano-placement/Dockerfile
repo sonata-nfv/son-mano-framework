@@ -1,12 +1,8 @@
-FROM ubuntu:trusty
+FROM python:2.7-slim
 MAINTAINER SONATA
 
 # define plugin name once
 ENV PLUGIN_BASE son-mano-placement
-
-# install basic python environment
-RUN apt-get update && \
-    apt-get install -y python python-dev python-distribute python-pip
 
 # add generic project files
 ADD son-mano-base /son-mano-base
