@@ -8,6 +8,7 @@ This repository contains the orchestration core (the flexible MANO framework) an
 ## Lead Developers
 The following lead developers are responsible for this repository and have admin rights. They can, for example, merge pull requests.
 
+* Sharon Mendel-Brin (smendel) 
 * Manuel Peuster (mpeuster)
 * Felipe Vicens (felipevicens)
 
