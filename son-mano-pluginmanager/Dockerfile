@@ -1,9 +1,5 @@
-FROM ubuntu:trusty
-MAINTAINER Manuel Peuster <manuel.peuster@upb.de>
-
-
-RUN apt-get update && \
-    apt-get install -y python python-dev python-distribute python-pip nmap
+FROM python:2.7-slim
+MAINTAINER SONATA
 
 ADD son-mano-base /son-mano-base
 ADD son-mano-pluginmanager /son-mano-pluginmanager
