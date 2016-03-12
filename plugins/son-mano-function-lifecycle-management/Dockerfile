@@ -1,4 +1,4 @@
-FROM python:2.7-slim
+FROM python:3.4-slim
 MAINTAINER SONATA
 
 # define plugin name once
