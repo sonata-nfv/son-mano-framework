@@ -15,6 +15,10 @@ import uuid
 
 from sonmanobase.plugin import ManoBasePlugin
 
+logging.basicConfig(level=logging.INFO)
+LOG = logging.getLogger("son-mano-pluginmanger")
+LOG.setLevel(logging.DEBUG)
+
 
 class SonPluginManager(ManoBasePlugin):
     """
@@ -87,7 +91,7 @@ class SonPluginManager(ManoBasePlugin):
         self.plugins[pid]["resgister_time"] = str(datetime.datetime.now())
         self.plugins[pid]["last_heartbeat"] = None
         self.plugins[pid]["started"] = False
-        logging.info("REGISTERED: %r with UUID %r" % (message.get("name"), pid))
+        LOG.info("REGISTERED: %r with UUID %r" % (message.get("name"), pid))
         # broadcast a plugin status update to the other plugin
         self.send_plugin_status_update()
         # return result
@@ -110,7 +114,7 @@ class SonPluginManager(ManoBasePlugin):
         # simplified example for plugin bookkeeping
         if message.get("uuid") in self.plugins:
             del self.plugins[message.get("uuid")]
-        logging.info("DE-REGISTERED: %r" % properties.app_id)
+        LOG.info("DE-REGISTERED: %r" % properties.app_id)
         # broadcast a plugin status update to the other plugin
         self.send_plugin_status_update()
         # return result
@@ -137,7 +141,6 @@ class SonPluginManager(ManoBasePlugin):
 
 
 def main():
-    logging.basicConfig(level=logging.DEBUG)
     SonPluginManager()
 
 if __name__ == '__main__':

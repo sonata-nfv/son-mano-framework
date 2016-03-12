@@ -11,6 +11,10 @@ import threading
 
 from sonmanobase import messaging
 
+logging.basicConfig(level=logging.INFO)
+LOG = logging.getLogger("son-mano-base:plugin")
+LOG.setLevel(logging.DEBUG)
+
 
 class ManoBasePlugin(object):
     """
@@ -48,7 +52,7 @@ class ManoBasePlugin(object):
         self.uuid = None  # uuid given by plugin manager on registration
         self.state = None  # the state of this plugin READY/RUNNING/PAUSED/FAILED
 
-        logging.info(
+        LOG.info(
             "Starting MANO Plugin: %r ..." % self.name)
         # create and initialize broker connection
         self.manoconn = messaging.ManoBrokerRequestResponseConnection(self.name)
@@ -123,21 +127,21 @@ class ManoBasePlugin(object):
         """
         To be overwritten by subclass
         """
-        logging.info("Received lifecycle.start event.")
+        LOG.info("Received lifecycle.start event.")
         self.state = "RUNNING"
 
     def on_lifecycle_pause(self, properties, message):
         """
         To be overwritten by subclass
         """
-        logging.info("Received lifecycle.pause event.")
+        LOG.info("Received lifecycle.pause event.")
         self.state = "PAUSED"
 
     def on_lifecycle_stop(self, properties, message):
         """
         To be overwritten by subclass
         """
-        logging.info("Received lifecycle.stop event.")
+        LOG.info("Received lifecycle.stop event.")
         self.deregister()
         exit(0)
 
@@ -147,7 +151,7 @@ class ManoBasePlugin(object):
         Called when a plugin list status update
         is received from the plugin manager.
         """
-        logging.info("Received plugin status update %r." % str(message))
+        LOG.info("Received plugin status update %r." % str(message))
 
     def on_lifecycle_pause(self, properties, message):
         """
@@ -175,13 +179,13 @@ class ManoBasePlugin(object):
         """
         response = json.loads(str(response, "utf-8"))
         if response.get("status") != "OK":
-            logging.debug("Response %r" % response)
-            logging.error("Plugin registration failed. Exit.")
+            LOG.debug("Response %r" % response)
+            LOG.error("Plugin registration failed. Exit.")
             exit(1)
         self.uuid = response.get("uuid")
         # mark this plugin to be ready to be started
         self.state = "READY"
-        logging.info("Plugin registered with UUID: %r" % response.get("uuid"))
+        LOG.info("Plugin registered with UUID: %r" % response.get("uuid"))
         # jump to on_registration_ok()
         self.on_registration_ok()
         self._send_heartbeat()
@@ -190,7 +194,7 @@ class ManoBasePlugin(object):
         """
         Send a deregister event to the plugin manager component.
         """
-        logging.info("De-registering plugin...")
+        LOG.info("De-registering plugin...")
         message = {"uuid": self.uuid}
         self.manoconn.call_async(self._on_deregister_response,
                                  "platform.management.plugin.deregister",
@@ -205,9 +209,9 @@ class ManoBasePlugin(object):
         """
         response = json.loads(str(response, "utf-8"))
         if response.get("status") != "OK":
-            logging.error("Plugin de-registration failed. Exit.")
+            LOG.error("Plugin de-registration failed. Exit.")
             exit(1)
-        logging.info("Plugin de-registered.")
+        LOG.info("Plugin de-registered.")
 
     def _wait_for_registration(self, timeout=5, sleep_interval=0.1):
         """
@@ -219,7 +223,7 @@ class ManoBasePlugin(object):
         """
         # FIXME: Use threading.Event() for this?
         c = 0
-        logging.debug("Waiting for registration (timeout=%d) ..." % timeout)
+        LOG.debug("Waiting for registration (timeout=%d) ..." % timeout)
         while self.uuid is None and c < timeout:
             time.sleep(sleep_interval)
             c += sleep_interval
