@@ -9,7 +9,7 @@ import json
 import time
 import threading
 
-import messaging
+from sonmanobase import messaging
 
 
 class ManoBasePlugin(object):
@@ -173,7 +173,7 @@ class ManoBasePlugin(object):
         :param response: response body
         :return: None
         """
-        response = json.loads(response)
+        response = json.loads(str(response, "utf-8"))
         if response.get("status") != "OK":
             logging.debug("Response %r" % response)
             logging.error("Plugin registration failed. Exit.")
@@ -203,7 +203,7 @@ class ManoBasePlugin(object):
         :param response: response body
         :return: None
         """
-        response = json.loads(response)
+        response = json.loads(str(response, "utf-8"))
         if response.get("status") != "OK":
             logging.error("Plugin de-registration failed. Exit.")
             exit(1)

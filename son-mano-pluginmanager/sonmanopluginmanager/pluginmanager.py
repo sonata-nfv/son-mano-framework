@@ -12,9 +12,7 @@ import json
 import time
 import datetime
 import uuid
-import sys
 
-sys.path.append("../../son-mano-base")
 from sonmanobase.plugin import ManoBasePlugin
 
 
@@ -79,7 +77,7 @@ class SonPluginManager(ManoBasePlugin):
         :param message: request body
         :return: response message
         """
-        message = json.loads(message)
+        message = json.loads(str(message, "utf-8"))
         pid = str(uuid.uuid4())
         # simplified example for plugin bookkeeping (replace this with real functionality)
         self.plugins[pid] = message
@@ -108,7 +106,7 @@ class SonPluginManager(ManoBasePlugin):
         :param message: request body (contains UUID to identify plugin)
         :return: response message
         """
-        message = json.loads(message)
+        message = json.loads(str(message, "utf-8"))
         # simplified example for plugin bookkeeping
         if message.get("uuid") in self.plugins:
             del self.plugins[message.get("uuid")]
@@ -122,7 +120,7 @@ class SonPluginManager(ManoBasePlugin):
         return json.dumps(response)
 
     def _on_heartbeat(self, properties, message):
-        message = json.loads(message)
+        message = json.loads(str(message, "utf-8"))
         pid = message.get("uuid")
 
         if pid in self.plugins:

@@ -12,6 +12,9 @@ The following lead developers are responsible for this repository and have admin
 * Manuel Peuster (mpeuster)
 * Felipe Vicens (felipevicens)
 
+## Environment
+* Python 3.4
+
 ## Dependencies
 * Docker
 * docker-compose
@@ -100,7 +103,7 @@ Using [Docker Compose](https://docs.docker.com/compose/) allows us to deploy all
 * Run tests using the following steps:
     * NOTICE: The tests need a running RabbitMQ broker to test the messaging subsystem! Without this, tests will fail.
     * `cd son-mano-framework`
-    * `py.test -v`
+    * `py.test -v son-mano-base/`
 
 
 ### CI Integration (fully automated tests)

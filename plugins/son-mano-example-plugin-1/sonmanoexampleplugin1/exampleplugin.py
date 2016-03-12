@@ -86,20 +86,20 @@ class DemoPlugin1(ManoBasePlugin):
         """
         Only used for the examples.
         """
-        print "Example message: %r " % message
+        print("Example message: %r " % message)
         return json.dumps({"content" : "my response"})
 
     def _on_example_request_response(self, properties, message):
         """
         Only used for the examples.
         """
-        print "Example message: %r " % message
+        print("Example message: %r " % message)
 
     def _on_example_notification(self, properties, message):
         """
         Only used for the examples.
         """
-        print "Example message: %r " % message
+        print("Example message: %r " % message)
 
 
 def main():

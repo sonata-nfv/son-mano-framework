@@ -61,7 +61,7 @@ class ManoBrokerConnection(object):
         :return: dictionary
         """
         try:
-            with open(path) as f:
+            with open(path, encoding='utf-8') as f:
                 config = json.loads(f.read())
                 logging.info("Broker configuration found: %r" % path)
                 return config
@@ -70,7 +70,6 @@ class ManoBrokerConnection(object):
             # logging.exception(e)
         return dict(broker_url=RABBITMQ_URL_FALLBACK,
                     exchange=RABBITMQ_EXCHANGE_FALLBACK)
-
 
     def setup_connection(self, blocking=False):
         """
@@ -279,7 +278,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
             return  # do not send a response
         # we cannot send None
         result = "" if result is None else result
-        assert(isinstance(result, basestring))
+        assert(isinstance(result, str))
         # return its result
         properties = pika.BasicProperties(
             app_id=self.app_id,
@@ -352,7 +351,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         """
         if msg is None:
             msg = "{}"
-        assert(isinstance(msg, basestring))
+        assert(isinstance(msg, str))
         # generate uuid to match requests and responses
         corr_id = str(uuid.uuid4())
         # define response topic
