@@ -1,4 +1,4 @@
-FROM python:2-slim
+FROM python:3.4-slim
 MAINTAINER SONATA
 
 ADD son-mano-base /son-mano-base

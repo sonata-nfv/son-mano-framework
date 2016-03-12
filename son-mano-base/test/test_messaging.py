@@ -1,7 +1,6 @@
 import unittest
 import time
-import sys
-sys.path.append("../")
+
 from sonmanobase.messaging import ManoBrokerConnection, ManoBrokerRequestResponseConnection
 
 
@@ -18,7 +17,7 @@ class TestManoBrokerConnection(unittest.TestCase):
         del self.m
 
     def _simple_subscribe_cbf(self, ch, method, props, body):
-        self._last_message = body
+        self._last_message = str(body, "utf-8")
 
     def wait_for_message(self, timeout=2):
         """
@@ -71,10 +70,10 @@ class TestManoBrokerRequestResponseConnection(unittest.TestCase):
         """
         Simple echo function.
         """
-        return message
+        return str(message, "utf-8")
 
     def _simple_message_cbf(self, properties, message):
-        self._last_message = message
+        self._last_message = str(message, "utf-8")
 
     def wait_for_messag(self, timeout=2):
         """

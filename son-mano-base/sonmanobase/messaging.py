@@ -16,7 +16,10 @@ import time
 import uuid
 import os
 import json
+logging.basicConfig(level=logging.INFO)
 logging.getLogger('pika').setLevel(logging.ERROR)
+LOG = logging.getLogger("son-mano-base:messaging")
+LOG.setLevel(logging.DEBUG)
 
 # path where a broker configuration file is searched (contains e.g. the broker URL)
 BROKER_CONFIG_PATH = "/etc/son-mano/broker.config"
@@ -61,16 +64,15 @@ class ManoBrokerConnection(object):
         :return: dictionary
         """
         try:
-            with open(path) as f:
+            with open(path, encoding='utf-8') as f:
                 config = json.loads(f.read())
-                logging.info("Broker configuration found: %r" % path)
+                LOG.info("Broker configuration found: %r" % path)
                 return config
         except Exception as e:
-            logging.info("No broker configuration found in %r. Using defaults." % path)
-            # logging.exception(e)
+            LOG.info("No broker configuration found in %r. Using defaults." % path)
+            # LOG.exception(e)
         return dict(broker_url=RABBITMQ_URL_FALLBACK,
                     exchange=RABBITMQ_EXCHANGE_FALLBACK)
-
 
     def setup_connection(self, blocking=False):
         """
@@ -86,7 +88,7 @@ class ManoBrokerConnection(object):
             try:
                 self._connection.ioloop.start()
             except Exception as e:
-                logging.exception("Connection lost.")
+                LOG.exception("Connection lost.")
 
         if blocking:
             connection_thread()
@@ -107,7 +109,7 @@ class ManoBrokerConnection(object):
 
     def _connect(self):
         # connect to RabbitMQ
-        logging.info("Connecting to RabbitMQ on %r...", self.rabbitmq_url)
+        LOG.info("Connecting to RabbitMQ on %r...", self.rabbitmq_url)
         return pika.SelectConnection(parameters=pika.URLParameters(self.rabbitmq_url),
                                      on_open_callback=self._on_connection_open,
                                      on_close_callback=self._on_connection_closed,
@@ -121,19 +123,19 @@ class ManoBrokerConnection(object):
             self.setup_connection()
 
     def _setup_channel(self):
-        logging.info("Creating a new channel...")
+        LOG.info("Creating a new channel...")
         self._connection.channel(on_open_callback=self._on_channel_open)
 
     def _setup_exchange(self):
-        logging.info("Declaring exchange %r...", self.rabbitmq_exchange)
+        LOG.info("Declaring exchange %r...", self.rabbitmq_exchange)
         self._channel.exchange_declare(self._on_exchange_declared,
                                        self.rabbitmq_exchange,
                                        self.rabbitmq_exchange_type)
 
     def _setup_queue(self, queue, topic):
-        logging.debug("Declaring queue %r...", queue)
+        LOG.debug("Declaring queue %r...", queue)
         self._channel.queue_declare(self._on_queue_declared, queue)
-        logging.debug("Binding queue %r to topic %r..." % (queue, topic))
+        LOG.debug("Binding queue %r to topic %r..." % (queue, topic))
         self._channel.queue_bind(
             self._on_queue_bound,
             exchange=self.rabbitmq_exchange,
@@ -142,14 +144,14 @@ class ManoBrokerConnection(object):
         # FIXME: quick-hack! we have to wait for our queue to be bound here!
         self._queue_setup_lock.clear()
         if not self._queue_setup_lock.wait(0.5):
-            logging.warning("Timeout on queue bind for topic: %r" % topic)
+            LOG.warning("Timeout on queue bind for topic: %r" % topic)
 
     def _on_connection_open(self, connection):
-        logging.debug("Connected: %r" % connection)
+        LOG.debug("Connected: %r" % connection)
         self._setup_channel()
 
     def _on_channel_open(self, channel):
-        logging.debug("Channel created: %r" % channel)
+        LOG.debug("Channel created: %r" % channel)
         self._channel = channel
         self._channel.add_on_close_callback(self._on_channel_closed)
         self._setup_exchange()
@@ -160,31 +162,31 @@ class ManoBrokerConnection(object):
         if self._closing:
             self._connection.ioloop.stop()
         else:
-            logging.warning("Connection closed, reopening in 5 seconds: (%s) %s",
+            LOG.warning("Connection closed, reopening in 5 seconds: (%s) %s",
                             reply_code, reply_text)
             self._connection.add_timeout(5, self._reconnect)
 
     def _on_connection_error(self, connection_unused, error_message=None):
         connection_unused.ioloop.stop()
-        logging.error("Could not connect to message broker. Abort.")
-        logging.debug(str(error_message))
+        LOG.error("Could not connect to message broker. Abort.")
+        LOG.debug(str(error_message))
         os._exit(1)
 
     def _on_channel_closed(self, channel, reply_code, reply_text):
-        logging.warning("Channel %i was closed: (%s) %s",
+        LOG.warning("Channel %i was closed: (%s) %s",
                         channel, reply_code, reply_text)
         self._connection.close()
 
     def _on_exchange_declared(self, f):
-        logging.debug("Exchange declared: %r" % f)
+        LOG.debug("Exchange declared: %r" % f)
         # self._setup_queue(self.base_queue)
         self._connected = True
 
     def _on_queue_declared(self, f):
-        logging.debug("Queue declared: %r" % f)
+        LOG.debug("Queue declared: %r" % f)
 
     def _on_queue_bound(self, f):
-        logging.debug("Queue bound: %r" % f)
+        LOG.debug("Queue bound: %r" % f)
         self._queue_setup_lock.set()
 
     def publish(self, topic, message, properties=None):
@@ -202,7 +204,7 @@ class ManoBrokerConnection(object):
             routing_key=topic,
             body=message,
             properties=properties)
-        logging.debug("PUBLISHED to %r: %r", topic, message)
+        LOG.debug("PUBLISHED to %r: %r", topic, message)
 
     def subscribe(self, cbf, topic):
         """
@@ -218,7 +220,7 @@ class ManoBrokerConnection(object):
                 cbf,
                 queue=topic_receive_queue,
                 no_ack=True)
-        logging.debug("SUBSCRIBED to %r", topic)
+        LOG.debug("SUBSCRIBED to %r", topic)
         return bc
 
 
@@ -263,7 +265,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         t = threading.Thread(target=run, args=(cbf, func, args))
         t.daemon = True
         t.start()
-        logging.debug("Async execution started: %r." % str(func))
+        LOG.debug("Async execution started: %r." % str(func))
 
     def _on_execute_async_finished(self, props, result):
         """
@@ -273,13 +275,13 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         :param result: return value of executed function
         :return: None
         """
-        logging.debug("Async execution finished.")
+        LOG.debug("Async execution finished.")
         # check if we have a response destination
         if props.reply_to is None or props.reply_to == "NO_RESPONSE":
             return  # do not send a response
         # we cannot send None
         result = "" if result is None else result
-        assert(isinstance(result, basestring))
+        assert(isinstance(result, str))
         # return its result
         properties = pika.BasicProperties(
             app_id=self.app_id,
@@ -299,9 +301,9 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         """
         # check if we really have a request, not a response
         if props.reply_to is None:
-            logging.debug("Non-request message dropped at request endpoint.")
+            LOG.debug("Non-request message dropped at request endpoint.")
             return
-        logging.debug(
+        LOG.debug(
             "Async request on topic %r received." % method.routing_key)
         if method.consumer_tag in self._async_calls_endpoints:
             ep = self._async_calls_endpoints.get(method.consumer_tag)
@@ -313,7 +315,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
                 body,
                 props=props)
         else:
-            logging.error(
+            LOG.error(
                 "Endpoint not implemented: %r " % (method.consumer_tag))
 
     def _on_call_async_response_received(self, ch, method, props, body):
@@ -329,16 +331,16 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         """
         # check if we really have a response, not a request
         if props.reply_to is not None:
-            logging.debug("Non-response message dropped at response endpoint.")
+            LOG.debug("Non-response message dropped at response endpoint.")
             return
         if props.correlation_id in self._async_calls_pending:
-            logging.debug("Async response received. Matches to corr_id: %r" % props.correlation_id)
+            LOG.debug("Async response received. Matches to corr_id: %r" % props.correlation_id)
             # call callback
             self._async_calls_pending[props.correlation_id](props, body)
             # remove from pending calls
             del self._async_calls_pending[props.correlation_id]
         else:
-            logging.debug("Received unmatched call response. Ignore it.")
+            LOG.debug("Received unmatched call response. Ignore it.")
 
     def call_async(self, cbf, topic, msg=None, key="default", response_topic_postfix=""):
         """
@@ -352,7 +354,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         """
         if msg is None:
             msg = "{}"
-        assert(isinstance(msg, basestring))
+        assert(isinstance(msg, str))
         # generate uuid to match requests and responses
         corr_id = str(uuid.uuid4())
         # define response topic
@@ -421,7 +423,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         """
         Helper callback that prints the received message.
         """
-        logging.debug("RECEIVED from %r on %r: %r" % (
+        LOG.debug("RECEIVED from %r on %r: %r" % (
             properties.app_id, method.routing_key, str(msg)))
 
 

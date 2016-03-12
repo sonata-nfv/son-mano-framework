@@ -13,6 +13,10 @@ import os
 sys.path.append("../../../son-mano-base")
 from sonmanobase.plugin import ManoBasePlugin
 
+logging.basicConfig(level=logging.INFO)
+LOG = logging.getLogger("plugin:example-plugin-1")
+LOG.setLevel(logging.INFO)
+
 
 class DemoPlugin1(ManoBasePlugin):
     """
@@ -62,7 +66,7 @@ class DemoPlugin1(ManoBasePlugin):
         """
         Event that is triggered after a successful registration process.
         """
-        logging.info("Registration OK.")
+        LOG.info("Registration OK.")
 
     def on_lifecycle_start(self, properties, message):
         super(self.__class__, self).on_lifecycle_start(properties, message)
@@ -86,24 +90,25 @@ class DemoPlugin1(ManoBasePlugin):
         """
         Only used for the examples.
         """
-        print "Example message: %r " % message
+        print("Example message: %r " % message)
         return json.dumps({"content" : "my response"})
 
     def _on_example_request_response(self, properties, message):
         """
         Only used for the examples.
         """
-        print "Example message: %r " % message
+        print("Example message: %r " % message)
 
     def _on_example_notification(self, properties, message):
         """
         Only used for the examples.
         """
-        print "Example message: %r " % message
+        print("Example message: %r " % message)
 
 
 def main():
-    logging.basicConfig(level=logging.INFO)
+    # reduce log level to have a nice output for demonstration
+    logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
     DemoPlugin1()
 
 if __name__ == '__main__':
