@@ -145,6 +145,12 @@ class ManoBasePlugin(object):
         self.deregister()
         exit(0)
 
+    def on_registration_ok(self):
+        """
+        To be overwritten by subclass
+        """
+        pass
+
     def on_plugin_status_update(self, properties, message):
         """
         To be overwritten by subclass.
@@ -152,12 +158,6 @@ class ManoBasePlugin(object):
         is received from the plugin manager.
         """
         LOG.info("Received plugin status update %r." % str(message))
-
-    def on_lifecycle_pause(self, properties, message):
-        """
-        To be overwritten by subclass
-        """
-        self.state = "PAUSED"
 
     def register(self):
         """
