@@ -68,8 +68,8 @@ class DemoPlugin1(ManoBasePlugin):
         """
         LOG.info("Registration OK.")
 
-    def on_lifecycle_start(self, properties, message):
-        super(self.__class__, self).on_lifecycle_start(properties, message)
+    def on_lifecycle_start(self, ch, method, properties, message):
+        super(self.__class__, self).on_lifecycle_start(ch, method, properties, message)
 
         # Example that shows how to send a request/response message
         time.sleep(1)
@@ -86,20 +86,20 @@ class DemoPlugin1(ManoBasePlugin):
         time.sleep(5)
         os._exit(0)
 
-    def _on_example_request(self, properties, message):
+    def _on_example_request(self, ch, method, properties, message):
         """
         Only used for the examples.
         """
         print("Example message: %r " % message)
         return json.dumps({"content" : "my response"})
 
-    def _on_example_request_response(self, properties, message):
+    def _on_example_request_response(self, ch, method, properties, message):
         """
         Only used for the examples.
         """
         print("Example message: %r " % message)
 
-    def _on_example_notification(self, properties, message):
+    def _on_example_notification(self, ch, method, properties, message):
         """
         Only used for the examples.
         """

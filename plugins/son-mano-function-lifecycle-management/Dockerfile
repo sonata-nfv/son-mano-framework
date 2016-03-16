@@ -20,6 +20,6 @@ RUN python setup.py install
 WORKDIR /plugins/${PLUGIN_BASE}
 RUN python setup.py install
 
-CMD ["${PLUGIN_BASE}"]
+CMD ["son-mano-function-lifecycle-management"]
 
 

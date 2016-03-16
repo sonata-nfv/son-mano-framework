@@ -42,13 +42,6 @@ class SonPluginManager(ManoBasePlugin):
         self.manoconn.register_async_endpoint(self._on_deregister, "platform.management.plugin.deregister")
         self.manoconn.register_notification_endpoint(self._on_heartbeat, "platform.management.plugin.*.heartbeat")
 
-    def run(self):
-        """
-        Just go into an endless loop and wait for new plugins.
-        """
-        while True:
-            time.sleep(1)  # lets wait and do nothing
-
     def send_start_notification(self, plugin):
         """
         Send lifecycle.start notification to given plugin.
@@ -72,7 +65,7 @@ class SonPluginManager(ManoBasePlugin):
         self.manoconn.notify(
             "platform.management.plugin.status", json.dumps(message))
 
-    def _on_register(self, properties, message):
+    def _on_register(self, ch, method, properties, message):
         """
         Event method that is called when a registration request is received.
         Registers the new plugin in the internal data model and returns
@@ -102,7 +95,7 @@ class SonPluginManager(ManoBasePlugin):
         }
         return json.dumps(response)
 
-    def _on_deregister(self, properties, message):
+    def _on_deregister(self, ch, method, properties, message):
         """
         Event method that is called when a de-registration request is received.
         Removes the given plugin from the internal data model.
@@ -123,7 +116,7 @@ class SonPluginManager(ManoBasePlugin):
         }
         return json.dumps(response)
 
-    def _on_heartbeat(self, properties, message):
+    def _on_heartbeat(self, ch, method, properties, message):
         message = json.loads(str(message, "utf-8"))
         pid = message.get("uuid")
 

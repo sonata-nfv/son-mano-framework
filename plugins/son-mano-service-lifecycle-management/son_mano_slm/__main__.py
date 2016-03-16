@@ -1,9 +1,8 @@
-import pluginmanager
+from son_mano_slm import slm
 
 
 def main():
-    pluginmanager.main()
-
+    slm.main()
 
 if __name__ == '__main__':
     main()

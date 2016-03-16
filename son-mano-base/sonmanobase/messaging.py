@@ -246,7 +246,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         # call superclass to setup the connection
         super(self.__class__, self).__init__(app_id, blocking=blocking)
 
-    def _execute_async(self, cbf, func, args, props=None):
+    def _execute_async(self, cbf, func, props, *args):
         """
         Run the given function in an independent thread and call
         cbf when it returns.
@@ -257,12 +257,12 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         :return: None
         """
 
-        def run(cbf, func, args):
-            result = func(props, args)
+        def run(cbf, func, *args):
+            result = func(props, *args)
             if cbf is not None:
                 cbf(props, result)
 
-        t = threading.Thread(target=run, args=(cbf, func, args))
+        t = threading.Thread(target=run, args=(cbf, func) + args)
         t.daemon = True
         t.start()
         LOG.debug("Async execution started: %r." % str(func))
@@ -299,21 +299,24 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         :param body: message body
         :return: None
         """
-        # check if we really have a request, not a response
-        if props.reply_to is None:
-            LOG.debug("Non-request message dropped at request endpoint.")
-            return
         LOG.debug(
             "Async request on topic %r received." % method.routing_key)
         if method.consumer_tag in self._async_calls_endpoints:
             ep = self._async_calls_endpoints.get(method.consumer_tag)
+            # check if we really have a request (or a notification), not a response
+            if props.reply_to is None and not ep.is_notification:
+                LOG.debug("Non-request message dropped at request endpoint.")
+                return
             # call the remote procedure asynchronously
             self._execute_async(
                 # set a finish method if we want to send a response
                 self._on_execute_async_finished if not ep.is_notification else None,
                 ep.cbf,
-                body,
-                props=props)
+                props,
+                ch,
+                method,
+                body
+                )
         else:
             LOG.error(
                 "Endpoint not implemented: %r " % (method.consumer_tag))
@@ -336,7 +339,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         if props.correlation_id in self._async_calls_pending:
             LOG.debug("Async response received. Matches to corr_id: %r" % props.correlation_id)
             # call callback
-            self._async_calls_pending[props.correlation_id](props, body)
+            self._async_calls_pending[props.correlation_id](ch, method, props, body)
             # remove from pending calls
             del self._async_calls_pending[props.correlation_id]
         else:
@@ -371,7 +374,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         properties = pika.BasicProperties(
                 app_id=self.app_id,
                 content_type='application/json',
-                reply_to=response_topic if cbf is not None else "NO_RESPONSE",
+                reply_to=response_topic if cbf is not None else None,
                 correlation_id=corr_id,
                 headers={"key": key})
         # publish request message
@@ -384,17 +387,19 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         :param cbf: function to be called when requests with the given topic and key are received
         :param topic: topic for requests and responses
         :param key:  optional identifier for endpoints (enables more than 1 endpoint per topic)
-        :param isnotification: define endpoint as notification so that it will not send a response
+        :param is_notification: define endpoint as notification so that it will not send a response
         :return: None
         """
         if topic not in self._async_calls_request_topics:
             self._async_calls_request_topics.append(topic)
             bc = self.subscribe(self._on_call_async_request_received, topic)
-        # we have to match this subscription to our callback method.
-        # we use the consumer tag returned by self.subscribe for this.
-        # (using topics instead would break wildcard symbol support)
-        self._async_calls_endpoints[str(bc)] = AsyncEndpoint(
-            cbf, topic, key, is_notification)
+            # we have to match this subscription to our callback method.
+            # we use the consumer tag returned by self.subscribe for this.
+            # (using topics instead would break wildcard symbol support)
+            self._async_calls_endpoints[str(bc)] = AsyncEndpoint(
+                cbf, bc, topic, key, is_notification)
+        else:
+            raise Exception("Already subscribed to this topic")
 
     def notify(self, topic, msg=None, key="default"):
         """

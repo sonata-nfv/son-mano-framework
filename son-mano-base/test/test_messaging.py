@@ -66,16 +66,16 @@ class TestManoBrokerRequestResponseConnection(unittest.TestCase):
     def tearDown(self):
         del self.m
 
-    def _simple_request_echo_cbf(self, properties, message):
+    def _simple_request_echo_cbf(self, ch, method, properties, message):
         """
         Simple echo function.
         """
         return str(message, "utf-8")
 
-    def _simple_message_cbf(self, properties, message):
+    def _simple_message_cbf(self, ch, method, properties, message):
         self._last_message = str(message, "utf-8")
 
-    def wait_for_messag(self, timeout=2):
+    def wait_for_message(self, timeout=2):
         """
         Helper to deal with async messaging system.
         Waits until a response is available in self._last_message
@@ -89,7 +89,6 @@ class TestManoBrokerRequestResponseConnection(unittest.TestCase):
             waiting += 0.01
         if not waiting < timeout:
             raise Exception("Message lost. Subscription timeout reached.")
-            return None
         m = self._last_message
         self._last_message = None
         return m
@@ -107,7 +106,7 @@ class TestManoBrokerRequestResponseConnection(unittest.TestCase):
         self.m.register_async_endpoint(self._simple_request_echo_cbf, "test.request")
         time.sleep(0.5)  # give broker some time to register subscriptions
         self.m.call_async(self._simple_message_cbf, "test.request", "ping-pong")
-        self.assertEqual(self.wait_for_messag(), "ping-pong")
+        self.assertEqual(self.wait_for_message(), "ping-pong")
 
     def test_notification(self):
         """
@@ -116,7 +115,21 @@ class TestManoBrokerRequestResponseConnection(unittest.TestCase):
         self.m.register_notification_endpoint(self._simple_message_cbf, "test.notification")
         time.sleep(0.5)  # give broker some time to register subscriptions
         self.m.notify("test.notification", "my-notification")
-        self.assertEqual(self.wait_for_messag(), "my-notification")
+        self.assertEqual(self.wait_for_message(), "my-notification")
+
+    def test_notification_pub_sub_mix(self):
+        """
+        Test notification messaging pattern mixed with basic pub/sub calls.
+        """
+        self.m.register_notification_endpoint(self._simple_message_cbf, "test.notification1")
+        self.m.subscribe(self._simple_message_cbf, "test.notification2")
+        time.sleep(0.5)  # give broker some time to register subscriptions
+        # send publish to notify endpoint
+        self.m.publish("test.notification1", "my-notification1")
+        self.assertEqual(self.wait_for_message(), "my-notification1")
+        # send notify to subscribe endpoint
+        self.m.notify("test.notification2", "my-notification2")
+        self.assertEqual(self.wait_for_message(), "my-notification2")
 
 
 if __name__ == "__main__":
