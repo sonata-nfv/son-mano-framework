@@ -11,7 +11,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name='sonmanopluginmanager',
+    name='son-mano-pluginmanager',
 
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
@@ -43,7 +43,7 @@ setup(
     # pip to create the appropriate form of executable for the target platform.
     entry_points={
         'console_scripts': [
-            'son-mano-pluginmanager=sonmanopluginmanager.__main__:main',
+            'son-mano-pluginmanager=son_mano_pluginmanager.__main__:main',
         ],
     },
 )

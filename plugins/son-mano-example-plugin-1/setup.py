@@ -10,7 +10,7 @@ here = path.abspath(path.dirname(__file__))
 PLUGIN_NAME = "son-mano-example-plugin-1"
 
 # generate a name without dashes
-PLUGIN_NAME_CLEAR = PLUGIN_NAME.replace("-", "")
+PLUGIN_NAME_CLEAR = "son_mano_exampleplugin"
 
 # Get the long description from the README file
 with open(path.join(here, 'README.md'), encoding='utf-8') as f:

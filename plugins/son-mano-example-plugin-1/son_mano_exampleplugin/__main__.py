@@ -1,4 +1,4 @@
-import exampleplugin
+from son_mano_exampleplugin import exampleplugin
 
 
 def main():

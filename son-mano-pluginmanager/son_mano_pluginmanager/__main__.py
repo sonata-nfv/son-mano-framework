@@ -1,4 +1,4 @@
-import pluginmanager
+from son_mano_pluginmanager import pluginmanager
 
 
 def main():
