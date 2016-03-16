@@ -121,27 +121,29 @@ class ManoBasePlugin(object):
         """
         To be overwritten by subclass
         """
-        pass
+        # go into infinity loop (we could do anything here)
+        while True:
+            time.sleep(1)
 
-    def on_lifecycle_start(self, properties, message):
+    def on_lifecycle_start(self, ch, method, properties, message):
         """
         To be overwritten by subclass
         """
-        LOG.info("Received lifecycle.start event.")
+        LOG.debug("Received lifecycle.start event.")
         self.state = "RUNNING"
 
-    def on_lifecycle_pause(self, properties, message):
+    def on_lifecycle_pause(self, ch, method, properties, message):
         """
         To be overwritten by subclass
         """
-        LOG.info("Received lifecycle.pause event.")
+        LOG.debug("Received lifecycle.pause event.")
         self.state = "PAUSED"
 
-    def on_lifecycle_stop(self, properties, message):
+    def on_lifecycle_stop(self, ch, method, properties, message):
         """
         To be overwritten by subclass
         """
-        LOG.info("Received lifecycle.stop event.")
+        LOG.debug("Received lifecycle.stop event.")
         self.deregister()
         exit(0)
 
@@ -149,15 +151,16 @@ class ManoBasePlugin(object):
         """
         To be overwritten by subclass
         """
+        LOG.debug("Received registration ok event.")
         pass
 
-    def on_plugin_status_update(self, properties, message):
+    def on_plugin_status_update(self, ch, method, properties, message):
         """
         To be overwritten by subclass.
         Called when a plugin list status update
         is received from the plugin manager.
         """
-        LOG.info("Received plugin status update %r." % str(message))
+        LOG.debug("Received plugin status update %r." % str(message))
 
     def register(self):
         """
@@ -170,7 +173,7 @@ class ManoBasePlugin(object):
                                  "platform.management.plugin.register",
                                  json.dumps(message))
 
-    def _on_register_response(self, props, response):
+    def _on_register_response(self, ch, method, props, response):
         """
         Event triggered when register response is received.
         :param props: response properties
@@ -200,7 +203,7 @@ class ManoBasePlugin(object):
                                  "platform.management.plugin.deregister",
                                  json.dumps(message))
 
-    def _on_deregister_response(self, props, response):
+    def _on_deregister_response(self, ch, method, props, response):
         """
         Event triggered when de-register response is received.
         :param props: response properties

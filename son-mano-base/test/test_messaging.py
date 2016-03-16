@@ -66,13 +66,13 @@ class TestManoBrokerRequestResponseConnection(unittest.TestCase):
     def tearDown(self):
         del self.m
 
-    def _simple_request_echo_cbf(self, properties, message):
+    def _simple_request_echo_cbf(self, ch, method, properties, message):
         """
         Simple echo function.
         """
         return str(message, "utf-8")
 
-    def _simple_message_cbf(self, properties, message):
+    def _simple_message_cbf(self, ch, method, properties, message):
         self._last_message = str(message, "utf-8")
 
     def wait_for_messag(self, timeout=2):
@@ -89,7 +89,6 @@ class TestManoBrokerRequestResponseConnection(unittest.TestCase):
             waiting += 0.01
         if not waiting < timeout:
             raise Exception("Message lost. Subscription timeout reached.")
-            return None
         m = self._last_message
         self._last_message = None
         return m

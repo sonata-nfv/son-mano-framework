@@ -1,8 +1,8 @@
+from son_mano_slm import slm
 
 
 def main():
-    # plugin entry point
-    print("Hello! I'am %r" % __file__)
+    slm.main()
 
 if __name__ == '__main__':
     main()
