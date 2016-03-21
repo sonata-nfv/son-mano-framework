@@ -107,7 +107,7 @@ class SonPluginManager(ManoBasePlugin):
         # simplified example for plugin bookkeeping
         if message.get("uuid") in self.plugins:
             del self.plugins[message.get("uuid")]
-        LOG.info("DE-REGISTERED: %r" % properties.app_id)
+        LOG.info("DE-REGISTERED: %r" % message.get("uuid"))
         # broadcast a plugin status update to the other plugin
         self.send_plugin_status_update()
         # return result
