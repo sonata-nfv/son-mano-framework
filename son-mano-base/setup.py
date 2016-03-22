@@ -35,7 +35,7 @@ setup(
     keywords='NFV orchestrator',
 
     packages=find_packages(),
-    install_requires=['pika', 'pytest'],
+    install_requires=['pika', 'pytest', 'pyYAML'],
     setup_requires=['pytest-runner'],
 
     # To provide executable scripts, use entry points in preference to the
