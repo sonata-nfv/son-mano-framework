@@ -189,15 +189,31 @@ class ManoBrokerConnection(object):
         LOG.debug("Queue bound: %r" % f)
         self._queue_setup_lock.set()
 
-    def publish(self, topic, message, properties=None):
+    def publish(self, topic, message,
+                content_type="application/json",
+                correlation_id=None,
+                reply_to=None,
+                headers={},
+                properties=None
+                ):
         """
-        Basic publish/subscribe API.
         Publishes the given message to the given topic.
+        :param topic: topic to which the message is published
+        :param message: message contents
+        :param content_type: type of message
+        :param correlation_id: ID to identify messages
+        :param headers: header dict
+        :param properties: pika.BasicProperties will overwrite other property arguments.
+        :return:
         """
         if properties is None:
             properties = pika.BasicProperties(
                 app_id=self.app_id,
-                content_type='application/json')
+                content_type=content_type,
+                correlation_id=correlation_id,
+                reply_to=reply_to,
+                headers=headers
+            )
 
         self._channel.basic_publish(
             exchange=self.rabbitmq_exchange,
@@ -246,31 +262,35 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         # call superclass to setup the connection
         super(self.__class__, self).__init__(app_id, blocking=blocking)
 
-    def _execute_async(self, cbf, func, props, *args):
+    def _execute_async(self, cbf, func, ch, method, props, body):
         """
         Run the given function in an independent thread and call
         cbf when it returns.
         :param cbf: callback function
         :param func: function to execute
-        :param args: arguments for executed function
+        :param ch: channel of message
+        :param method: rabbit mq method
         :param props: broker properties
+        :param body: body of the request message
         :return: None
         """
 
-        def run(cbf, func, *args):
-            result = func(props, *args)
+        def run(cbf, func, ch, method, props, body):
+            result = func(ch, method, props, body)
             if cbf is not None:
-                cbf(props, result)
+                cbf(ch, method, props, result)
 
-        t = threading.Thread(target=run, args=(cbf, func) + args)
+        t = threading.Thread(target=run, args=(cbf, func, ch, method, props, body))
         t.daemon = True
         t.start()
         LOG.debug("Async execution started: %r." % str(func))
 
-    def _on_execute_async_finished(self, props, result):
+    def _on_execute_async_finished(self, ch, method, props, result):
         """
         Event method that is called when an async. executed function
         has finishes its execution.
+        :param ch: channel of message
+        :param method: rabbit mq method
         :param props: broker properties
         :param result: return value of executed function
         :return: None
@@ -283,11 +303,9 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         result = "" if result is None else result
         assert(isinstance(result, str))
         # return its result
-        properties = pika.BasicProperties(
-            app_id=self.app_id,
-            correlation_id=props.correlation_id,
-            headers={"key": None})
-        self.publish(props.reply_to, result, properties=properties)
+        self.publish(props.reply_to, result,
+                     correlation_id=props.correlation_id,
+                     headers={"key": None})
 
     def _on_call_async_request_received(self, ch, method, props, body):
         """
@@ -311,15 +329,10 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
             self._execute_async(
                 # set a finish method if we want to send a response
                 self._on_execute_async_finished if not ep.is_notification else None,
-                ep.cbf,
-                props,
-                ch,
-                method,
-                body
-                )
+                ep.cbf, ch, method, props, body)
         else:
             LOG.error(
-                "Endpoint not implemented: %r " % (method.consumer_tag))
+                "Endpoint not implemented: %r " % method.consumer_tag)
 
     def _on_call_async_response_received(self, ch, method, props, body):
         """
@@ -345,21 +358,29 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         else:
             LOG.debug("Received unmatched call response. Ignore it.")
 
-    def call_async(self, cbf, topic, msg=None, key="default", response_topic_postfix=""):
+    def call_async(self, cbf, topic, msg=None, key="default",
+                   content_type="application/json",
+                   correlation_id=None,
+                   headers={},
+                   response_topic_postfix=""):
         """
         Client method to async. call an endpoint registered and bound to the given topic by any
         other component connected to the broker.
         :param cbf: call back function to receive response
         :param topic: topic for communication (callee has to be described to it)
-        :param key: optional identifier for endpoints (enables more than 1 endpoint per topic)
         :param msg: actual message
+        :param key: optional identifier for endpoints (enables more than 1 endpoint per topic)
+        :param content_type: type of message
+        :param correlation_id: allow to set individual correlation ids
+        :param headers: header dict
+        :param response_topic_postfix: postfix of response topic
         :return: None
         """
         if msg is None:
             msg = "{}"
         assert(isinstance(msg, str))
         # generate uuid to match requests and responses
-        corr_id = str(uuid.uuid4())
+        corr_id = str(uuid.uuid4()) if correlation_id is None else correlation_id
         # define response topic
         response_topic = "%s%s" % (topic, response_topic_postfix)
         # initialize response subscription if a callback function was defined
@@ -370,15 +391,14 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
                 # keep track of request
                 self._async_calls_response_topics.append(topic)
                 self._async_calls_pending[corr_id] = cbf
-        # setup request message properties
-        properties = pika.BasicProperties(
-                app_id=self.app_id,
-                content_type='application/json',
-                reply_to=response_topic if cbf is not None else None,
-                correlation_id=corr_id,
-                headers={"key": key})
+        # ensure that optional key is included into header
+        headers["key"] = key
         # publish request message
-        self.publish(topic, msg, properties=properties)
+        self.publish(topic, msg,
+                     content_type=content_type,
+                     reply_to=response_topic if cbf is not None else None,
+                     correlation_id=corr_id,
+                     headers=headers)
 
     def register_async_endpoint(self, cbf, topic, key="default", is_notification=False):
         """
@@ -401,16 +421,23 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         else:
             raise Exception("Already subscribed to this topic")
 
-    def notify(self, topic, msg=None, key="default"):
+    def notify(self, topic, msg=None, key="default",
+               content_type="application/json",
+               correlation_id=None,
+               headers={}):
         """
         Wrapper for the call_async method that does not have a callback function since
         it sends notifications instead of requests.
         :param topic: topic for communication (callee has to be described to it)
         :param key: optional identifier for endpoints (enables more than 1 endpoint per topic)
         :param msg: actual message
+        :param content_type: type of message
+        :param correlation_id: allow to set individual correlation ids
+        :param headers: header dict
         :return: None
         """
-        self.call_async(None, topic, msg, key=key)
+        self.call_async(None, topic, msg, key=key,
+                        content_type=content_type, correlation_id=correlation_id, headers=headers)
 
     def register_notification_endpoint(self, cbf, topic, key="default"):
         """
