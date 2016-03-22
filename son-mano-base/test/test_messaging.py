@@ -70,9 +70,17 @@ class TestManoBrokerRequestResponseConnection(unittest.TestCase):
         """
         Simple echo function.
         """
+        print(ch)
+        print(method)
+        print(properties)
+        assert(properties.correlation_id is not None)
+        assert(properties.reply_to is not None)
+        assert(properties.content_type == "application/json")
+        assert("key" in properties.headers)
         return str(message, "utf-8")
 
     def _simple_message_cbf(self, ch, method, properties, message):
+        assert(properties.content_type == "application/json")
         self._last_message = str(message, "utf-8")
 
     def wait_for_message(self, timeout=2):
