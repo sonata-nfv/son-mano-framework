@@ -8,6 +8,12 @@ from sonmanobase.messaging import ManoBrokerRequestResponseConnection
 
 
 class TestPluginManagerMessageInterface(unittest.TestCase):
+    """
+    Tests the rabbit mq interface of the the plugin manager by interacting
+    with it like a plugin.
+    """
+    # TODO Add more test cases to cover all functionailites of the interface
+
     pm_proc = None
 
     @classmethod
@@ -95,6 +101,10 @@ class TestPluginManagerMessageInterface(unittest.TestCase):
 
     #@unittest.skip("skip")
     def testInitialLifecycleStartMessage(self):
+        """
+        Do registration and check that a lifecycle.start message is sent afterwards.
+        :return:
+        """
         self.register()
 
         # callback for status updates
@@ -124,6 +134,10 @@ class TestPluginManagerMessageInterface(unittest.TestCase):
 
     #@unittest.skip("skip")
     def testHeartbeatStatusUpdate(self):
+        """
+        Do registration and confirm the global status update message that has to be send by the PM.
+        :return:
+        """
         self.register()
 
         # callback for status updates
