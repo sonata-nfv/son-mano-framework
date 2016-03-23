@@ -400,6 +400,53 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
                      correlation_id=corr_id,
                      headers=headers)
 
+    def call_sync(self, topic, msg=None, key="default",
+                  content_type="application/json",
+                  correlation_id=None,
+                  headers={},
+                  response_topic_postfix="",
+                  timeout=20):  # a sync. request has a timeout
+        """
+        Client method to sync. call an endpoint registered and bound to the given topic by any
+        other component connected to the broker. The method waits for a response and returns it
+        as a tuple containing message properties and content.
+
+        :param topic: topic for communication (callee has to be described to it)
+        :param msg: actual message
+        :param key: optional identifier for endpoints (enables more than 1 endpoint per topic)
+        :param content_type: type of message
+        :param correlation_id: allow to set individual correlation ids
+        :param headers: header dict
+        :param response_topic_postfix: postfix of response topic
+        :param timeout: time in s to wait for a response
+        :return: message tuple: (ch, method, props, body)
+        """
+        # we use this lock to wait for the response
+        lock = threading.Event()
+        result = None
+
+        def result_cbf(ch, method, props, body):
+            """
+            define a local callback method which receives the response
+            """
+            nonlocal result
+            result = (ch, method, props, body)
+            # release lock
+            lock.set()
+
+        # do a normal async call
+        self.call_async(result_cbf, topic=topic, msg=msg, key=key,
+                        content_type=content_type,
+                        correlation_id=correlation_id,
+                        headers=headers,
+                        response_topic_postfix=response_topic_postfix)
+        # block until we get our result
+        lock.clear()
+        lock.wait(timeout)
+        # return received result
+        return result
+
+
     def register_async_endpoint(self, cbf, topic, key="default", is_notification=False):
         """
         Executed by callees that want to expose the functionality implemented in cbf
