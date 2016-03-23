@@ -3,6 +3,7 @@ import time
 
 from sonmanobase.messaging import ManoBrokerConnection, ManoBrokerRequestResponseConnection
 
+# TODO the active waiting for messages should be replaced by threading.Event() functionality
 
 class TestManoBrokerConnection(unittest.TestCase):
     """
@@ -70,9 +71,6 @@ class TestManoBrokerRequestResponseConnection(unittest.TestCase):
         """
         Simple echo function.
         """
-        print(ch)
-        print(method)
-        print(properties)
         assert(properties.correlation_id is not None)
         assert(properties.reply_to is not None)
         assert(properties.content_type == "application/json")

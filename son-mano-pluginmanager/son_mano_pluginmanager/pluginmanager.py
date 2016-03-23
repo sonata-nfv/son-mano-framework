@@ -126,6 +126,8 @@ class SonPluginManager(ManoBasePlugin):
             if message.get("state") == "READY" and self.plugins[pid]["state"] != "READY":
                 # a plugin just announced that it is ready, lets start it
                 self.send_start_notification(self.plugins[pid])
+                # there was a state change lets schedule an plugin status update notification
+                self.send_plugin_status_update()
             elif message.get("state") != self.plugins[pid]["state"]:
                 # lets keep track of the reported state update
                 self.plugins[pid]["state"] = message.get("state")
