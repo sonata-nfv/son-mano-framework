@@ -18,8 +18,11 @@ RUN python setup.py install
 
 # install actual plugin
 WORKDIR /plugins/${PLUGIN_BASE}
-RUN python setup.py install
+RUN python setup.py develop
 
-CMD ["${PLUGIN_BASE}"]
+# we need to reset the __pycache__ for correct test discovery
+RUN rm -rf /plugins/${PLUGIN_BASE}test/__pycache__
+
+CMD ["son-mano-example-plugin-1"]
 
 
