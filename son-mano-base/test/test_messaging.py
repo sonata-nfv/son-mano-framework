@@ -114,6 +114,16 @@ class TestManoBrokerRequestResponseConnection(unittest.TestCase):
         self.m.call_async(self._simple_message_cbf, "test.request", "ping-pong")
         self.assertEqual(self.wait_for_message(), "ping-pong")
 
+    def test_request_response_sync(self):
+        """
+        Test request/response messaging pattern (synchronous).
+        """
+        self.m.register_async_endpoint(self._simple_request_echo_cbf, "test.request.sync")
+        time.sleep(0.5)  # give broker some time to register subscriptions
+        result = self.m.call_sync("test.request.sync", "ping-pong")
+        self.assertTrue(len(result) == 4)
+        self.assertEqual(str(result[3], "utf-8"), "ping-pong")
+
     def test_notification(self):
         """
         Test notification messaging pattern.

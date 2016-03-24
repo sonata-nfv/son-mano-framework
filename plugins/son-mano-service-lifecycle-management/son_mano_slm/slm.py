@@ -4,6 +4,8 @@ This is SONATA's service lifecycle management plugin
 
 
 import logging
+import yaml
+import time
 from sonmanobase.plugin import ManoBasePlugin
 
 logging.basicConfig(level=logging.INFO)
@@ -15,6 +17,9 @@ LOG.setLevel(logging.DEBUG)
 #
 # The topic to which service instantiation requests of the GK are published
 GK_INSTANCE_CREATE_TOPIC = "service.instances.create"
+
+# The topic to which service instance deploy replies of the Infrastructure Adaptor are published
+INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC = "infrastructure.service.deploy"
 
 
 class ServiceLifecycleManager(ManoBasePlugin):
@@ -55,7 +60,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # GK <-> SLM interface
         #
         # We want to subscribe to GK_INSTANCE_CREATE_TOPIC to react on GK messages
-        self.manoconn.register_notification_endpoint(
+        self.manoconn.register_async_endpoint(
             self.on_gk_service_instance_create,  # function called when message received
             GK_INSTANCE_CREATE_TOPIC)  # topic to listen to
         #
@@ -94,14 +99,90 @@ class ServiceLifecycleManager(ManoBasePlugin):
         :param message: RabbitMQ message content
         :return:
         """
+
         LOG.info("GK service.instance.start event")
-        # TODO implement
-        # What has do be done? E.g.:
-        # 1. extract NSD etc. from message
-        # 2. (do translations)
-        # 3. send requests to infra adaptor
-        # 4. write back NSR to repository
-        # 5. send an acknowledgement to the GK
+
+        """
+        TODO: We need to check whether the received message is formatted as expected.
+        TODO: We need to define what can go wrong during this method to report back to the gk 
+        """
+        status = 'INSTANTIATING'
+        error = None
+
+        """
+        The request data is in the message as a yaml file, constructed like:
+        ---
+        NSD:
+                descriptor_version:
+                ...
+        VNFD1:
+                descriptor_version:
+                ...
+        VNFD2:
+                descriptor_version:
+                ...
+        ...
+        """
+
+        service_request_from_gk = yaml.load(message)
+
+        """
+        The slm reacts to this service_intance_create message with a call_async() to infrastructure.service.deploy
+        The response message is a yaml file, constructed like:
+        ---
+        forwarding_graph:
+                ...
+        vnf_images:
+                - vnf_id:
+                  url:
+                - vnf_id:
+                  url
+                - ...
+        
+        """
+
+        #The message for the infrastructure adaptor is a yaml file, built from a dictionary
+        service_request_for_infra_adaptor = {}
+
+
+        #Adding the forwarding graph to the dictionary
+        service_request_for_infra_adaptor['forwarding_graph'] = service_request_from_gk['NSD']['forwarding_graphs']
+
+
+        #vnf_images contains a list of dictionaries
+        service_request_for_infra_adaptor['vnf_images'] = []
+
+        
+        #constructing the dictionary for each VNF
+        for key in service_request_from_gk:
+            if (key[:4] == 'VNFD'):
+                vnf_dict = {'vnf_id': service_request_from_gk[key]['vnf_id'],'url' : service_request_from_gk[key]['virtual_deployment_units']['vm_image']}
+                service_request_for_infra_adaptor['vnf_images'].append(vnf_dict)
+
+
+        #Sending the message towards the infrastructure adaptor, with callback pointer
+        self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply, INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC, yaml.dump(service_request_for_infra_adaptor))                
+
+        
+        #Reply for the GK
+        return yaml.dump({'status'    : status,        #INSTANTIATING or ERROR
+                          'error'     : error,         #NULL or a string describing the ERROR
+                          'timestamp' : time.time()})  #time() returns the number of seconds since the epoch in UTC as a float      
+
+    def on_infra_adaptor_service_deploy_reply(self, ch, method, properties, message):
+
+        """
+        This method is called when the Infrastructure Adaptor replies to a service deploy request from the SLM.
+        This response needs to be translated into a message for the GK. 
+        Based on the content of the reply message, the NSR has to be contacted.
+
+        TODO: translate message before sending GK
+        TODO: add NSR interaction
+        """
+
+        self.notify(GK_INSTANCE_CREATE_TOPIC, message)
+
+        return
 
 
 def main():
