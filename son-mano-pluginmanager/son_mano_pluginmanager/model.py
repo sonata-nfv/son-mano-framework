@@ -31,6 +31,21 @@ class Plugin(Document):
         super().save(**kwargs)
         LOG.debug("Saved: %s" % self)
 
+    def to_dict(self):
+        """
+        Convert to dict.
+        (Yes, doing it manually isn't nice but its ok with a limited number of fields and gives us more control)
+        :return:
+        """
+        res = dict()
+        res["uuid"] = self.uuid
+        res["name"] = self.name
+        res["version"] = self.version
+        res["description"] = self.description
+        res["state"] = self.state
+        res["registered_at"] = str(self.registered_at)
+        res["last_heartbeat_at"] = str(self.last_heartbeat_at)
+        return res
 
 
 def initialize(db="sonata-plugin-manager", host="127.0.0.1", port=27017, clear_db=True):

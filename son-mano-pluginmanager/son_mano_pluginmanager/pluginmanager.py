@@ -63,7 +63,7 @@ class SonPluginManager(ManoBasePlugin):
         # generate status update message
         plugin_dict = {}
         for p in model.Plugin.objects:
-            plugin_dict[p.uuid] = p.to_json()
+            plugin_dict[p.uuid] = p.to_dict()
 
         message = {"timestamp": str(datetime.datetime.now()),
                     "plugin_dict": plugin_dict}

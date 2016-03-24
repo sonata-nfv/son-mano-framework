@@ -145,7 +145,6 @@ class TestPluginManagerMessageInterface(unittest.TestCase):
             msg = json.loads(str(message, "utf-8"))
             self.assertTrue(len(msg.get("timestamp")) > 0)
             self.assertTrue(len(msg.get("plugin_dict")) > 0)
-            #self.assertTrue(self.plugin_uuid in msg.get("plugin_dict"))
             # stop waiting
             self.messageReceived()
 
