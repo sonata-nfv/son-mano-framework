@@ -8,6 +8,10 @@ LOG.setLevel(logging.DEBUG)
 
 
 class Plugin(Document):
+    """
+    This model represents a plugin that is registered to the plugin manager.
+    We use mongoengine as ORM to interact with MongoDB.
+    """
     uuid = StringField(unique=True, primary_key=True, required=True)
     name = StringField(required=True)
     version = StringField(required=True)
@@ -15,7 +19,7 @@ class Plugin(Document):
     state = StringField(required=True, max_length=16)
     registered_at = DateTimeField(default=datetime.now())
     last_heartbeat_at = DateTimeField()
-    deregistered = BooleanField(default=False)
+    #deregistered = BooleanField(default=False)
 
     def __repr__(self):
         return "Plugin(uuid=%r, name=%r, version=%r)" % (self.uuid, self.name, self.version)
