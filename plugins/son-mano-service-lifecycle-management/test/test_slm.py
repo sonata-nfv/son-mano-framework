@@ -12,34 +12,33 @@ class testSlmRegistrationAndHeartbeat(unittest.TestCase):
     Tests the registration process of the SLM to the broker and the plugin manager, and the heartbeat process.
     """
 
-    #All the tests in this testcase are performed on the same instance of the SLM
-    slm_proc = None
     manoconn = None    
 
     @classmethod
     def setUpClass(cls):
-        # create the SLM in another process so that we can connect to it using its broker interface. We start this process in the test itself, so we don't miss the communication.
-        cls.slm_proc = Process(target=ServiceLifecycleManager)
-        cls.slm_proc.daemon = True
-
         # we test the interaction between the SLM and the plugin manager. Therefore, we need to simulate the presence of such a plugin manager. We open a connection to the broker in name of the plugin manager
         cls.manoconn = ManoBrokerRequestResponseConnection('Son-plugin.SonPluginManager')
 
     @classmethod
     def tearDownClass(cls):
-        if cls.slm_proc is not None:
-            cls.slm_proc.terminate()
-            del cls.slm_proc
-#        if cls.manoconn is not None:
-#            del cls.manoconn
+        if cls.manoconn is not None:
+            del cls.manoconn
 
     def setUp(self):
+        #a new SLM in another process for each test
+        self.slm_proc = Process(target=ServiceLifecycleManager)
+        self.slm_proc.daemon = True
+    
+        #Some threading events that can be used during the tests
         self.wait_for_reply = threading.Event()
         self.wait_for_reply.clear()
         self.wait_for_analysis = threading.Event()
         self.wait_for_analysis.clear()
 
     def tearDown(self):
+        if self.slm_proc is not None:
+            self.slm_proc.terminate()
+        del self.slm_proc
         del self.wait_for_reply    
         del self.wait_for_analysis    
 
@@ -61,8 +60,6 @@ class testSlmRegistrationAndHeartbeat(unittest.TestCase):
         if not self.wait_for_analysis.wait(timeout):
             raise Exception("Timeout in wait for analysis.")
         
-           
-
     def testSlmRegistration(self):
         """
         TEST: This test verifies whether the SLM is sending out a message, and whether it contains all the needed info on the platform.management.plugin.register topic to register to the plugin manager. 
@@ -110,7 +107,16 @@ class testSlmRegistrationAndHeartbeat(unittest.TestCase):
         #When the message is received, on_register_receive needs some time to evaluate it
         self.waitForAnalysis()
 
-    
+    def testSlmHeartbeat(self):
+        """
+        TEST: This test verifies whether the SLM sends out a heartbeat as intended, once it is registered.
+        """
+
+        self.slm_proc = None
+
+if __name__ == '__main__':
+    unittest.main()
+        
 
         
                 
