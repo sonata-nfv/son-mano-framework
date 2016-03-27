@@ -16,7 +16,7 @@ class testSlmRegistrationAndHeartbeat(unittest.TestCase):
         #a new SLM in another process for each test
         self.slm_proc = Process(target=ServiceLifecycleManager)
         self.slm_proc.daemon = True
-        #make a new connection with the broker before each test
+        #make a new connection with the broker before each test 
         self.manoconn = ManoBrokerRequestResponseConnection('Son-plugin.SonPluginManager')
 
         #Some threading events that can be used during the tests
