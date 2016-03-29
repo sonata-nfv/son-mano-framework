@@ -1,6 +1,9 @@
 FROM python:3.4-slim
 MAINTAINER SONATA
 
+# configrurations
+ENV mongo_host mongo
+
 ADD son-mano-base /son-mano-base
 ADD son-mano-pluginmanager /son-mano-pluginmanager
 ADD son-mano-pluginmanager/broker.config /etc/son-mano/broker.config

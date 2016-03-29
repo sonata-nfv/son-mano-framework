@@ -16,6 +16,8 @@ The following lead developers are responsible for this repository and have admin
 * Python 3.4
 
 ## Dependencies
+* MongoDB
+* mongoengine
 * Docker
 * docker-compose
 * RabbitMQ
@@ -28,7 +30,6 @@ The following lead developers are responsible for this repository and have admin
 * `libs/` contains any supporting libraries
 * `plugins/` contains MANO plugin implementations
 * `son-mano-base/` abstract base classes for plugins, messaging support
-* `son-mano-broker/` the message broker (a Dockerimage containing a default RabbitMQ installation)
 * `son-mano-pluginmanager/` the plugin manager component
 * `test/` entry points (bash scripts) to trigger tests of sub-components (e.g., for CI/CD)
 * `utils/` helper functionality, scripts, tools
@@ -42,6 +43,7 @@ The following lead developers are responsible for this repository and have admin
 ### Run directly:
 
 * Requires a locally running RabbitMQ instance
+* Requires a locally running MongoDB instance for the pluginmanager
 * Do a `python setup.py develop` for each component
 
 
@@ -64,14 +66,16 @@ What will happen? The example plugin will ...
 ### Docker support
 #### Build Docker containers for each component
 
-* `docker build -t broker -f son-mano-broker/Dockerfile .`
 * `docker build -t pluginmanager -f son-mano-pluginmanager/Dockerfile .`
 * `docker build -t exampleplugin -f plugins/son-mano-example-plugin-1/Dockerfile .`
 
 #### Run each component as a container
 
-* `docker run -d -p 5672:5672 --name broker broker`
-* `docker run -it --link broker:broker --name pluginmanager pluginmanager`
+We need to run a default RabbitMQ and a default MonoDB container before we can run our own components.
+
+* `docker run -d -p 5672:5672 --name broker rabbitmq:3`
+* `docker run -d -p 27017:27017 --name mongo mongo`
+* `docker run -it --link broker:broker --link mongo:mongo --name pluginmanager pluginmanager`
 * `docker run -it --link broker:broker --name exampleplugin exampleplugin`
 
 

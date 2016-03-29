@@ -11,6 +11,7 @@ import logging
 import json
 import datetime
 import uuid
+import os
 from mongoengine import DoesNotExist
 
 from sonmanobase.plugin import ManoBasePlugin
@@ -30,8 +31,13 @@ class SonPluginManager(ManoBasePlugin):
     """
 
     def __init__(self):
+        # get configs from ENV
+        mongo_host = os.environ.get("mongo_host")
+        if mongo_host is None:
+            mongo_host = "127.0.0.1"
+
         # initialize plugin DB model
-        model.initialize()
+        model.initialize(host=mongo_host)
         # call super class to do all the messaging and registration overhead
         super(self.__class__, self).__init__(auto_register=False,
                                              auto_heartbeat_rate=0)
