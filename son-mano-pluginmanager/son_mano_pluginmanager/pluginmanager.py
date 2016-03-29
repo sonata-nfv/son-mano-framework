@@ -3,10 +3,6 @@ Created by Manuel Peuster <manuel@peuster.de>
 
 This is the main module of the plugin manager component.
 """
-
-# TODO encapsulate plugin objects in a class
-# TODO make plugin registration state persistant in a DB (Mongo?)
-
 import logging
 import json
 import datetime
@@ -16,11 +12,12 @@ from mongoengine import DoesNotExist
 
 from sonmanobase.plugin import ManoBasePlugin
 from son_mano_pluginmanager import model
+from son_mano_pluginmanager import interface
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("son-mano-pluginmanger")
 LOG.setLevel(logging.DEBUG)
-logging.getLogger("son-mano-base:messaging").setLevel(logging.DEBUG)
+logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
 
 class SonPluginManager(ManoBasePlugin):
@@ -35,6 +32,9 @@ class SonPluginManager(ManoBasePlugin):
         mongo_host = os.environ.get("mongo_host")
         if mongo_host is None:
             mongo_host = "127.0.0.1"
+
+        # start up management interface
+        interface.start()
 
         # initialize plugin DB model
         model.initialize(host=mongo_host)

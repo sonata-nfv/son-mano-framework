@@ -24,6 +24,8 @@ The following lead developers are responsible for this repository and have admin
 * pika
 * pytest
 * pytest-runner
+* Flask
+* flask-restful
 
 ## Folder structure
 
