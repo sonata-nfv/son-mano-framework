@@ -3,10 +3,11 @@ MAINTAINER SONATA
 
 # configrurations
 ENV mongo_host mongo
+ENV broker_host amqp://guest:guest@broker:5672/%2F
+ENV broker_exchange son-kernel
 
 ADD son-mano-base /son-mano-base
 ADD son-mano-pluginmanager /son-mano-pluginmanager
-ADD son-mano-pluginmanager/broker.config /etc/son-mano/broker.config
 ADD utils/delayedstart.sh /delayedstart.sh
 
 
