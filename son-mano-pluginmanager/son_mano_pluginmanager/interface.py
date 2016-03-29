@@ -12,11 +12,42 @@ LOG.setLevel(logging.DEBUG)
 logging.getLogger("werkzeug").setLevel(logging.WARNING)
 
 
+class PluginsEndpoint(fr.Resource):
+
+    def get(self):
+        LOG.warning("Not implemented: GET.")
+        return "Not implemented.", 500
+
+
+class PluginEndpoint(fr.Resource):
+
+    def get(self, plugin_uuid=None):
+        LOG.warning("Not implemented: GET. Arguments: plugin_uuid=%r" % plugin_uuid)
+        return "Not implemented.", 500
+
+    def delete(self, plugin_uuid=None):
+        LOG.warning("Not implemented: DELETE. Arguments: plugin_uuid=%r" % plugin_uuid)
+        return "Not implemented.", 500
+
+
+class PluginLifecycleEndpoint(fr.Resource):
+
+    def get(self, plugin_uuid=None):
+        LOG.warning("Not implemented: GET. Arguments: plugin_uuid=%r" % plugin_uuid)
+        return "Not implemented.", 500
+
+    def put(self, plugin_uuid=None):
+        LOG.warning("Not implemented: PUT. Arguments: plugin_uuid=%r" % plugin_uuid)
+        return "Not implemented.", 500
+
+
 # setup Flask
 app = Flask(__name__)
 api = fr.Api(app)
-# define endpoints
-# TODO
+# register endpoints
+api.add_resource(PluginsEndpoint, "/api/plugins")
+api.add_resource(PluginEndpoint, "/api/plugins/<string:plugin_uuid>")
+api.add_resource(PluginLifecycleEndpoint, "/api/plugins/<string:plugin_uuid>/lifecycle")
 
 
 def _start_flask(host, port):
