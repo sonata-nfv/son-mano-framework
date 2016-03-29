@@ -1,6 +1,7 @@
 import unittest
 import time
 import json
+import yaml
 import threading
 from multiprocessing import Process
 from son_mano_slm.slm import ServiceLifecycleManager
@@ -122,7 +123,7 @@ class testSlmRegistrationAndHeartbeat(unittest.TestCase):
             else:
                 #CHECK: The value of 'version' should be a string
                 self.assertEqual(True, False, msg='version is not a string')
-            #CHECK: The dictionary should have a key 'description'.
+            #CHECK: The dictionary should have a key 'description'
             self.assertIn('description', msg.keys(), msg='No description provided in message.')
             if isinstance(msg['description'], str):
                 #CHECK: The value of 'description' should not be an empty string.
@@ -143,6 +144,112 @@ class testSlmRegistrationAndHeartbeat(unittest.TestCase):
         #STEP3b: When not receiving the message, the test failed 
         self.waitForEvent(timeout=5,msg="message not received.")
 
+
+class testSlmFunctionality(unittest.TestCase):
+    """
+    Tests the tasks that the SLM should perform in the service life cycle of the network services.
+    """
+
+    slm_proc    = None
+    manoconn_pm = None
+    uuid        = '1'
+
+    @classmethod
+    def setUpClass(cls):
+        """
+        Starts the SLM instance and takes care if its registration.
+        """
+        def on_register_trigger(ch, method, properties, message):
+            return json.dumps({'status':'OK','uuid':cls.uuid})
+
+        #Some threading events that can be used during the tests
+        cls.wait_for_event = threading.Event()
+        cls.wait_for_event.clear()
+
+        #Deploy SLM and a connection to the broker
+        cls.slm_proc = Process(target=ServiceLifecycleManager)
+        cls.slm_proc.daemon = True
+        cls.manoconn_pm = ManoBrokerRequestResponseConnection('Son-plugin.SonPluginManager')
+        cls.manoconn_pm.subscribe(on_register_trigger,'platform.management.plugin.register')
+        cls.slm_proc.start()
+        #wait until registration process finishes
+        if not cls.wait_for_event.wait(timeout=5):
+            pass
+
+    @classmethod
+    def tearDownClass(cls):
+        if cls.slm_proc is not None:
+            cls.slm_proc.terminate()
+            del cls.slm_proc
+        cls.manoconn_pm.stop_connection()
+
+    def setUp(self):
+        #We make a spy connection to listen to the different topics on the broker
+        self.manoconn_spy = ManoBrokerRequestResponseConnection('Son-plugin.SonSpy')
+        #we need a connection to simulate messages from the gatekeeper
+        self.manoconn_gk = ManoBrokerRequestResponseConnection('Son-plugin.SonGateKeeper')
+
+    def tearDown(self):
+        self.manoconn_spy.stop_connection()
+        self.manoconn_gk.stop_connection()
+
+    def createGkNewServiceRequestMessage(self):
+        """
+        This method helps creating messages for the service request packets.
+        """
+        #For now, the message is a dummy dictionary. Later, it should import the example discriptors from the son-schema repository.
+        NSD = {'forwarding_graphs' : 'This is a forwarding graph'}
+        VNFD1 = {}
+        VNFD2 = {}
+
+        VNFD1['vnf_id'] = 'This is a vnf_id'
+        VNFD2['vnf_id'] = 'This is a vnf_id'
+        VNFD1['virtual_deployment_units'] = {'vm_image' : 'this is an url'}
+        VNFD2['virtual_deployment_units'] = {'vm_image' : 'this is an url'}
+
+        service_request = {'NSD':NSD, 'VNFD1':VNFD1, 'VNFD2':VNFD2}
+
+        return yaml.dump(service_request)
+
+    #Method that terminates the timer that waits for an event
+    def eventFinished(self):
+        self.wait_for_event.set()
+
+    #Method that starts a timer, waiting for an event
+    def waitForEvent(self, timeout=5, msg="Event timed out."):
+        if not self.wait_for_event.wait(timeout):
+            self.assertEqual(True, False, msg=msg)
+
+    def on_slm_infra_adaptor_instantiation(self, ch, method, properties, message):
+
+        msg = yaml.load(message)
+        self.assertIn('forwarding_graph', msg.keys(), msg='forwarding_graph is not a key.')
+        self.assertIn('vnf_images', msg.keys(), msg='vnf_images is not a key.')
+        
+        for vnf in msg['vnf_images']:
+            self.assertIn('vnf_id', vnf.keys(), msg='vnf_id is not a key.')
+            self.assertIn('url', vnf.keys(), msg='url is not a key.')
+        
+        self.eventFinished()
+
+    def on_gk_response_service_request(self, ch, method, properties, message):
+
+        #TODO
+        return
+
+    def testResponseToGkNewServiceRequest(self):
+        """
+        This method tests the reaction of the SLM when it receives a message from the gk, targetted to the infrastructure adaptor.
+        """
+        
+        #STEP1: Spy the topic on which the SLM will contact the infrastructure adaptor
+        self.manoconn_spy.subscribe(self.on_slm_infra_adaptor_instantiation, 'infrastructure.service.deploy')
+
+        #STEP2: Send a service request message (from the gk) to the SLM
+        self.manoconn_gk.call_async(self.on_gk_response_service_request, 'service.instances.create', msg=self.createGkNewServiceRequestMessage(), content_type='application/yaml', correlation_id='sr1')
+
+        #STEP3: Start waiting for the messages that are triggered by this request
+        self.waitForEvent(timeout=10)
 
 if __name__ == '__main__':
     unittest.main()
