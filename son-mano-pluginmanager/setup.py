@@ -11,7 +11,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name='son-mano-pluginmanager',
+    name='son_mano_pluginmanager',
 
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
@@ -35,7 +35,7 @@ setup(
     keywords='NFV orchestrator',
 
     packages=find_packages(),
-    install_requires=['pika', 'pytest'],
+    install_requires=['pika', 'pytest', 'mongoengine'],
     setup_requires=['pytest-runner'],
 
     # To provide executable scripts, use entry points in preference to the

@@ -1,8 +1,12 @@
 broker:
-  build: .
-  dockerfile: son-mano-broker/Dockerfile
+  image: rabbitmq:3
   ports:
    - "5672:5672"
+
+mongo:
+  image: mongo
+  ports:
+   - "27017:27017"
 
 pluginmanager:
   build: .
@@ -10,6 +14,7 @@ pluginmanager:
   entrypoint: /bin/bash /delayedstart.sh 5 son-mano-pluginmanager
   links:
   - broker
+  - mongo
 
 exampleplugin:
   build: .

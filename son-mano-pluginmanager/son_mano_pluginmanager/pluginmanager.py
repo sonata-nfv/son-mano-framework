@@ -9,15 +9,18 @@ This is the main module of the plugin manager component.
 
 import logging
 import json
-import time
 import datetime
 import uuid
+import os
+from mongoengine import DoesNotExist
 
 from sonmanobase.plugin import ManoBasePlugin
+from son_mano_pluginmanager import model
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("son-mano-pluginmanger")
 LOG.setLevel(logging.DEBUG)
+logging.getLogger("son-mano-base:messaging").setLevel(logging.DEBUG)
 
 
 class SonPluginManager(ManoBasePlugin):
@@ -28,8 +31,13 @@ class SonPluginManager(ManoBasePlugin):
     """
 
     def __init__(self):
-        # plugin management: simple dict for bookkeeping
-        self.plugins = {}
+        # get configs from ENV
+        mongo_host = os.environ.get("mongo_host")
+        if mongo_host is None:
+            mongo_host = "127.0.0.1"
+
+        # initialize plugin DB model
+        model.initialize(host=mongo_host)
         # call super class to do all the messaging and registration overhead
         super(self.__class__, self).__init__(auto_register=False,
                                              auto_heartbeat_rate=0)
@@ -49,7 +57,7 @@ class SonPluginManager(ManoBasePlugin):
         :return:
         """
         self.manoconn.notify(
-            "platform.management.plugin.%s.lifecycle.start" % str(plugin.get("uuid")))
+            "platform.management.plugin.%s.lifecycle.start" % str(plugin.uuid))
 
     def send_plugin_status_update(self):
         """
@@ -59,8 +67,12 @@ class SonPluginManager(ManoBasePlugin):
         This method should always be called when the status of a plugin changes.
         """
         # generate status update message
+        plugin_dict = {}
+        for p in model.Plugin.objects:
+            plugin_dict[p.uuid] = p.to_dict()
+
         message = {"timestamp": str(datetime.datetime.now()),
-                    "plugin_dict": self.plugins}
+                    "plugin_dict": plugin_dict}
         # broadcast plugin status update message
         self.manoconn.notify(
             "platform.management.plugin.status", json.dumps(message))
@@ -76,20 +88,24 @@ class SonPluginManager(ManoBasePlugin):
         """
         message = json.loads(str(message, "utf-8"))
         pid = str(uuid.uuid4())
-        # simplified example for plugin bookkeeping (replace this with real functionality)
-        self.plugins[pid] = message
-        # add some fields to record
-        self.plugins[pid]["uuid"] = pid
-        self.plugins[pid]["state"] = "REGISTERED"
-        self.plugins[pid]["resgister_time"] = str(datetime.datetime.now())
-        self.plugins[pid]["last_heartbeat"] = None
-        self.plugins[pid]["started"] = False
-        LOG.info("REGISTERED: %r with UUID %r" % (message.get("name"), pid))
+        # create a entry in our plugin database
+        p = model.Plugin(
+            uuid=pid,
+            name=message.get("name"),
+            version=message.get("version"),
+            description=message.get("description"),
+            state="REGISTERED"
+        )
+        p.save()
+        LOG.info("REGISTERED: %r" % p)
         # broadcast a plugin status update to the other plugin
         self.send_plugin_status_update()
         # return result
         response = {
             "status": "OK",
+            "name": p.name,
+            "version": p.version,
+            "description": p.description,
             "uuid": pid,
             "error": None
         }
@@ -104,9 +120,13 @@ class SonPluginManager(ManoBasePlugin):
         :return: response message
         """
         message = json.loads(str(message, "utf-8"))
-        # simplified example for plugin bookkeeping
-        if message.get("uuid") in self.plugins:
-            del self.plugins[message.get("uuid")]
+
+        try:
+            p = model.Plugin.objects.get(uuid=message.get("uuid"))
+            p.delete()
+        except DoesNotExist:
+            LOG.warning("Couldn't find plugin with UUID %r in DB" % pid)
+
         LOG.info("DE-REGISTERED: %r" % message.get("uuid"))
         # broadcast a plugin status update to the other plugin
         self.send_plugin_status_update()
@@ -120,19 +140,30 @@ class SonPluginManager(ManoBasePlugin):
         message = json.loads(str(message, "utf-8"))
         pid = message.get("uuid")
 
-        if pid in self.plugins:
-            self.plugins[pid]["last_heartbeat"] = str(datetime.datetime.now())
+        try:
+            p = model.Plugin.objects.get(uuid=pid)
+
+            # update heartbeat timestamp
+            p.last_heartbeat_at = datetime.datetime.now()
+
+            change = False
+
             # TODO ugly: state management of plugins should be hidden with plugin class
-            if message.get("state") == "READY" and self.plugins[pid]["state"] != "READY":
+            if message.get("state") == "READY" and p.state != "READY":
                 # a plugin just announced that it is ready, lets start it
-                self.send_start_notification(self.plugins[pid])
-                # there was a state change lets schedule an plugin status update notification
-                self.send_plugin_status_update()
-            elif message.get("state") != self.plugins[pid]["state"]:
+                self.send_start_notification(p)
+                change = True
+            elif message.get("state") != p.state:
                 # lets keep track of the reported state update
-                self.plugins[pid]["state"] = message.get("state")
+                p.state = message.get("state")
+                change = True
+
+            p.save()
+            if change:
                 # there was a state change lets schedule an plugin status update notification
                 self.send_plugin_status_update()
+        except DoesNotExist:
+            LOG.warning("Couldn't find plugin with UUID %r in DB" % pid)
 
 
 def main():
