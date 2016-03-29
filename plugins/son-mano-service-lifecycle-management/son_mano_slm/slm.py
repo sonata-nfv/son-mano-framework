@@ -41,7 +41,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         :return:
         """
         # call super class (will automatically connect to broker and register the SLM to the plugin manger)
-        super(self.__class__, self).__init__(version="0.1-dev")
+        super(self.__class__, self).__init__(version="0.1-dev",description="This is the SLM plugin")
 
     def __del__(self):
         """

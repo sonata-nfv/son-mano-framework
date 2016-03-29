@@ -103,6 +103,9 @@ class SonPluginManager(ManoBasePlugin):
         # return result
         response = {
             "status": "OK",
+            "name": p.name,
+            "version": p.version,
+            "description": p.description,
             "uuid": pid,
             "error": None
         }
