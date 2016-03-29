@@ -21,11 +21,9 @@ logging.getLogger('pika').setLevel(logging.ERROR)
 LOG = logging.getLogger("son-mano-base:messaging")
 LOG.setLevel(logging.DEBUG)
 
-# path where a broker configuration file is searched (contains e.g. the broker URL)
-BROKER_CONFIG_PATH = "/etc/son-mano/broker.config"
-# if we don't find a broker configuration file, we use this URL as default
+# if we don't find a broker configuration in our ENV, we use this URL as default
 RABBITMQ_URL_FALLBACK = "amqp://guest:guest@localhost:5672/%2F"
-# if we don't find a broker configuration file, we use this exchange as default
+# if we don't find a broker configuration in our ENV, we use this exchange as default
 RABBITMQ_EXCHANGE_FALLBACK = "son-kernel"
 
 
@@ -56,23 +54,21 @@ class ManoBrokerConnection(object):
         # trigger connection setup (without blocking)
         self.setup_connection()
 
-    def _load_broker_configuration(self, path=BROKER_CONFIG_PATH):
+    def _load_broker_configuration(self):
         """
-        Tries to load the broker configuration file (if present).
-        File is given in JSON.
-        :param path: path to check for the config file
+        Tries to get broker configuration from ENV variables.
+        Uses fallback values if nothing is found.
         :return: dictionary
         """
-        try:
-            with open(path, encoding='utf-8') as f:
-                config = json.loads(f.read())
-                LOG.info("Broker configuration found: %r" % path)
-                return config
-        except Exception as e:
-            LOG.info("No broker configuration found in %r. Using defaults." % path)
-            # LOG.exception(e)
-        return dict(broker_url=RABBITMQ_URL_FALLBACK,
-                    exchange=RABBITMQ_EXCHANGE_FALLBACK)
+        broker_host = os.environ.get("broker_host")
+        broker_exchange = os.environ.get("broker_exchange")
+        if broker_host is None:
+            broker_host = RABBITMQ_URL_FALLBACK
+        if broker_exchange is None:
+            broker_exchange = RABBITMQ_EXCHANGE_FALLBACK
+        bc = dict(broker_url=broker_host, exchange=broker_exchange)
+        LOG.info("Broker config: %r" % bc)
+        return bc
 
     def setup_connection(self, blocking=False):
         """

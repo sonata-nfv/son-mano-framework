@@ -1,8 +1,11 @@
 FROM python:3.4-slim
 MAINTAINER SONATA
 
+# Configuration
+ENV broker_host amqp://guest:guest@broker:5672/%2F
+ENV broker_exchange son-kernel
+
 ADD son-mano-base /son-mano-base
-ADD son-mano-base/broker.config /etc/son-mano/broker.config
 ADD utils/delayedstart.sh /delayedstart.sh
 
 
