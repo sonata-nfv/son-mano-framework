@@ -6,6 +6,7 @@ This is SONATA's service lifecycle management plugin
 import logging
 import yaml
 import time
+import requests
 from sonmanobase.plugin import ManoBasePlugin
 
 logging.basicConfig(level=logging.INFO)
@@ -20,6 +21,9 @@ GK_INSTANCE_CREATE_TOPIC = "service.instances.create"
 
 # The topic to which service instance deploy replies of the Infrastructure Adaptor are published
 INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC = "infrastructure.service.deploy"
+
+# The NSR Repository can be accessed through a RESTful API
+NSR_REPOSITORY_URL = "http://api.int.sonata-nfv.eu:4000/records/nsr/"
 
 
 class ServiceLifecycleManager(ManoBasePlugin):
@@ -102,44 +106,38 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         LOG.info("GK service.instance.start event")
 
-        """
-        TODO: We need to check whether the received message is formatted as expected.
-        TODO: We need to define what can go wrong during this method to report back to the gk 
-        """
+        #TODO: We need to check whether the received message is formatted as expected.
+        #TODO: We need to define what can go wrong during this method to report back to the gk 
+ 
         status = 'INSTANTIATING'
         error = None
 
-        """
-        The request data is in the message as a yaml file, constructed like:
-        ---
-        NSD:
-                descriptor_version:
-                ...
-        VNFD1:
-                descriptor_version:
-                ...
-        VNFD2:
-                descriptor_version:
-                ...
-        ...
-        """
+        #The request data is in the message as a yaml file, constructed like:
+        #---
+        #NSD:
+        #        descriptor_version:
+        #        ...
+        #VNFD1:
+        #        descriptor_version:
+        #        ...
+        #VNFD2:
+        #        descriptor_version:
+        #        ...
+        #...
 
         service_request_from_gk = yaml.load(message)
 
-        """
-        The slm reacts to this service_intance_create message with a call_async() to infrastructure.service.deploy
-        The response message is a yaml file, constructed like:
-        ---
-        forwarding_graph:
-                ...
-        vnf_images:
-                - vnf_id:
-                  url:
-                - vnf_id:
-                  url
-                - ...
-        
-        """
+        #The slm reacts to this service_intance_create message with a call_async() to infrastructure.service.deploy
+        #The response message is a yaml file, constructed like:
+        #---
+        #forwarding_graph:
+        #        ...
+        #vnf_images:
+        #        - vnf_id:
+        #          url:
+        #        - vnf_id:
+        #          url
+        #        - ...
 
         #The message for the infrastructure adaptor is a yaml file, built from a dictionary
         service_request_for_infra_adaptor = {}
@@ -174,20 +172,35 @@ class ServiceLifecycleManager(ManoBasePlugin):
                           'timestamp' : time.time()})  #time() returns the number of seconds since the epoch in UTC as a float      
 
     def on_infra_adaptor_service_deploy_reply(self, ch, method, properties, message):
-
         """
         This method is called when the Infrastructure Adaptor replies to a service deploy request from the SLM.
-        This response needs to be translated into a message for the GK. 
         Based on the content of the reply message, the NSR has to be contacted.
-
-        TODO: translate message before sending GK
-        TODO: add NSR interaction
+        The GK should be notified of the result of the service request.
         """
+        msg = yaml.load(message)
+        #TODO: filter result of service request out of the message
+        request_status = 'RUNNING'
+        if request_status == 'RUNNING':
+            #Add NSR and VNFRs to Repositories
+            #TODO: Build NSR and VNFRs from the information returned by the IA
+            nsr_data   = {'info':'dummy1'}
+            vnfr1_data = {'info':'dummy2'}
+            vnfr2_data = {'info':'dummy3'}
+            #TODO: Use REST API of repositories to store these records
+            #nsr_response = postNsrToRepository(nsr_data, {'Content-Type':'application/json'})
+            #Inform the GK
+            #TODO: add correlation_id, build message for GK, add info on NSR, VNFRs
+            self.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump({'request_status':request_status}))
+        else:
+            #Inform the GK
+            #TODO: add correlation_id, build message for GK
+            self.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump({'request_status':request_status}))
 
-        self.notify(GK_INSTANCE_CREATE_TOPIC, message)
+    def postNsrToRepository(self, nsr, headers):
 
-        return
+        return requests.post(NSR_REPOSITORY_URL + 'ns-instances', data=nsr, headers=headers)
 
+        
 
 def main():
     """
