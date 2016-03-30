@@ -181,7 +181,7 @@ class testSlmFunctionality(unittest.TestCase):
         if cls.slm_proc is not None:
             cls.slm_proc.terminate()
             del cls.slm_proc
-        cls.manoconn_pm.stop_connection()
+#        cls.manoconn_pm.stop_connection()
 
     def setUp(self):
         #We make a spy connection to listen to the different topics on the broker
