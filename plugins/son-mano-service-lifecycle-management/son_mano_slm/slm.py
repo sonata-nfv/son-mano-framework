@@ -154,10 +154,15 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         
         #constructing the dictionary for each VNF
-        for key in service_request_from_gk:
+        print('######')
+        for key in service_request_from_gk.keys():
             if (key[:4] == 'VNFD'):
-                vnf_dict = {'vnf_id': service_request_from_gk[key]['vnf_id'],'url' : service_request_from_gk[key]['virtual_deployment_units']['vm_image']}
-                service_request_for_infra_adaptor['vnf_images'].append(vnf_dict)
+                #Determine which vnf_id is mapped to vnf_name, vnf_version, vnf_group.
+                vnf_descriptor = service_request_from_gk[key]
+                for network_function in service_request_from_gk['NSD']['network_functions']:
+                    if (network_function['vnf_name'] == vnf_descriptor['vnf_name']) and (network_function['vnf_group'] == vnf_descriptor['vnf_group']) and (network_function['vnf_version'] == vnf_descriptor['vnf_version']):
+                        vnf_dict = {'vnf_id': network_function['vnf_id'],'url' : vnf_descriptor['virtual_deployment_units'][0]['vm_image']}
+                        service_request_for_infra_adaptor['vnf_images'].append(vnf_dict)
 
 
         #Sending the message towards the infrastructure adaptor, with callback pointer
