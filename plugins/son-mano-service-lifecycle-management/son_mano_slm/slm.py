@@ -154,7 +154,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         
         #constructing the dictionary for each VNF
-        print('######')
         for key in service_request_from_gk.keys():
             if (key[:4] == 'VNFD'):
                 #Determine which vnf_id is mapped to vnf_name, vnf_version, vnf_group.
