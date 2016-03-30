@@ -1,0 +1,114 @@
+##
+## This is the network service descriptor of the
+## SONATA demo example that comprises a traffic
+## source, namely iperf, a firewall, and a traffic
+## sink, namely tcpdump.
+##
+## @author Michael Bredel
+##
+---
+descriptor_version: "1.0"
+
+ns_group: "eu.sonata-nfv.service-descriptor"
+ns_name: "sonata-demo"
+ns_version: "0.1"
+ns_author: "Michael Bredel, NEC Labs Europe"
+ns_description: >
+  "The network service descriptor for the SONATA demo,
+   comprising iperf, a firewall, and tcpump."
+
+##
+## The various network functions this service
+## is composed of.
+##
+network_functions:
+  - vnf_id: "vnf_firewall"
+    vnf_group: "eu.sonata-nfv"
+    vnf_name: "firewall-vnf"
+    vnf_version: "0.1"
+  - vnf_id: "vnf_iperf"
+    vnf_group: "eu.sonata-nfv"
+    vnf_name: "iperf-vnf"
+    vnf_version: "0.1"
+  - vnf_id: "vnf_tcpdump"
+    vnf_group: "eu.sonata-nfv"
+    vnf_name: "tcpdump-vnf"
+    vnf_version: "0.1"
+
+##
+## The NS connection points to the 
+## outside world.
+##
+connection_points:
+  - id: "ns:mgmt"
+    type: "interface"
+  - id: "ns:input"
+    type: "interface"
+  - id: "ns:output"
+    type: "interface"
+
+##
+## The virtual links that interconnect
+## the different connections points.
+##
+virtual_links:
+  - id: "mgmt"
+    connectivity_type: "E-LAN"
+    connection_points_reference:
+      - "vnf_iperf:mgmt"
+      - "vnf_firewall:mgmt"
+      - "vnf_tcpdump:mgmt"
+      - "ns:mgmt"
+  - id: "input-2-iperf"
+    connectivity_type: "E-Line"
+    connection_points_reference:
+      - "ns:input"
+      - "vnf_iperf:input"
+  - id: "iperf-2-firewall"
+    connectivity_type: "E-Line"
+    connection_points_reference:
+      - "vnf_iperf:output"
+      - "vns_firewall:input"
+  - id: "firewall-2-tcpdump"
+    connectivity_type: "E-Line"
+    connection_points_reference:
+      - "vns_firewall:output"
+      - "vnf_tcpdump:input"
+  - id: "tcpdump-2-output"
+    connectivity_type: "E-Line"
+    connection_points_reference:
+      - "vnf_firewall:output"
+      - "ns:output"
+
+##
+## The forwarding graphs.
+##
+forwarding_graphs:
+  - fg_id: "ns:fg01"
+    number_of_endpoints: 2
+    number_of_virtual_links: 4
+    constituent_vnfs:
+      - "vnf_iperf"
+      - "vnf_firewall"
+      - "vnf_tcpdump"
+    network_forwarding_paths:
+      - fp_id: "ns:fg01:fp01"
+        policy: "none"
+        connection_points:
+          - connection_point_ref: "ns:input"
+            position: 1
+          - connection_point_ref: "vnf_iperf:input"
+            position: 2
+          - connection_point_ref: "vnf_iperf:output"
+            position: 3
+          - connection_point_ref: "vnf_firewall:input"
+            position: 4
+          - connection_point_ref: "vnf_firewall:output"
+            position: 5
+          - connection_point_ref: "vnf_tcpdump:input"
+            position: 6
+          - connection_point_ref: "vnf_tcpdump:output"
+            position: 7
+          - connection_point_ref: "ns:output"
+            position: 8
+

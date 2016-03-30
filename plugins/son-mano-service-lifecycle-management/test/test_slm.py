@@ -197,17 +197,15 @@ class testSlmFunctionality(unittest.TestCase):
         """
         This method helps creating messages for the service request packets.
         """
-        #For now, the message is a dummy dictionary. Later, it should import the example discriptors from the son-schema repository.
-        NSD = {'forwarding_graphs' : 'This is a forwarding graph'}
-        VNFD1 = {}
-        VNFD2 = {}
+        
+        path_descriptors = '/plugins/son-mano-service-lifecycle-management/test/test_descriptors/'
+    	#import the nsd and vnfds that form the service	
+        nsd_descriptor   = open(path_descriptors + 'sonata-demo.yml','r')
+        vnfd1_descriptor = open(path_descriptors + 'firewall-vnfd.yml','r')
+        vnfd2_descriptor = open(path_descriptors + 'iperf-vnfd.yml','r')
+        vnfd3_descriptor = open(path_descriptors + 'tcpdump-vnfd.yml','r')
 
-        VNFD1['vnf_id'] = 'This is a vnf_id'
-        VNFD2['vnf_id'] = 'This is a vnf_id'
-        VNFD1['virtual_deployment_units'] = {'vm_image' : 'this is an url'}
-        VNFD2['virtual_deployment_units'] = {'vm_image' : 'this is an url'}
-
-        service_request = {'NSD':NSD, 'VNFD1':VNFD1, 'VNFD2':VNFD2}
+        service_request = {'NSD': yaml.load(nsd_descriptor), 'VNFD1': yaml.load(vnfd1_descriptor), 'VNFD2': yaml.load(vnfd2_descriptor), 'VNFD3': yaml.load(vnfd3_descriptor)}
 
         return yaml.dump(service_request)
 
