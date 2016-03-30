@@ -1,0 +1,73 @@
+# YAML description of a tcpdump docker container
+# used in the SONATA platform
+
+---
+##
+## Some general information regarding this
+## VNF descriptor.
+##
+descriptor_version: "vnfd-schema-01"
+vnf_group: "eu.sonata-nfv"
+vnf_name: "tcpdump-vnf"
+vnf_version: "0.1"
+vnf_author: "Steven van Rossem, iMinds"
+vnf_description: >
+  "A first tcpdump VNF descriptor. The tcpdump
+   VNF acts as a traffic sink."
+
+##
+## The virtual deployment unit.
+##
+virtual_deployment_units:
+  - id: "vdu01"
+    vm_image: "file:///docker_files/tcpdump/Dockerfile"
+    vm_image_format: "docker"
+    resource_requirements:
+      cpu:
+        vcpus: 1
+      memory:
+        size: 2
+        size_unit: "GB"
+      storage:
+        size: 10
+        size_unit: "GB"
+    connection_points:
+      - id: "vdu01:cp01"
+        type: "interface"
+      - id: "vdu01:cp02"
+        type: "interface"
+      - id: "vdu01:cp03"
+        type: "interface"
+
+##
+## The virtual links that interconnect
+## the different connections points.
+##
+virtual_links:
+  - id: "mgmt"
+    connectivity_type: "E-LAN"
+    connection_points_reference:
+      - "vdu01:cp01"
+      - "vnf:mgmt"
+  - id: "input"
+    connectivity_type: "E-Line"
+    connection_points_reference:
+      - "vdu01:cp02"
+      - "vnf:input"
+  - id: "output"
+    connectivity_type: "E-Line"
+    connection_points_reference:
+      - "vdu01:cp03"
+      - "vnf:output"
+
+##
+## The VNF connection points to the 
+## outside world.
+##
+connection_points:
+  - id: "vnf:mgmt"
+    type: "interface"
+  - id: "vnf:input"
+    type: "interface"
+  - id: "vnf:output"
+    type: "interface"
