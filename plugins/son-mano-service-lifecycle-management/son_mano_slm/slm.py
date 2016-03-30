@@ -6,6 +6,7 @@ This is SONATA's service lifecycle management plugin
 import logging
 import yaml
 import time
+import requests
 from sonmanobase.plugin import ManoBasePlugin
 
 logging.basicConfig(level=logging.INFO)
@@ -20,6 +21,9 @@ GK_INSTANCE_CREATE_TOPIC = "service.instances.create"
 
 # The topic to which service instance deploy replies of the Infrastructure Adaptor are published
 INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC = "infrastructure.service.deploy"
+
+# The NSR Repository can be accessed through a RESTful API
+NSR_REPOSITORY_URL = "http://api.int.sonata-nfv.eu:4000/records/nsr/"
 
 
 class ServiceLifecycleManager(ManoBasePlugin):
@@ -179,19 +183,24 @@ class ServiceLifecycleManager(ManoBasePlugin):
         if request_status == 'RUNNING':
             #Add NSR and VNFRs to Repositories
             #TODO: Build NSR and VNFRs from the information returned by the IA
-            NSR   = {'info':'dummy1'}
-            VNFR1 = {'info':'dummy2'}
-            VNFR2 = {'info':'dummy3'}
+            nsr_data   = {'info':'dummy1'}
+            vnfr1_data = {'info':'dummy2'}
+            vnfr2_data = {'info':'dummy3'}
             #TODO: Use REST API of repositories to store these records
-
+            #nsr_response = postNsrToRepository(nsr_data, {'Content-Type':'application/json'})
             #Inform the GK
-            #TODO: add correlation_id, build message for GK
+            #TODO: add correlation_id, build message for GK, add info on NSR, VNFRs
             self.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump({'request_status':request_status}))
         else:
             #Inform the GK
-            #TODO: add correlation_id 
+            #TODO: add correlation_id, build message for GK
             self.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump({'request_status':request_status}))
 
+    def postNsrToRepository(self, nsr, headers):
+
+        return requests.post(NSR_REPOSITORY_URL + 'ns-instances', data=nsr, headers=headers)
+
+        
 
 def main():
     """
