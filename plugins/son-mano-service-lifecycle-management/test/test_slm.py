@@ -188,17 +188,21 @@ class testSlmFunctionality(unittest.TestCase):
         self.manoconn_spy = ManoBrokerRequestResponseConnection('Son-plugin.SonSpy')
         #we need a connection to simulate messages from the gatekeeper
         self.manoconn_gk = ManoBrokerRequestResponseConnection('Son-plugin.SonGateKeeper')
+        #we need a connection to simulate messages from the infrastructure adapter
+        self.manoconn_ia = ManoBrokerRequestResponseConnection('Son-plugin.SonInfrastructureAdapter')
+
 
     def tearDown(self):
         self.manoconn_spy.stop_connection()
         self.manoconn_gk.stop_connection()
+        self.manoconn_ia.stop_connection()
 
     def createGkNewServiceRequestMessage(self):
         """
         This method helps creating messages for the service request packets.
         """
         
-        path_descriptors = '/plugins/son-mano-service-lifecycle-management/test/test_descriptors/'
+        path_descriptors = 'plugins/son-mano-service-lifecycle-management/test/test_descriptors/'
     	#import the nsd and vnfds that form the service	
         nsd_descriptor   = open(path_descriptors + 'sonata-demo.yml','r')
         vnfd1_descriptor = open(path_descriptors + 'firewall-vnfd.yml','r')
@@ -230,9 +234,20 @@ class testSlmFunctionality(unittest.TestCase):
         
         self.eventFinished()
 
+    def on_slm_gk_response(self, ch, method, properties, message):
+        self.eventFinished()
+
     def on_gk_response_service_request(self, ch, method, properties, message):
 
         #TODO
+        return
+
+    def on_service_deployment_response(self, ch, method, properties, message):
+        msg =  yaml.load(message)
+        self.assertIn('request_status', msg.keys(), msg='request_status is not a key')
+        return
+
+    def do_nothing(self, ch, method, properties, message):
         return
 
     def testResponseToGkNewServiceRequest(self):
@@ -245,6 +260,24 @@ class testSlmFunctionality(unittest.TestCase):
 
         #STEP2: Send a service request message (from the gk) to the SLM
         self.manoconn_gk.call_async(self.on_gk_response_service_request, 'service.instances.create', msg=self.createGkNewServiceRequestMessage(), content_type='application/yaml', correlation_id='sr1')
+
+        #STEP3: Start waiting for the messages that are triggered by this request
+        self.waitForEvent(timeout=10)
+
+    def createInfrastructureAdapterResponseMessage(self):
+        path_descriptors = 'plugins/son-mano-service-lifecycle-management/test/test_descriptors/'
+
+        ia_nsr = open(path_descriptors + 'infrastructure-adapter-nsr.yml','r')
+
+        return str(yaml.load(ia_nsr))
+
+    def test_on_infra_adaptor_service_deploy_reply(self):
+
+        #STEP1: Spy the topic on which the SLM will contact the GK
+        self.manoconn_spy.subscribe(self.on_service_deployment_response, 'service.instances.create')
+
+        #STEP2: Send a service deployment response from Inrastructure Adapter to the SLM
+        self.manoconn_ia.call_async(self.do_nothing, "infrastructure.service.deploy", msg=self.createInfrastructureAdapterResponseMessage(), content_type='application/yaml')
 
         #STEP3: Start waiting for the messages that are triggered by this request
         self.waitForEvent(timeout=10)

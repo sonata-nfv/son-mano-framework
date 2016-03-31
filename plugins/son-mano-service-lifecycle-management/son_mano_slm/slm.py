@@ -7,6 +7,9 @@ import logging
 import yaml
 import time
 import requests
+import uuid
+import json
+
 from sonmanobase.plugin import ManoBasePlugin
 
 logging.basicConfig(level=logging.INFO)
@@ -23,7 +26,7 @@ GK_INSTANCE_CREATE_TOPIC = "service.instances.create"
 INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC = "infrastructure.service.deploy"
 
 # The NSR Repository can be accessed through a RESTful API
-NSR_REPOSITORY_URL = "http://api.int.sonata-nfv.eu:4000/records/nsr/"
+NSR_REPOSITORY_URL = "http://api.int.sonata-nfv.eu:4002/records/nsr/"
 
 
 class ServiceLifecycleManager(ManoBasePlugin):
@@ -70,7 +73,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #
         # SLM <-> infra. adaptor interface
         #
-        # TODO implement reply topics for infrastructure adapter
+        self.manoconn.register_async_endpoint(self.on_infra_adaptor_service_deploy_reply, INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC)
 
     def on_lifecycle_start(self, ch, method, properties, message):
         """
@@ -178,26 +181,26 @@ class ServiceLifecycleManager(ManoBasePlugin):
         The GK should be notified of the result of the service request.
         """
         msg = yaml.load(message)
-        #TODO: filter result of service request out of the message
-        request_status = 'RUNNING'
+        # filter result of service request out of the message
+        request_status = msg["request_status"]
         if request_status == 'RUNNING':
             #Add NSR and VNFRs to Repositories
-            #TODO: Build NSR and VNFRs from the information returned by the IA
-            nsr_data   = {'info':'dummy1'}
-            vnfr1_data = {'info':'dummy2'}
-            vnfr2_data = {'info':'dummy3'}
-            #TODO: Use REST API of repositories to store these records
-            #nsr_response = postNsrToRepository(nsr_data, {'Content-Type':'application/json'})
+            nsr_request = msg["nsr"];
+            if ("id" not in nsr_request):
+                nsr_request["id"] = uuid.uuid4().hex
+            nsr_request["vnfr"] = msg["vnfr"]
+
+            nsr_response = self.postNsrToRepository(json.dumps(nsr_request), {'Content-Type':'application/json'})
+            # TODO: handle response from repository
             #Inform the GK
             #TODO: add correlation_id, build message for GK, add info on NSR, VNFRs
-            self.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump({'request_status':request_status}))
+            self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump({'request_status':request_status}))
         else:
             #Inform the GK
             #TODO: add correlation_id, build message for GK
-            self.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump({'request_status':request_status}))
+            self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump({'request_status':request_status}))
 
     def postNsrToRepository(self, nsr, headers):
-
         return requests.post(NSR_REPOSITORY_URL + 'ns-instances', data=nsr, headers=headers)
 
         
