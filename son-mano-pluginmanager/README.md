@@ -2,7 +2,26 @@ Plugin manager: SONATA MANO framework component that is responsible to manage MA
 
 See: http://wiki.sonata-nfv.eu/index.php/SP_Plugin_Managment
 
-## Management interface (REST)
+## Install
+
+* `python setup.py develop`
+
+## Management with CLI tool: `son-pm-cli`
+
+* More details
+    * `son-pm-cli -h`
+* List all active plugins
+    * `son-pm-cli list`
+* Print info about specific plugin
+    * `son-pm-cli info -u <uuid_of_plugin>`
+* Remove (stop+disconnect) specific plugin
+    * `son-pm-cli remove -u <uuid_of_plugin>`
+* Trigger lifecycle change of a specific plugin
+    * `son-pm-cli lifecycle-pause -u <uuid_of_plugin>`
+    * `son-pm-cli lifecycle-start -u <uuid_of_plugin>` (automatically done after registration)
+
+
+## Management with REST interface
 
 Exposed on port <strong>8001</strong>.
 
