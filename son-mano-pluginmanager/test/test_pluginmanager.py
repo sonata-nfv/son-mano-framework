@@ -7,12 +7,10 @@ from son_mano_pluginmanager.pluginmanager import SonPluginManager
 from sonmanobase.messaging import ManoBrokerRequestResponseConnection
 
 
-class TestPluginManagerMessageInterface(unittest.TestCase):
+class TestPluginManagerBase(unittest.TestCase):
     """
-    Tests the rabbit mq interface of the the plugin manager by interacting
-    with it like a plugin.
+    Commen functionalities used my many test cases
     """
-    # TODO Add more test cases to cover all functionailites of the interface
     pm_proc = None
 
     @classmethod
@@ -98,6 +96,14 @@ class TestPluginManagerMessageInterface(unittest.TestCase):
         # make our test synchronous: wait
         self.waitForMessage()
 
+
+class TestPluginManagerMessageInterface(TestPluginManagerBase):
+    """
+    Tests the rabbit mq interface of the the plugin manager by interacting
+    with it like a plugin.
+    """
+    # TODO Add more test cases to cover all functionailites of the interface
+
     #@unittest.skip("skip")
     def testInitialLifecycleStartMessage(self):
         """
@@ -162,6 +168,11 @@ class TestPluginManagerMessageInterface(unittest.TestCase):
 
         # make our test synchronous: wait
         self.waitForMessage()
+
+
+class TestPluginManagerManagementInterface(TestPluginManagerBase):
+    pass
+    # TODO implement tests
 
 
 if __name__ == "__main__":
