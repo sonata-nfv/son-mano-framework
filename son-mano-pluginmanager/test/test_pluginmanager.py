@@ -2,17 +2,16 @@ import unittest
 import time
 import json
 import threading
+import requests
 from multiprocessing import Process
 from son_mano_pluginmanager.pluginmanager import SonPluginManager
 from sonmanobase.messaging import ManoBrokerRequestResponseConnection
 
 
-class TestPluginManagerMessageInterface(unittest.TestCase):
+class TestPluginManagerBase(unittest.TestCase):
     """
-    Tests the rabbit mq interface of the the plugin manager by interacting
-    with it like a plugin.
+    Commen functionalities used my many test cases
     """
-    # TODO Add more test cases to cover all functionailites of the interface
     pm_proc = None
 
     @classmethod
@@ -98,6 +97,14 @@ class TestPluginManagerMessageInterface(unittest.TestCase):
         # make our test synchronous: wait
         self.waitForMessage()
 
+
+class TestPluginManagerMessageInterface(TestPluginManagerBase):
+    """
+    Tests the rabbit mq interface of the the plugin manager by interacting
+    with it like a plugin.
+    """
+    # TODO Add more test cases to cover all functionailites of the interface
+
     #@unittest.skip("skip")
     def testInitialLifecycleStartMessage(self):
         """
@@ -162,6 +169,81 @@ class TestPluginManagerMessageInterface(unittest.TestCase):
 
         # make our test synchronous: wait
         self.waitForMessage()
+
+
+class TestPluginManagerManagementInterface(TestPluginManagerBase):
+    """
+    Test the REST management interface of the plugin manager.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.URL = "http://127.0.0.1:8001"
+
+    def testInterfaceConnectivity(self):
+        """
+        Test if we can access the interface.
+        :return:
+        """
+        r = requests.get("%s/api/plugins" % self.URL)
+        self.assertEqual(r.status_code, 200)
+
+    def testGetPluginList(self):
+        """
+        Test if we can receive a list with plugin uuids.
+        :return:
+        """
+        self.register()
+        r = requests.get("%s/api/plugins" % self.URL)
+        self.assertEqual(r.status_code, 200)
+        self.assertGreaterEqual(len(r.json()), 1)
+
+    def testGetPluginInfo(self):
+        """
+        Test if we can receive information about a specific plugin.
+        :return:
+        """
+        self.register()
+        r = requests.get("%s/api/plugins/%s" % (self.URL, self.plugin_uuid))
+        self.assertEqual(r.status_code, 200)
+        p_state = r.json()
+        self.assertIn("version", p_state)
+        self.assertIn("name", p_state)
+        self.assertIn("uuid", p_state)
+        self.assertIn("description", p_state)
+        self.assertIn("state", p_state)
+        self.assertIn("registered_at", p_state)
+        self.assertIn("last_heartbeat_at", p_state)
+
+    def testDeletePlugin(self):
+        """
+        Test if we can request the deletion of a plugin.
+        :return:
+        """
+        self.register()
+        r = requests.delete("%s/api/plugins/%s" % (self.URL, self.plugin_uuid))
+        self.assertEqual(r.status_code, 200)
+        # TODO check that plugin was really removed
+
+    def testPutPluginLifecycle(self):
+        """
+        Test if we can modify the lifecycle state of a plugin.
+        :return:
+        """
+        self.register()
+        req = {"target_state": "pause"}
+        r = requests.put("%s/api/plugins/%s/lifecycle" % (self.URL, self.plugin_uuid), json=json.dumps(req))
+        self.assertEqual(r.status_code, 200)
+
+    def testPutPluginLifecycleMalformed(self):
+        """
+        Test if the lifecycle endpoint can handle malformed input data.
+        :return:
+        """
+        self.register()
+        req = {"target_state123": "pause"}
+        r = requests.put("%s/api/plugins/%s/lifecycle" % (self.URL, self.plugin_uuid), json=json.dumps(req))
+        self.assertEqual(r.status_code, 500)
 
 
 if __name__ == "__main__":

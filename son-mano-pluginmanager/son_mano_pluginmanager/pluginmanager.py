@@ -3,10 +3,6 @@ Created by Manuel Peuster <manuel@peuster.de>
 
 This is the main module of the plugin manager component.
 """
-
-# TODO encapsulate plugin objects in a class
-# TODO make plugin registration state persistant in a DB (Mongo?)
-
 import logging
 import json
 import datetime
@@ -16,11 +12,12 @@ from mongoengine import DoesNotExist
 
 from sonmanobase.plugin import ManoBasePlugin
 from son_mano_pluginmanager import model
+from son_mano_pluginmanager import interface
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("son-mano-pluginmanger")
 LOG.setLevel(logging.DEBUG)
-logging.getLogger("son-mano-base:messaging").setLevel(logging.DEBUG)
+logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
 
 class SonPluginManager(ManoBasePlugin):
@@ -38,6 +35,10 @@ class SonPluginManager(ManoBasePlugin):
 
         # initialize plugin DB model
         model.initialize(host=mongo_host)
+
+        # start up management interface
+        interface.start(self)
+
         # call super class to do all the messaging and registration overhead
         super(self.__class__, self).__init__(auto_register=False,
                                              auto_heartbeat_rate=0)
@@ -50,14 +51,24 @@ class SonPluginManager(ManoBasePlugin):
         self.manoconn.register_async_endpoint(self._on_deregister, "platform.management.plugin.deregister")
         self.manoconn.register_notification_endpoint(self._on_heartbeat, "platform.management.plugin.*.heartbeat")
 
-    def send_start_notification(self, plugin):
+    def _send_lifecycle_notification(self, plugin, operation):
         """
-        Send lifecycle.start notification to given plugin.
-        :param plugin:
+        Send lifecycle.X notification to given plugin.
+        :param plugin: plugin object
+        :param operation: operation string, e.g., start/pause/stop
         :return:
         """
         self.manoconn.notify(
-            "platform.management.plugin.%s.lifecycle.start" % str(plugin.uuid))
+            "platform.management.plugin.%s.lifecycle.%s" % (str(plugin.uuid), str(operation)))
+
+    def send_start_notification(self, plugin):
+        self._send_lifecycle_notification(plugin, "start")
+
+    def send_stop_notification(self, plugin):
+        self._send_lifecycle_notification(plugin, "stop")
+
+    def send_pause_notification(self, plugin):
+        self._send_lifecycle_notification(plugin, "pause")
 
     def send_plugin_status_update(self):
         """
@@ -70,7 +81,7 @@ class SonPluginManager(ManoBasePlugin):
         plugin_dict = {}
         for p in model.Plugin.objects:
             plugin_dict[p.uuid] = p.to_dict()
-
+        # create correct message format
         message = {"timestamp": str(datetime.datetime.now()),
                     "plugin_dict": plugin_dict}
         # broadcast plugin status update message
