@@ -3,30 +3,69 @@ This module implements a simple command line tool that wraps the REST management
 """
 import argparse
 import requests
+import json
 
 
-def list(endpoint):
-    print("list %r" % endpoint)
+def plugin_list(endpoint):
+    r = requests.get("%s/api/plugins" % endpoint)
+    if r.status_code != 200:
+        _request_failed(r.status_code)
+    print(r.json())
 
 
-def info(uuid, endpoint):
-    print("info %r %r" % (uuid, endpoint))
+def plugin_info(uuid, endpoint):
+    r = requests.get("%s/api/plugins/%s" % (endpoint, uuid))
+    if r.status_code != 200:
+        _request_failed(r.status_code)
+    print(r.json())
 
 
-def remove(uuid, endpoint):
-    print("remove %r %r" % (uuid, endpoint))
+def plugin_remove(uuid, endpoint):
+    r = requests.delete("%s/api/plugins/%s" % (endpoint, uuid))
+    if r.status_code != 200:
+        _request_failed(r.status_code)
+    print(r.json())
 
 
-def lifecycle_start(uuid, endpoint):
-    print("lifecycle_start %r %r" % (uuid, endpoint))
+def plugin_lifecycle_start(uuid, endpoint):
+    req = {"target_state": "start"}
+    r = requests.put("%s/api/plugins/%s/lifecycle" % (endpoint, uuid),
+                     json=json.dumps(req))
+    if r.status_code != 200:
+        _request_failed(r.status_code)
+    print(r.json())
 
 
-def lifecycle_pause(uuid, endpoint):
-    print("lifecycle_pause %r %r" % (uuid, endpoint))
+def plugin_lifecycle_pause(uuid, endpoint):
+    req = {"target_state": "pause"}
+    r = requests.put("%s/api/plugins/%s/lifecycle" % (endpoint, uuid),
+                     json=json.dumps(req))
+    if r.status_code != 200:
+        _request_failed(r.status_code)
+    print(r.json())
 
 
-def lifecycle_stop(uuid, endpoint):
-    print("lifecycle_stop %r %r" % (uuid, endpoint))
+def plugin_lifecycle_stop(uuid, endpoint):
+    req = {"target_state": "stop"}
+    r = requests.put("%s/api/plugins/%s/lifecycle" % (endpoint, uuid),
+                     json=json.dumps(req))
+    if r.status_code != 200:
+        _request_failed(r.status_code)
+    print(r.json())
+
+
+def _argument_missing(arg="UUID"):
+    print("Error: Missing argument %r." % arg)
+    print("Run with --help to get more info.")
+    print("Abort.")
+    exit(0)
+
+
+def _request_failed(code):
+    print("Request failed with code %r." % code)
+    print("Abort.")
+    exit(0)
+
 
 parser = argparse.ArgumentParser(description='son-pm-cli')
 parser.add_argument(
@@ -44,18 +83,23 @@ parser.add_argument(
 
 def main():
     args = vars(parser.parse_args())
+    # basic input checks
+    if args.get("command") != "list" and args.get("uuid") is None:
+        _argument_missing()
+    # call command functions (yeah, static mapping is not nice, I know)
     if args.get("command") == "list":
-        list(args.get("endpoint"))
+        plugin_list(args.get("endpoint"))
     elif args.get("command") == "info":
-        info(args.get("uuid"), args.get("endpoint"))
+        plugin_info(args.get("uuid"), args.get("endpoint"))
     elif args.get("command") == "remove":
-        remove(args.get("uuid"), args.get("endpoint"))
+        plugin_remove(args.get("uuid"), args.get("endpoint"))
     elif args.get("command") == "lifecycle-start":
-        lifecycle_start(args.get("uuid"), args.get("endpoint"))
+        plugin_lifecycle_start(args.get("uuid"), args.get("endpoint"))
     elif args.get("command") == "lifecycle-pause":
-        lifecycle_pause(args.get("uuid"), args.get("endpoint"))
+        plugin_lifecycle_pause(args.get("uuid"), args.get("endpoint"))
     elif args.get("command") == "lifecycle-stop":
-        lifecycle_stop(args.get("uuid"), args.get("endpoint"))
+        plugin_lifecycle_stop(args.get("uuid"), args.get("endpoint"))
+
 
 if __name__ == '__main__':
     main()
