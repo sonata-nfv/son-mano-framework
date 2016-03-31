@@ -44,6 +44,7 @@ setup(
     entry_points={
         'console_scripts': [
             'son-mano-pluginmanager=son_mano_pluginmanager.__main__:main',
+            'son-pm-cli=son_mano_pluginmanager.cli:main',
         ],
     },
 )
