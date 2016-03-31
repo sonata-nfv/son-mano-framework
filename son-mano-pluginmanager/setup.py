@@ -34,7 +34,7 @@ setup(
     # What does your project relate to?
     keywords='NFV orchestrator',
 
-    packages=find_packages(),
+    packages=find_packages("son_mano_pluginmanager"),
     install_requires=['pika', 'pytest', 'mongoengine', 'Flask', 'flask-restful'],
     setup_requires=['pytest-runner'],
 
