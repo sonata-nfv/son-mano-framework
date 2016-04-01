@@ -192,10 +192,10 @@ class testSlmFunctionality(unittest.TestCase):
         self.manoconn_ia = ManoBrokerRequestResponseConnection('Son-plugin.SonInfrastructureAdapter')
 
 
-    def tearDown(self):
-        self.manoconn_spy.stop_connection()
-        self.manoconn_gk.stop_connection()
-        self.manoconn_ia.stop_connection()
+    #def tearDown(self):
+        #self.manoconn_spy.stop_connection()
+        #self.manoconn_gk.stop_connection()
+        #self.manoconn_ia.stop_connection()
 
     def createGkNewServiceRequestMessage(self):
         """
