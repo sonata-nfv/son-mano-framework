@@ -202,7 +202,7 @@ class testSlmFunctionality(unittest.TestCase):
         This method helps creating messages for the service request packets.
         """
         
-        path_descriptors = 'plugins/son-mano-service-lifecycle-management/test/test_descriptors/'
+        path_descriptors = '/plugins/son-mano-service-lifecycle-management/test/test_descriptors/'
     	#import the nsd and vnfds that form the service	
         nsd_descriptor   = open(path_descriptors + 'sonata-demo.yml','r')
         vnfd1_descriptor = open(path_descriptors + 'firewall-vnfd.yml','r')
