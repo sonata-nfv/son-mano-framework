@@ -265,7 +265,7 @@ class testSlmFunctionality(unittest.TestCase):
         self.waitForEvent(timeout=10)
 
     def createInfrastructureAdapterResponseMessage(self):
-        path_descriptors = 'plugins/son-mano-service-lifecycle-management/test/test_descriptors/'
+        path_descriptors = '/plugins/son-mano-service-lifecycle-management/test/test_descriptors/'
 
         ia_nsr = open(path_descriptors + 'infrastructure-adapter-nsr.yml','r')
 
