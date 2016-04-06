@@ -166,7 +166,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
 
         #Sending the message towards the infrastructure adaptor, with callback pointer
-        self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply, INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC, yaml.dump(service_request_for_infra_adaptor))                
+        self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply, INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC, yaml.dump(service_request_for_infra_adaptor), correlation_id=properties.correlation_id)                
 
         
         #Reply for the GK
@@ -182,14 +182,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         msg = yaml.load(message)
         # filter result of service request out of the message
-        request_status = msg["request_status"]
+        request_status = msg['request_status']
         if request_status == 'RUNNING':
             #Add NSR and VNFRs to Repositories
             nsr_request = msg["nsr"];
             if ("id" not in nsr_request):
                 nsr_request["id"] = uuid.uuid4().hex
             nsr_request["vnfr"] = msg["vnfr"]
-
             nsr_response = self.postNsrToRepository(json.dumps(nsr_request), {'Content-Type':'application/json'})
             # TODO: handle response from repository
             #Inform the GK

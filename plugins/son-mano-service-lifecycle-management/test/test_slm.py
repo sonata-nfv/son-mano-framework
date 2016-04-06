@@ -3,9 +3,16 @@ import time
 import json
 import yaml
 import threading
+import logging
+
 from multiprocessing import Process
 from son_mano_slm.slm import ServiceLifecycleManager
 from sonmanobase.messaging import ManoBrokerRequestResponseConnection
+
+logging.basicConfig(level=logging.INFO)
+logging.getLogger('pika').setLevel(logging.ERROR)
+LOG = logging.getLogger("son-mano-plugins:slm_test")
+LOG.setLevel(logging.DEBUG)
 
 
 class testSlmRegistrationAndHeartbeat(unittest.TestCase):
@@ -153,6 +160,7 @@ class testSlmFunctionality(unittest.TestCase):
     slm_proc    = None
     manoconn_pm = None
     uuid        = '1'
+    corr_id     = '1ba347d6-6210-4de7-9ca3-a383e50d0330'
 
     @classmethod
     def setUpClass(cls):
@@ -192,10 +200,10 @@ class testSlmFunctionality(unittest.TestCase):
         self.manoconn_ia = ManoBrokerRequestResponseConnection('Son-plugin.SonInfrastructureAdapter')
 
 
-    #def tearDown(self):
-        #self.manoconn_spy.stop_connection()
-        #self.manoconn_gk.stop_connection()
-        #self.manoconn_ia.stop_connection()
+    def tearDown(self):
+        self.manoconn_spy.stop_connection()
+        self.manoconn_gk.stop_connection()
+        self.manoconn_ia.stop_connection()
 
     def createGkNewServiceRequestMessage(self):
         """
@@ -245,6 +253,7 @@ class testSlmFunctionality(unittest.TestCase):
     def on_service_deployment_response(self, ch, method, properties, message):
         msg =  yaml.load(message)
         self.assertIn('request_status', msg.keys(), msg='request_status is not a key')
+        self.eventFinished()
         return
 
     def do_nothing(self, ch, method, properties, message):
@@ -259,7 +268,7 @@ class testSlmFunctionality(unittest.TestCase):
         self.manoconn_spy.subscribe(self.on_slm_infra_adaptor_instantiation, 'infrastructure.service.deploy')
 
         #STEP2: Send a service request message (from the gk) to the SLM
-        self.manoconn_gk.call_async(self.on_gk_response_service_request, 'service.instances.create', msg=self.createGkNewServiceRequestMessage(), content_type='application/yaml', correlation_id='sr1')
+        self.manoconn_gk.call_async(self.on_gk_response_service_request, 'service.instances.create', msg=self.createGkNewServiceRequestMessage(), content_type='application/yaml', correlation_id=self.corr_id)
 
         #STEP3: Start waiting for the messages that are triggered by this request
         self.waitForEvent(timeout=10)
@@ -276,10 +285,11 @@ class testSlmFunctionality(unittest.TestCase):
         #STEP1: Spy the topic on which the SLM will contact the GK
         self.manoconn_spy.subscribe(self.on_service_deployment_response, 'service.instances.create')
 
-        #STEP2: Send a service deployment response from Inrastructure Adapter to the SLM
-        self.manoconn_ia.call_async(self.do_nothing, "infrastructure.service.deploy", msg=self.createInfrastructureAdapterResponseMessage(), content_type='application/yaml')
+        #STEP2: Send a service deployment response from Inrastructure Adapter to the SLM. This response should be of type .notify, since the SLM expects a response to an async_call, and with .notify, we can add the correlation_id to make it look like that response.
+        self.manoconn_ia.notify("infrastructure.service.deploy", msg=self.createInfrastructureAdapterResponseMessage(), content_type='application/yaml', correlation_id=self.corr_id)
 
         #STEP3: Start waiting for the messages that are triggered by this request
+        self.wait_for_event.clear()
         self.waitForEvent(timeout=10)
 
 if __name__ == '__main__':
