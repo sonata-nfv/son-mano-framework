@@ -109,13 +109,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         LOG.info("GK service.instance.start event")
 
-        #TODO: We need to check whether the received message is formatted as expected.
-        #TODO: We need to define what can go wrong during this method to report back to the gk 
- 
-        status = 'INSTANTIATING'
-        error = None
-
-        #The request data is in the message as a yaml file, constructed like:
+        #The request data is in the message as a yaml file, and should be constructed like:
         #---
         #NSD:
         #        descriptor_version:
@@ -129,49 +123,40 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #...
 
         service_request_from_gk = yaml.load(message)
+        LOG.debug("request from GK: %r" % str(service_request_from_gk))
 
-        #The slm reacts to this service_intance_create message with a call_async() to infrastructure.service.deploy
-        #The response message is a yaml file, constructed like:
-        #---
-        #forwarding_graph:
-        #        ...
-        #vnf_images:
-        #        - vnf_id:
-        #          url:
-        #        - vnf_id:
-        #          url
-        #        - ...
+        #The service request in the yaml file should be a dictionary
+        if not isinstance(service_request_from_gk, dict):
+            return yaml.dump({'status'    : 'REJECTED',        
+                              'error'     : 'Message is not a dictionary',
+                              'timestamp' : time.time()})
 
-        #The message for the infrastructure adaptor is a yaml file, built from a dictionary
-        service_request_for_infra_adaptor = {}
+        #The dictionary should contain a 'NSD' key
+        if 'NSD' not in service_request_from_gk.keys():
+            return yaml.dump({'status'    : 'REJECTED',        
+                              'error'     : 'No NSD field in dictionary',
+                              'timestamp' : time.time()})
 
-
-        #Adding the forwarding graph to the dictionary
-        service_request_for_infra_adaptor['forwarding_graph'] = service_request_from_gk['NSD']['forwarding_graphs']
-
-
-        #vnf_images contains a list of dictionaries
-        service_request_for_infra_adaptor['vnf_images'] = []
-
-        
-        #constructing the dictionary for each VNF
+        #Their should be as many VNFDx keys in the dictionary as their are network functions according to the NSD.
+        number_of_vnfds = 0
         for key in service_request_from_gk.keys():
-            if (key[:4] == 'VNFD'):
-                #Determine which vnf_id is mapped to vnf_name, vnf_version, vnf_group.
-                vnf_descriptor = service_request_from_gk[key]
-                for network_function in service_request_from_gk['NSD']['network_functions']:
-                    if (network_function['vnf_name'] == vnf_descriptor['vnf_name']) and (network_function['vnf_group'] == vnf_descriptor['vnf_group']) and (network_function['vnf_version'] == vnf_descriptor['vnf_version']):
-                        vnf_dict = {'vnf_id': network_function['vnf_id'],'url' : vnf_descriptor['virtual_deployment_units'][0]['vm_image']}
-                        service_request_for_infra_adaptor['vnf_images'].append(vnf_dict)
+            if key[:4] == 'VNFD':
+                number_of_vnfds = number_of_vnfds + 1
 
+        if len(service_request_from_gk['NSD']['network_functions']) != number_of_vnfds:
+            return yaml.dump({'status'    : 'REJECTED',        
+                              'error'     : 'Number of VNFDs doesn\'t match number of vnfs',
+                              'timestamp' : time.time()})
 
-        #Sending the message towards the infrastructure adaptor, with callback pointer
-        self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply, INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC, yaml.dump(service_request_for_infra_adaptor), correlation_id=properties.correlation_id)                
-
+        #If all the above checks succeed, we send the message as received from the GK to the IA, and return a message to the GK indicating that the process is initiated.
         
-        #Reply for the GK
-        return yaml.dump({'status'    : status,        #INSTANTIATING or ERROR
-                          'error'     : error,         #NULL or a string describing the ERROR
+        self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply, 
+                                 INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC, 
+                                 yaml.dump(service_request_from_gk), 
+                                 correlation_id=properties.correlation_id)                
+
+        return yaml.dump({'status'    : 'INSTANTIATING',        #INSTANTIATING or ERROR
+                          'error'     : 'None',         #NULL or a string describing the ERROR
                           'timestamp' : time.time()})  #time() returns the number of seconds since the epoch in UTC as a float      
 
     def on_infra_adaptor_service_deploy_reply(self, ch, method, properties, message):
@@ -181,6 +166,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         The GK should be notified of the result of the service request.
         """
         msg = yaml.load(message)
+        LOG.debug("IA request from SLM: %r" % str(msg))        
         # filter result of service request out of the message
         request_status = msg['request_status']
         if request_status == 'RUNNING':
