@@ -232,14 +232,11 @@ class testSlmFunctionality(unittest.TestCase):
 
     def on_slm_infra_adaptor_instantiation(self, ch, method, properties, message):
 
-        msg = yaml.load(message)
-        self.assertIn('forwarding_graph', msg.keys(), msg='forwarding_graph is not a key.')
-        self.assertIn('vnf_images', msg.keys(), msg='vnf_images is not a key.')
-        
-        for vnf in msg['vnf_images']:
-            self.assertIn('vnf_id', vnf.keys(), msg='vnf_id is not a key.')
-            self.assertIn('url', vnf.keys(), msg='url is not a key.')
-        
+        #The message send on to the IA should be the same as the one received from the GK
+        received_msg = yaml.load(message)
+        sent_msg     = yaml.load(self.createGkNewServiceRequestMessage())
+        self.assertEqual(received_msg, sent_msg, msg='Not the same message.')
+
         self.eventFinished()
 
     def on_slm_gk_response(self, ch, method, properties, message):
