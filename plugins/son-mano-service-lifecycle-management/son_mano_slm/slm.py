@@ -27,6 +27,7 @@ INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC = "infrastructure.service.deploy"
 
 # The NSR Repository can be accessed through a RESTful API
 NSR_REPOSITORY_URL = "http://api.int.sonata-nfv.eu:4002/records/nsr/"
+VNFR_REPOSITORY_URL = "http://api.int.sonata-nfv.eu::4002/records/vnfr/";
 
 
 class ServiceLifecycleManager(ManoBasePlugin):
@@ -171,12 +172,24 @@ class ServiceLifecycleManager(ManoBasePlugin):
         request_status = msg['request_status']
         if request_status == 'RUNNING':
             #Add NSR and VNFRs to Repositories
-            nsr_request = msg["nsr"];
-            if ("id" not in nsr_request):
-                nsr_request["id"] = uuid.uuid4().hex
-            nsr_request["vnfr"] = msg["vnfr"]
+            nsr_request = msg['nsr'];
+            if ('id' not in nsr_request):
+                nsr_request['id'] = uuid.uuid4().hex
+
+            vnfrs = {}
+            vnfrs["vnfr"] = msg["vnfr"]
+            ## add vnfr ids to nsr
+            if ('vnfr' not in nsr_request):
+                nsr_request['vnfr'] = []
+                for vnfr in vnfrs['vnfr']:
+                    vnfr_request = {}
+                    vnfr_request['vnfr'] = vnfr;
+                    vnfr_response = self.postVnfrToRepository(yaml.dump(vnfr_request), {'Content-Type':'application/x-yaml'})
+                    nsr_request['vnfr'].append(vnfr['id'])
+
             nsr_response = self.postNsrToRepository(json.dumps(nsr_request), {'Content-Type':'application/json'})
-            # TODO: handle response from repository
+
+            # TODO: handle responses from repositories
             #Inform the GK
             #TODO: add correlation_id, build message for GK, add info on NSR, VNFRs
             self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump({'request_status':request_status}))
@@ -188,6 +201,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
     def postNsrToRepository(self, nsr, headers):
         return requests.post(NSR_REPOSITORY_URL + 'ns-instances', data=nsr, headers=headers)
 
+    def postVnfrToRepository(self, vnfr, headers):
+        return requests.post(VNFR_REPOSITORY_URL + 'vnf-instances', data=vnfr, headers=headers)
         
 
 def main():
