@@ -101,7 +101,10 @@ class ManoBrokerConnection(object):
 
     def stop_connection(self):
         self._closing = True
-        self._connection.close()
+        try:
+            self._connection.close()
+        except pika.exceptions.ConnectionClosed:
+            pass  # get rid of send_frame error on connection close
 
     def _connect(self):
         # connect to RabbitMQ
