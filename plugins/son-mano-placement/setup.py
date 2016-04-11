@@ -38,7 +38,7 @@ setup(
     license='Apache 2.0',
 
     packages=find_packages(),
-    install_requires=['pika', 'pytest'],
+    install_requires=['pika', 'pytest', 'pep8'],
     setup_requires=['pytest-runner'],
 
     # To provide executable scripts, use entry points in preference to the
