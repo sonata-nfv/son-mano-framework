@@ -27,7 +27,7 @@ INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC = "infrastructure.service.deploy"
 
 # The NSR Repository can be accessed through a RESTful API
 NSR_REPOSITORY_URL = "http://api.int.sonata-nfv.eu:4002/records/nsr/"
-VNFR_REPOSITORY_URL = "http://api.int.sonata-nfv.eu::4002/records/vnfr/";
+VNFR_REPOSITORY_URL = "http://api.int.sonata-nfv.eu:4002/records/vnfr/";
 
 
 class ServiceLifecycleManager(ManoBasePlugin):
