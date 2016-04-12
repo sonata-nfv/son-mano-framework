@@ -18,10 +18,86 @@ nsr:
     - id: "vnf_tcpdump"
 vnfr:
   - id: "vnfr-1"
+    vendor: "dummy-vendor"
+    descriptor_version: "1.0"
+    version: "1.0"
+    vdu:
+      - id: "vdu-0"
+      - id: "vdu-1"
+    virtual_link:
+      - 0:
+        id: "vlink-0"
+      - 1:
+        id: "vlink-1"
     vnf_address:
-      ip: 10.0.0.5
-  - id: "vnfr-2"
-    vnf_address:
-      ip: 10.0.0.6
-
+      - 0:
+        address: "10.0.0.5"
+      - 1:
+        address: "10.0.1.5"
+    connection_points:
+      - 0:
+        id: "connect-point-0"
+        virtual_link_reference: "vlink-0"
+        type: "interface"
+      - 1:
+        id: "connect-point-1"
+        virtual_link_reference: "vlink-0"
+        type: "interface"
+    lifecycle_event:
+      start: "dummy-start-script"
+    dependency:
+      - 0:
+        source_vdu: "vdu-0"
+        target_vdu: "vdu-1"
+      - 1:
+        source_vdu: "vdu-1"
+        target_vdu: "vdu-0"
+    deployment_flavour: "dummy-flavour"
+    localization: "dummy-localization"
+    parent_ns: "dummy-ns"
+    descriptor_reference: "dummy-descriptor"
+    vnfm_id: "dummy-vnfm"
+    connected_external_virtual_link:
+      - 0:
+        id: "external-link-0"
+      - 1:
+        id: "external-link-1"
+    status: "1"
+    notification:
+      - 0:
+        id: "master-0"
+        ip: "10.10.10.101"
+        port: "27"
+      - 1:
+        id: "master-1"
+        ip: "10.10.10.102"
+        port: "27"
+    lifecycle_event_history:
+      - 0:
+        event: "start"
+        timestamp: "12434234"
+        success: "True"
+      - 1:
+        event: "restart"
+        timestamp: "123332233"
+        success: "True"
+    audit_log:
+      - 0:
+        event: "event-0"
+        timestamp: "541232312"
+    runtime_policy_info:
+      - 0:
+        policy: "policy-0"
+      - 1:
+        policy: "policy-1"
+    "__comment": "Comment on the VNFR"
+    "monitoring_parameters":
+      - 0:
+        monitoring_parameter: "parameter-0"
+      - 1:
+        monitoring_parameter: "parameter-1"
+      - 2:
+        monitoring_parameter: "parameter-2"
+      - 3:
+        monitoring_parameter: "parameter-3"
 request_status: "RUNNING"
