@@ -162,42 +162,78 @@ class ServiceLifecycleManager(ManoBasePlugin):
         The GK should be notified of the result of the service request.
         """
         msg = yaml.load(message)
-        # filter result of service request out of the message
+        #The message that will be returned to the gk
+        message_for_gk = {}
+        message_for_gk['error'] = {}
+        # filter result of service request out of the message and add it to the reply
         request_status = msg['request_status']
+        message_for_gk['request_status'] = request_status
+
         if request_status == 'RUNNING':
-            #Add NSR and VNFRs to Repositories
-            nsr_request = msg['nsr'];
-            if ('id' not in nsr_request):
-                nsr_request['id'] = uuid.uuid4().hex
+            #Retrieve NSR from message
+            nsr = msg['nsr'];
+            if ('id' not in nsr):
+                nsr['id'] = uuid.uuid4().hex
 
-            vnfrs = {}
-            vnfrs["vnfr"] = msg["vnfr"]
-            ## add vnfr ids to nsr
-            if ('vnfr' not in nsr_request):
-                nsr_request['vnfr'] = []
-                for vnfr in vnfrs['vnfr']:
-                    vnfr_request = {}
-                    vnfr_request['vnfr'] = vnfr;
-                    vnfr_response = self.postVnfrToRepository(yaml.dump(vnfr_request), {'Content-Type':'application/x-yaml'})
-                    nsr_request['vnfr'].append(vnfr['id'])
+            #Retrieve VNFRs from message
+            vnfrs = msg["vnfr"]
+            ## Store vnfrs in the repository and add vnfr ids to nsr if it is not already present
+            if ('vnfr' not in nsr):
+                nsr['vnfr'] = []
+            for vnfr in vnfrs:
+                if ('vnfr' not in nsr):
+                    nsr['vnfr'].append(vnfr['id'])
+                #Store the message, catch exception when time-out occurs
+                try:
+                    vnfr_response = self.postVnfrToRepository(yaml.dump(vnfr), {'Content-Type':'application/x-yaml'}, timeout=20.0)
+                    #If storage succeeds, add uuids to reply to gk
+                    if (vnfr_response.status_code == 200):
+                        if 'vnfr' in message_for_gk.keys():
+                            #The reply should contain an uuid, but just in case
+                            if 'vnfr_uuid' in vnfr_response.json().keys():
+                                message_for_gk['vnfr'].append(vnfr_response.json()['vnfr_uuid'])
+                            else:
+                                message_for_gk['vnfr'].append(vnfr_response.json())
+                        else:
+                            message_for_gk['vnfr'] = []
+                            #The reply should contain an uuid, but just in case
+                            if 'vnfr_uuid' in vnfr_response.json().keys():
+                                message_for_gk['vnfr'].append(vnfr_response.json()['vnfr_uuid'])
+                            else:
+                                message_for_gk['vnfr'].append(vnfr_response.json())
+                    #If storage fails, add error code and message to reply to gk
+                    else:
+                        message_for_gk['vnfr'] = []
+                        message_for_gk['error']['vnfr'] = {'http_code':vnfr_response.status_code, 'message':vnfr_response.json()}
+                        break
+                except:
+                    message_for_gk['vnfr'] = []
+                    message_for_gk['error']['vnfr'] = {'http_code':'0', 'message':'Timeout when contacting server'}
+                    break
+                    
+            #Store nsr in the repository, catch exception when time-out occurs
+            try:
+                nsr_response = self.postNsrToRepository(json.dumps(nsr), {'Content-Type':'application/json'}, timeout=20.0)
+                if (nsr_response.status_code == 200):
+                    #The reply should contain an uuid, but just in case
+                    if 'nsr_uuid' in nsr_response.json().keys():
+                        message_for_gk['nsr'] = nsr_response.json()['nsr_uuid']
+                    else:
+                        message_for_gk['nsr'] = nsr_response.json()
+                else:
+                    message_for_gk['error']['nsr'] = {'http_code':nsr_response.status_code, 'message':nsr_response.json()}
+            except:
+                message_for_gk['error']['nsr'] = {'http_code':'0', 'message':'Timeout when contacting server'}
+                
+        print(message_for_gk)
+        self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(message_for_gk))
 
-            nsr_response = self.postNsrToRepository(json.dumps(nsr_request), {'Content-Type':'application/json'})
 
-            # TODO: handle responses from repositories
-            #Inform the GK
-            #TODO: add correlation_id, build message for GK, add info on NSR, VNFRs
-            self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump({'request_status':request_status}))
-        else:
-            #Inform the GK
-            #TODO: add correlation_id, build message for GK
-            self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump({'request_status':request_status}))
-
-
-    def postNsrToRepository(self, nsr, headers):
-        return requests.post(NSR_REPOSITORY_URL + 'ns-instances', data=nsr, headers=headers)
+    def postNsrToRepository(self, nsr, headers, timeout=None):
+        return requests.post(NSR_REPOSITORY_URL + 'ns-instances', data=nsr, headers=headers, timeout=timeout)
 
     def postVnfrToRepository(self, vnfr, headers):
-        return requests.post(VNFR_REPOSITORY_URL + 'vnf-instances', data=vnfr, headers=headers)
+        return requests.post(VNFR_REPOSITORY_URL + 'vnf-instances', data=vnfr, headers=headers, timeout=timeout)
         
 
 def main():
