@@ -387,9 +387,9 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
             # create subscription for responses
             if topic not in self._async_calls_response_topics:
                 self.subscribe(self._on_call_async_response_received, response_topic)
-                # keep track of request
-                self._async_calls_response_topics.append(topic)
-                self._async_calls_pending[corr_id] = cbf
+            # keep track of request
+            self._async_calls_response_topics.append(topic)
+            self._async_calls_pending[corr_id] = cbf
         # ensure that optional key is included into header
         headers["key"] = key
         # publish request message

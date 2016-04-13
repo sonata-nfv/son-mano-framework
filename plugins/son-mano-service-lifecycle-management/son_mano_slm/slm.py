@@ -71,10 +71,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.manoconn.register_async_endpoint(
             self.on_gk_service_instance_create,  # function called when message received
             GK_INSTANCE_CREATE_TOPIC)  # topic to listen to
-        #
-        # SLM <-> infra. adaptor interface
-        #
-        self.manoconn.register_async_endpoint(self.on_infra_adaptor_service_deploy_reply, INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC)
 
     def on_lifecycle_start(self, ch, method, properties, message):
         """
@@ -124,7 +120,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #...
 
         service_request_from_gk = yaml.load(message)
-        LOG.debug("request from GK: %r" % str(service_request_from_gk))
 
         #The service request in the yaml file should be a dictionary
         if not isinstance(service_request_from_gk, dict):
@@ -167,7 +162,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         The GK should be notified of the result of the service request.
         """
         msg = yaml.load(message)
-        LOG.debug("IA request from SLM: %r" % str(msg))        
         # filter result of service request out of the message
         request_status = msg['request_status']
         if request_status == 'RUNNING':
@@ -197,6 +191,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             #Inform the GK
             #TODO: add correlation_id, build message for GK
             self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump({'request_status':request_status}))
+
 
     def postNsrToRepository(self, nsr, headers):
         return requests.post(NSR_REPOSITORY_URL + 'ns-instances', data=nsr, headers=headers)
