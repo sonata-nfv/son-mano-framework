@@ -48,8 +48,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
         'on_lifecycle_start' method is called.
         :return:
         """
+        self.deployed_ssms = {}
+
         # call super class (will automatically connect to broker and register the SLM to the plugin manger)
         super(self.__class__, self).__init__(version="0.1-dev",description="This is the SLM plugin")
+
 
     def __del__(self):
         """
@@ -71,6 +74,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.manoconn.register_async_endpoint(
             self.on_gk_service_instance_create,  # function called when message received
             GK_INSTANCE_CREATE_TOPIC)  # topic to listen to
+
+        # When a new SSM registered, we want to add it to the deployed SSMs list.
+        self.manoconn.register_notification_endpoint(
+            self.on_ssm_registration,
+            'ssm.management.register')
 
     def on_lifecycle_start(self, ch, method, properties, message):
         """
@@ -144,16 +152,35 @@ class ServiceLifecycleManager(ManoBasePlugin):
                               'error'     : 'Number of VNFDs doesn\'t match number of vnfs',
                               'timestamp' : time.time()})
 
-        #If all the above checks succeed, we send the message as received from the GK to the IA, and return a message to the GK indicating that the process is initiated.
+        #If all the above checks succeed, we can proceed with the deployment. We first check whether SSMs need to be deployed.
+        if 'ssm' in service_request_from_gk['NSD'].keys():
+            #If a SSM is required, it needs to be deployed and contacted. Check whether the SSM is already deployed by previous service requests.
+            if service_request_from_gk['NSD']['ssm']['ssm_name'] not in self.deployed_ssms.keys():
+                #TODO: deploy the SSM
+                pass
+            #Contacting the SSM for now is a call_sync. This because, when the response comes, we need to combine it with other data, accesible in this method, but not inside a callback function.
+            message_for_ssm = {'current_state' : 0}
+            (ch, method, props, body) = self.manoconn.call_sync('ssm.scaling.' + str(self.deployed_ssms[service_request_from_gk['NSD']['ssm']['ssm_name']]['uuid']) + '.compute', yaml.dump(message_for_ssm))
+            response_from_ssm = yaml.load(body)            
+            print('response_from_ssm: ' + str(response_from_ssm))
+
+            self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply, 
+                                     INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC, 
+                                     yaml.dump(service_request_from_gk), 
+                                     correlation_id=properties.correlation_id)                
         
-        self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply, 
-                                 INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC, 
-                                 yaml.dump(service_request_from_gk), 
-                                 correlation_id=properties.correlation_id)                
+        else:            
+            #we send the resulting message to the IA, and return a message to the GK indicating that the process is initiated.        
+            self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply, 
+                                     INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC, 
+                                     yaml.dump(service_request_from_gk), 
+                                     correlation_id=properties.correlation_id)                
 
         return yaml.dump({'status'    : 'INSTANTIATING',        #INSTANTIATING or ERROR
                           'error'     : 'None',         #NULL or a string describing the ERROR
                           'timestamp' : time.time()})  #time() returns the number of seconds since the epoch in UTC as a float      
+
+    
 
     def on_infra_adaptor_service_deploy_reply(self, ch, method, properties, message):
         """
@@ -235,6 +262,29 @@ class ServiceLifecycleManager(ManoBasePlugin):
     def postVnfrToRepository(self, vnfr, headers):
         return requests.post(VNFR_REPOSITORY_URL + 'vnf-instances', data=vnfr, headers=headers, timeout=timeout)
         
+    def on_ssm_registration(self, ch, method, properties, message):
+        """
+        This method registers a newly deployed SSM in the SLM.
+        """        
+        #A deployed ssm is registered in the list as a dictionary,  with the name as key (comparable with requested ssms) and the uuid (which is a platform variable) of the ssm as value.
+        msg = yaml.load(message)
+        print('ssm registration request message: ' + str(msg))
+        if 'ssm_name' in msg.keys() and 'ssm_uuid' in msg.keys():
+            self.deployed_ssms[msg['ssm_name']] = {'uuid':msg['ssm_uuid']}
+
+        #The SLM needs to register on the topic on which the SSM will broadcast service graph updates. This can not be done with an async_call, since other plugins (monitoring) can trigger the SSM to do this.
+        self.manoconn.register_notification_endpoint(self.on_new_service_graph_received,'ssm.scaling.' + msg['ssm_uuid'] + '.done')
+        print(str(self.deployed_ssms))
+
+    def on_new_service_graph_received(self, ch, method, properties, message):
+        """
+        This method is called when an updated service graph is received from the SSM.
+        This method translates these new results into new instructions for the Infrastructure Adapter.
+        """
+        new_forwarding_graph = yaml.load(message)
+
+        #TODO: Add this new forwarding graph to the NSD, and request an update from the IA.
+
 
 def main():
     """
