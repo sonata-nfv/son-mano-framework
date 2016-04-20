@@ -64,9 +64,8 @@ class DemoPlugin1(ManoBasePlugin):
         """
         Plugin logic. Does nothing in our example.
         """
-        # go into infinity loop (we could do anything here)
-        while True:
-            time.sleep(1)
+        # lets run for 30 seconds and stop
+        time.sleep(30)
 
     def on_registration_ok(self):
         """
@@ -100,6 +99,7 @@ class DemoPlugin1(ManoBasePlugin):
                         "service.instances.create",
                         message,
                         content_type="application/yaml")
+
 
     def on_service_request_from_gk(self, ch, method, properties, message):
         """
