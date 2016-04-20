@@ -105,7 +105,9 @@ class DemoPlugin1(ManoBasePlugin):
         """
         Printing response from the SLM to the GK on deployment message.
         """
+        print("RESPONSE FROM GK START")
         print(yaml.load(message))
+        print("RESPONSE FROM GK END")
 
 
     def on_service_deploy_request(self, ch, method, properties, message):
@@ -141,7 +143,7 @@ class DemoPlugin1(ManoBasePlugin):
         This method helps creating messages for the service request packets.
         """
         
-        path_descriptors = 'test_descriptors/'
+        path_descriptors = '/test_descriptors/'
     	#import the nsd and vnfds that form the service	
         nsd_descriptor   = open(path_descriptors + 'sonata-demo.yml','r')
         vnfd1_descriptor = open(path_descriptors + 'firewall-vnfd.yml','r')
@@ -164,8 +166,8 @@ class DemoPlugin1(ManoBasePlugin):
 def main():
     # reduce log level to have a nice output for demonstration
     # reduce messaging log level to have a nicer output for this plugin
-    logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
-    logging.getLogger("son-mano-base:plugin").setLevel(logging.INFO)
+    logging.getLogger("son-mano-base:messaging").setLevel(logging.DEBUG)
+    logging.getLogger("son-mano-base:plugin").setLevel(logging.DEBUG)
     DemoPlugin1()
 
 if __name__ == '__main__':
