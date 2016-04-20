@@ -14,8 +14,7 @@
 # setup cleanup mechanism
 trap "docker kill test.broker; docker kill test.mongo; docker rm test.broker; docker rm test.mongo; docker rm test.pluginmanager" INT TERM EXIT
 
-docker rm -f int-gk-mano.broker
-docker rm -f int-gk-mano.mongo
+# ensure cleanup
 docker rm -f test.broker
 docker rm -f test.mongo
 docker rm -f tset.pluginmanager
