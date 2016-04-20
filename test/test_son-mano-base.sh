@@ -20,7 +20,7 @@ echo "test_son-mano-base.sh"
 # spin up container with broker (in daemon mode)
 docker run -d -p 5672:5672 --name test.broker rabbitmq:3
 # wait a bit for broker startup
-sleep 10
+sleep 5
 # spin up the son-mano-base test container and execute its unittests
 docker run --link test.broker:broker --name test.sonmanobase registry.sonata-nfv.eu:5000/sonmanobase py.test -v
 
