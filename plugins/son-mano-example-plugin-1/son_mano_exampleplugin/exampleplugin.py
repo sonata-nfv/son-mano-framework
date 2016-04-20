@@ -9,13 +9,14 @@ import json
 import time
 import sys
 import os
+import yaml
 
 sys.path.append("../../../son-mano-base")
 from sonmanobase.plugin import ManoBasePlugin
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("plugin:example-plugin-1")
-LOG.setLevel(logging.INFO)
+LOG.setLevel(logging.DEBUG)
 
 
 class DemoPlugin1(ManoBasePlugin):
@@ -51,6 +52,11 @@ class DemoPlugin1(ManoBasePlugin):
             self._on_example_notification,  # call back method
             "example.plugin.*.notification")
 
+        #Faking the IA, currently disabled.
+        #self.manoconn.register_notification_endpoint(
+        #    self.on_service_deploy_request,
+        #    "infrastructure.service.deploy")
+
         # Activate this to sniff and print all messages on the broker
         #self.manoconn.subscribe(self.manoconn.callback_print, "#")
 
@@ -71,20 +77,45 @@ class DemoPlugin1(ManoBasePlugin):
     def on_lifecycle_start(self, ch, method, properties, message):
         super(self.__class__, self).on_lifecycle_start(ch, method, properties, message)
 
-        # Example that shows how to send a request/response message
-        time.sleep(1)
-        self.manoconn.call_async(
-                        self._on_example_request_response,
-                        "example.plugin.%s.request" % str(self.uuid),
-                        json.dumps({"content": "my request"}))
-        time.sleep(1)
-        # Example that shows how to send a notification message
-        self.manoconn.notify(
-                        "example.plugin.%s.notification" % str(self.uuid),
-                        json.dumps({"content": "my notification"}))
+#        # Example that shows how to send a request/response message
+#        time.sleep(1)
+#        self.manoconn.call_async(
+#                        self._on_example_request_response,
+#                        "example.plugin.%s.request" % str(self.uuid),
+#                        json.dumps({"content": "my request"}))
+#        time.sleep(1)
+#        # Example that shows how to send a notification message
+#        self.manoconn.notify(
+#                        "example.plugin.%s.notification" % str(self.uuid),
+#                        json.dumps({"content": "my notification"}))
 
-        time.sleep(5)
-        os._exit(0)
+#        time.sleep(5)
+#        os._exit(0)
+
+        #At deployment, this plugin generates a service request, identical to how the GK will do it in the future.
+        message = self.createGkNewServiceRequestMessage()
+
+        self.manoconn.call_async(
+                        self.on_service_request_from_gk,
+                        "service.instances.create",
+                        message,
+                        content_type="application/yaml")
+
+    def on_service_request_from_gk(self, ch, method, properties, message):
+        """
+        Printing response from the SLM to the GK on deployment message.
+        """
+        print(yaml.load(message))
+
+
+    def on_service_deploy_request(self, ch, method, properties, message):
+        """
+        IA faking
+        """
+       
+        LOG.debug("request from SLM for IA: %r" % str(yaml.load(message)))
+        if properties.app_id != 'son-plugin.DemoPlugin1':
+            self.manoconn.notify("infrastructure.service.deploy", self.createInfrastructureAdapterResponseMessage(), content_type='application/yaml', correlation_id=properties.correlation_id)
 
     def _on_example_request(self, ch, method, properties, message):
         """
@@ -105,10 +136,36 @@ class DemoPlugin1(ManoBasePlugin):
         """
         print("Example message: %r " % message)
 
+    def createGkNewServiceRequestMessage(self):
+        """
+        This method helps creating messages for the service request packets.
+        """
+        
+        path_descriptors = 'test_descriptors/'
+    	#import the nsd and vnfds that form the service	
+        nsd_descriptor   = open(path_descriptors + 'sonata-demo.yml','r')
+        vnfd1_descriptor = open(path_descriptors + 'firewall-vnfd.yml','r')
+        vnfd2_descriptor = open(path_descriptors + 'iperf-vnfd.yml','r')
+        vnfd3_descriptor = open(path_descriptors + 'tcpdump-vnfd.yml','r')
+
+        service_request = {'NSD': yaml.load(nsd_descriptor), 'VNFD1': yaml.load(vnfd1_descriptor), 'VNFD2': yaml.load(vnfd2_descriptor), 'VNFD3': yaml.load(vnfd3_descriptor)}
+
+        return yaml.dump(service_request)
+
+    def createInfrastructureAdapterResponseMessage(self):
+        path_descriptors = 'test_descriptors/'
+
+        ia_nsr = yaml.load(open(path_descriptors + 'infrastructure-adapter-nsr.yml','r'))
+
+        return str(ia_nsr)
+
+
 
 def main():
     # reduce log level to have a nice output for demonstration
+    # reduce messaging log level to have a nicer output for this plugin
     logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
+    logging.getLogger("son-mano-base:plugin").setLevel(logging.INFO)
     DemoPlugin1()
 
 if __name__ == '__main__':
