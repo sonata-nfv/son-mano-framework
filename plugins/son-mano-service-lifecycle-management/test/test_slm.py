@@ -233,11 +233,9 @@ class testSlmFunctionality(unittest.TestCase):
 
     def on_slm_infra_adaptor_instantiation(self, ch, method, properties, message):
 
-        #The message send on to the IA should be the same as the one received from the GK
-        received_msg = yaml.load(message)
-        sent_msg     = yaml.load(self.createGkNewServiceRequestMessage())
-        self.assertEqual(received_msg, sent_msg, msg='Not the same message.')
-
+        # TODO read sample request
+        sent_msg = yaml.load('{}')
+        self.assertEqual(yaml.load(message), sent_msg, msg='Not the same message.')
         self.eventFinished()
 
     def on_slm_gk_response(self, ch, method, properties, message):
@@ -257,13 +255,13 @@ class testSlmFunctionality(unittest.TestCase):
     def do_nothing(self, ch, method, properties, message):
         return
 
-    def testResponseToGkNewServiceRequest(self):
+    def testGkNewServiceRequest(self):
         """
-        This method tests the reaction of the SLM when it receives a message from the gk, targetted to the infrastructure adaptor.
+        This method tests the reaction of the SLM when it receives a message from the gk, targeted to the infrastructure adaptor.
         """
         
         #STEP1: Spy the topic on which the SLM will contact the infrastructure adaptor
-        self.manoconn_spy.subscribe(self.on_slm_infra_adaptor_instantiation, 'infrastructure.service.deploy')
+        self.manoconn_spy.subscribe(self.on_slm_infra_adaptor_instantiation, 'infrastructure.management.compute.resources')
 
         #STEP2: Send a service request message (from the gk) to the SLM
         self.manoconn_gk.call_async(self.on_gk_response_service_request, 'service.instances.create', msg=self.createGkNewServiceRequestMessage(), content_type='application/yaml', correlation_id=self.corr_id)
@@ -277,6 +275,28 @@ class testSlmFunctionality(unittest.TestCase):
         ia_nsr = open(path_descriptors + 'infrastructure-adapter-nsr.yml','r')
 
         return str(yaml.load(ia_nsr))
+
+    def testInfrastructureAdaptorResourceAvailabilityReply(self):
+
+        """
+        This method tests the reaction of the SLM when it receives a message from the infrastructure adaptor about resource availability. It should target a request to Infrastructure Adaptor in order to deploy a service.
+        """
+        #STEP1: Spy the topic on which the SLM will contact the infrastructure adaptor to deploy the service
+        self.manoconn_spy.subscribe(self.on_resource_availability_reply, 'infrastructure.service.deploy')
+
+        #STEP2: Send a resource availability reply (from the IA) to the SLM
+        self.manoconn_ia.notify('infrastructure.management.compute.resources', msg=self.createGkNewServiceRequestMessage(), content_type='application/yaml', correlation_id=self.corr_id)
+
+        #STEP3: Start waiting for the messages that are triggered by this request
+        self.waitForEvent(timeout=10)
+
+    def on_resource_availability_reply(self, ch, method, properties, message):
+        # The message send on to the IA should be the same as the one received from the GK
+        received_msg = yaml.load(message)
+        sent_msg     = yaml.load(self.createGkNewServiceRequestMessage())
+        self.assertEqual(received_msg, sent_msg, msg='Not the same message.')
+
+        self.eventFinished()
 
     def test_on_infra_adaptor_service_deploy_reply(self):
 

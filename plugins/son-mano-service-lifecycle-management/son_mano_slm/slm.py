@@ -25,6 +25,9 @@ GK_INSTANCE_CREATE_TOPIC = "service.instances.create"
 # The topic to which service instance deploy replies of the Infrastructure Adaptor are published
 INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC = "infrastructure.service.deploy"
 
+# The topic to which resource availabiltiy replies of the Infrastructure Adaptor are published
+INFRA_ADAPTOR_RESOURCE_AVAILABILITY_REPLY_TOPIC = "infrastructure.management.compute.resources";
+
 # The NSR Repository can be accessed through a RESTful API
 NSR_REPOSITORY_URL = "http://api.int.sonata-nfv.eu:4002/records/nsr/"
 VNFR_REPOSITORY_URL = "http://api.int.sonata-nfv.eu:4002/records/vnfr/";
@@ -152,6 +155,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
                               'error'     : 'Number of VNFDs doesn\'t match number of vnfs',
                               'timestamp' : time.time()})
 
+        # TODO build request to IA: format is still to be defined
+        resource_request = {};
+
         #If all the above checks succeed, we can proceed with the deployment. We first check whether SSMs need to be deployed.
         if 'ssm' in service_request_from_gk['NSD'].keys():
             #If a SSM is required, it needs to be deployed and contacted. Check whether the SSM is already deployed by previous service requests.
@@ -164,23 +170,34 @@ class ServiceLifecycleManager(ManoBasePlugin):
             response_from_ssm = yaml.load(body)            
             print('response_from_ssm: ' + str(response_from_ssm))
 
-            self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply, 
-                                     INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC, 
-                                     yaml.dump(service_request_from_gk), 
-                                     correlation_id=properties.correlation_id)                
+            self.manoconn.call_async(self.callback_factory(service_request_from_gk),
+                                 INFRA_ADAPTOR_RESOURCE_AVAILABILITY_REPLY_TOPIC,
+                                 yaml.dump(resource_request),
+                                 correlation_id=properties.correlation_id)
         
         else:            
             #we send the resulting message to the IA, and return a message to the GK indicating that the process is initiated.        
-            self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply, 
-                                     INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC, 
-                                     yaml.dump(service_request_from_gk), 
-                                     correlation_id=properties.correlation_id)                
+            self.manoconn.call_async(self.callback_factory(service_request_from_gk),
+                                 INFRA_ADAPTOR_RESOURCE_AVAILABILITY_REPLY_TOPIC,
+                                 yaml.dump(resource_request),
+                                 correlation_id=properties.correlation_id)
 
         return yaml.dump({'status'    : 'INSTANTIATING',        #INSTANTIATING or ERROR
                           'error'     : 'None',         #NULL or a string describing the ERROR
                           'timestamp' : time.time()})  #time() returns the number of seconds since the epoch in UTC as a float      
 
-    
+    def callback_factory(self, nsd_request):
+        request = nsd_request
+
+        def on_infra_adaptor_resource_availability_reply(self, ch, method, properties, message):
+            # TODO handle IA response: format is still to be defined
+            self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply,
+                                 INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC,
+                                 yaml.dump(request),
+                                 correlation_id=properties.correlation_id)
+
+
+        return on_infra_adaptor_resource_availability_reply
 
     def on_infra_adaptor_service_deploy_reply(self, ch, method, properties, message):
         """
@@ -259,7 +276,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
     def postNsrToRepository(self, nsr, headers, timeout=None):
         return requests.post(NSR_REPOSITORY_URL + 'ns-instances', data=nsr, headers=headers, timeout=timeout)
 
-    def postVnfrToRepository(self, vnfr, headers):
+    def postVnfrToRepository(self, vnfr, headers, timeout=None):
         return requests.post(VNFR_REPOSITORY_URL + 'vnf-instances', data=vnfr, headers=headers, timeout=timeout)
         
     def on_ssm_registration(self, ch, method, properties, message):
