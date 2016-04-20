@@ -170,34 +170,43 @@ class ServiceLifecycleManager(ManoBasePlugin):
             response_from_ssm = yaml.load(body)            
             print('response_from_ssm: ' + str(response_from_ssm))
 
-            self.manoconn.call_async(self.callback_factory(service_request_from_gk),
-                                 INFRA_ADAPTOR_RESOURCE_AVAILABILITY_REPLY_TOPIC,
-                                 yaml.dump(resource_request),
-                                 correlation_id=properties.correlation_id)
-        
+#            self.manoconn.call_async(self.callback_factory(service_request_from_gk),
+#                                 INFRA_ADAPTOR_RESOURCE_AVAILABILITY_REPLY_TOPIC,
+#                                 yaml.dump(resource_request),
+#                                 correlation_id=properties.correlation_id)
+
+            self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply, 
+                                 INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC, 
+                                 yaml.dump(service_request_from_gk), 
+                                 correlation_id=properties.correlation_id)                        
+
         else:            
             #we send the resulting message to the IA, and return a message to the GK indicating that the process is initiated.        
-            self.manoconn.call_async(self.callback_factory(service_request_from_gk),
-                                 INFRA_ADAPTOR_RESOURCE_AVAILABILITY_REPLY_TOPIC,
-                                 yaml.dump(resource_request),
-                                 correlation_id=properties.correlation_id)
+#            self.manoconn.call_async(self.callback_factory(service_request_from_gk),
+#                                 INFRA_ADAPTOR_RESOURCE_AVAILABILITY_REPLY_TOPIC,
+#                                 yaml.dump(resource_request),
+#                                 correlation_id=properties.correlation_id)
+
+            self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply, 
+                                 INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC, 
+                                 yaml.dump(service_request_from_gk), 
+                                 correlation_id=properties.correlation_id)                        
 
         return yaml.dump({'status'    : 'INSTANTIATING',        #INSTANTIATING or ERROR
                           'error'     : 'None',         #NULL or a string describing the ERROR
                           'timestamp' : time.time()})  #time() returns the number of seconds since the epoch in UTC as a float      
 
-    def callback_factory(self, nsd_request):
-        request = nsd_request
+#    def callback_factory(self, nsd_request):
+#        request = nsd_request
 
-        def on_infra_adaptor_resource_availability_reply(self, ch, method, properties, message):
-            # TODO handle IA response: format is still to be defined
-            self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply,
-                                 INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC,
-                                 yaml.dump(request),
-                                 correlation_id=properties.correlation_id)
-
-
-        return on_infra_adaptor_resource_availability_reply
+#        def on_infra_adaptor_resource_availability_reply(ch, method, properties, message):
+#            # TODO handle IA response: format is still to be defined
+#            self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply,
+#                                 INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC,
+#                                 yaml.dump(request),
+#                                 correlation_id=properties.correlation_id)
+#
+#        return on_infra_adaptor_resource_availability_reply
 
     def on_infra_adaptor_service_deploy_reply(self, ch, method, properties, message):
         """
@@ -205,6 +214,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         Based on the content of the reply message, the NSR has to be contacted.
         The GK should be notified of the result of the service request.
         """
+        print('got here')
         msg = yaml.load(message)
         #The message that will be returned to the gk
         message_for_gk = {}
@@ -213,14 +223,14 @@ class ServiceLifecycleManager(ManoBasePlugin):
         request_status = msg['request_status']
         message_for_gk['request_status'] = request_status
 
-        if request_status == 'RUNNING':
+        if request_status == 'normal_operation':
             #Retrieve NSR from message
             nsr = msg['nsr'];
             if ('id' not in nsr):
                 nsr['id'] = uuid.uuid4().hex
 
             #Retrieve VNFRs from message
-            vnfrs = msg["vnfr"]
+            vnfrs = msg["vnfrs"]
             ## Store vnfrs in the repository and add vnfr ids to nsr if it is not already present
             if ('vnfr' not in nsr):
                 nsr['vnfr'] = []
@@ -309,7 +319,7 @@ def main():
     :return:
     """
     # reduce messaging log level to have a nicer output for this plugin
-    logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
+    logging.getLogger("son-mano-base:messaging").setLevel(logging.DEBUG)
     logging.getLogger("son-mano-base:plugin").setLevel(logging.INFO)
     # create our service lifecycle manager
     ServiceLifecycleManager()

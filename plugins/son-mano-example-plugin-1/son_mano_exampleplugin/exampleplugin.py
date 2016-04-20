@@ -53,12 +53,16 @@ class DemoPlugin1(ManoBasePlugin):
             "example.plugin.*.notification")
 
         #Faking the IA, currently disabled.
-        #self.manoconn.register_notification_endpoint(
-        #    self.on_service_deploy_request,
-        #    "infrastructure.service.deploy")
+#        self.manoconn.register_notification_endpoint(
+#            self.on_service_deploy_request,
+#            "infrastructure.service.deploy")
+#        
+#        self.manoconn.register_notification_endpoint(
+#            self.on_resource_availability_request,
+#            "infrastructure.management.compute.resources")
 
         # Activate this to sniff and print all messages on the broker
-        #self.manoconn.subscribe(self.manoconn.callback_print, "#")
+        self.manoconn.subscribe(self.callback_print, "infrastructure.service.deploy")
 
     def run(self):
         """
@@ -110,6 +114,11 @@ class DemoPlugin1(ManoBasePlugin):
         print("RESPONSE FROM GK END")
 
 
+    def callback_print(self, ch, method, properties, message):
+
+        print('correlation_id: ' + str(properties.correlation_id))  
+        print('message: ' + str(message))      
+
     def on_service_deploy_request(self, ch, method, properties, message):
         """
         IA faking
@@ -118,6 +127,16 @@ class DemoPlugin1(ManoBasePlugin):
         LOG.debug("request from SLM for IA: %r" % str(yaml.load(message)))
         if properties.app_id != 'son-plugin.DemoPlugin1':
             self.manoconn.notify("infrastructure.service.deploy", self.createInfrastructureAdapterResponseMessage(), content_type='application/yaml', correlation_id=properties.correlation_id)
+
+    def on_resource_availability_request(self, ch, method, properties, message):
+        """
+        IA faking
+        """
+
+        if properties.app_id != 'son-plugin.DemoPlugin1':
+            LOG.debug("SLM request for resources: %r" % str(yaml.load(message)))
+            self.manoconn.notify("infrastructure.management.compute.resources", yaml.dump({'dummy':'dummy'}), content_type='application/yaml', correlation_id=properties.correlation_id)
+
 
     def _on_example_request(self, ch, method, properties, message):
         """
