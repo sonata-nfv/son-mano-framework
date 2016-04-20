@@ -13,6 +13,7 @@ ADD utils/delayedstart.sh /delayedstart.sh
 
 # add plugin related files
 ADD plugins/${PLUGIN_BASE} /plugins/${PLUGIN_BASE}
+ADD plugins/${PLUGIN_BASE}/son_mano_exampleplugin/test_descriptors /test_descriptors
 
 # install son-mano-base to be able to use the plugin base class etc.
 WORKDIR /son-mano-base
