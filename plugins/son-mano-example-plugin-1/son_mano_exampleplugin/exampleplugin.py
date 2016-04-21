@@ -95,6 +95,15 @@ class DemoPlugin1(ManoBasePlugin):
 #        time.sleep(5)
 #        os._exit(0)
 
+        #Add new VIM to IA
+        vim_message = json.dumps({'wr_type' : 'compute', 'vim_type': 'Mock', 'vim_address' : 'http://localhost:9999', 'username' : 'Eve', 'pass':'Operator'})
+
+        self.manoconn.call_async(self.on_infrastructure_adaptor_reply, 
+                                'infrastructure.management.compute.add',
+                                vim_message)
+
+        time.sleep(10)
+
         #At deployment, this plugin generates a service request, identical to how the GK will do it in the future.
         message = self.createGkNewServiceRequestMessage()
 
@@ -103,6 +112,10 @@ class DemoPlugin1(ManoBasePlugin):
                         "service.instances.create",
                         message,
                         content_type="application/yaml")
+
+    def on_infrastructure_adaptor_reply(self, ch, method, properties, message):
+        
+        print('infra response: ' + str(json.loads(str(message, "utf-8"))))
 
 
     def on_service_request_from_gk(self, ch, method, properties, message):

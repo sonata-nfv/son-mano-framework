@@ -7,11 +7,12 @@
 ## VNF descriptor.
 ##
 descriptor_version: "vnfd-schema-01"
-vnf_group: "eu.sonata-nfv"
-vnf_name: "iperf-vnf"
-vnf_version: "0.1"
-vnf_author: "Steven van Rossem, iMinds"
-vnf_description: >
+
+vendor: "eu.sonata-nfv"
+name: "iperf-vnf"
+version: "0.2"
+author: "Steven van Rossem, iMinds"
+description: >
   "A first iperf VNF descriptor. The iperf VNF
    acts as a traffic source."
 

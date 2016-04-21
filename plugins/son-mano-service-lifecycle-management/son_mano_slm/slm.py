@@ -155,6 +155,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
                               'error'     : 'Number of VNFDs doesn\'t match number of vnfs',
                               'timestamp' : time.time()})
 
+        message_for_IA = self.build_message_for_IA_from_gk(service_request_from_gk)
+
         # TODO build request to IA: format is still to be defined
         resource_request = {};
 
@@ -177,8 +179,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
             self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply, 
                                  INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC, 
-                                 yaml.dump(service_request_from_gk), 
-                                 correlation_id=properties.correlation_id)                        
+                                 yaml.dump(message_for_IA), 
+                                 correlation_id=properties.correlation_id,
+				 content_type="application/yaml")                        
 
         else:            
             #we send the resulting message to the IA, and return a message to the GK indicating that the process is initiated.        
@@ -189,8 +192,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
             self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply, 
                                  INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC, 
-                                 yaml.dump(service_request_from_gk), 
-                                 correlation_id=properties.correlation_id)                        
+                                 yaml.dump(message_for_IA), 
+                                 correlation_id=properties.correlation_id,
+				 content_type="application/yaml")                        
 
         return yaml.dump({'status'    : 'INSTANTIATING',        #INSTANTIATING or ERROR
                           'error'     : 'None',         #NULL or a string describing the ERROR
@@ -214,7 +218,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         Based on the content of the reply message, the NSR has to be contacted.
         The GK should be notified of the result of the service request.
         """
-        print('got here')
         msg = yaml.load(message)
         #The message that will be returned to the gk
         message_for_gk = {}
@@ -230,7 +233,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 nsr['id'] = uuid.uuid4().hex
 
             #Retrieve VNFRs from message
-            vnfrs = msg["vnfrs"]
+            vnfrs = msg["vnfrList"]
             ## Store vnfrs in the repository and add vnfr ids to nsr if it is not already present
             if ('vnfr' not in nsr):
                 nsr['vnfr'] = []
@@ -279,7 +282,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
             except:
                 message_for_gk['error']['nsr'] = {'http_code':'0', 'message':'Timeout when contacting server'}
                 
-        print(message_for_gk)
+        else:
+            message_for_gk['error'] = {'request_status_from_IA' : request_status}
+
         self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(message_for_gk))
 
 
@@ -312,6 +317,19 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         #TODO: Add this new forwarding graph to the NSD, and request an update from the IA.
 
+    def build_message_for_IA_from_gk(self, message):
+        """
+        This method converts the deploy request from the gk to a messsaga for the IA
+        """
+        resulting_message = {}
+        resulting_message['nsd'] = message['NSD']
+        resulting_message['vnfdList'] = []
+        
+        for key in message.keys():
+            if key[:4] == 'VNFD':
+                resulting_message['vnfdList'].append(message[key])
+
+        return resulting_message
 
 def main():
     """
@@ -319,7 +337,7 @@ def main():
     :return:
     """
     # reduce messaging log level to have a nicer output for this plugin
-    logging.getLogger("son-mano-base:messaging").setLevel(logging.DEBUG)
+    logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
     logging.getLogger("son-mano-base:plugin").setLevel(logging.INFO)
     # create our service lifecycle manager
     ServiceLifecycleManager()
