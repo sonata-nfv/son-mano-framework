@@ -53,12 +53,19 @@ class DemoPlugin1(ManoBasePlugin):
             "example.plugin.*.notification")
 
         #Faking the IA, currently disabled.
-        #self.manoconn.register_notification_endpoint(
-        #    self.on_service_deploy_request,
-        #    "infrastructure.service.deploy")
+#        self.manoconn.register_notification_endpoint(
+#            self.on_service_deploy_request,
+#            "infrastructure.service.deploy")
+#        
+#        self.manoconn.register_notification_endpoint(
+#            self.on_resource_availability_request,
+#            "infrastructure.management.compute.resources")
 
         # Activate this to sniff and print all messages on the broker
-        #self.manoconn.subscribe(self.manoconn.callback_print, "#")
+        self.manoconn.subscribe(self.callback_print, "infrastructure.service.deploy")
+
+        #We need to receive all messages from the slm intended for the gk
+        self.manoconn.subscribe(self.on_slm_messages, "service.instance.create")
 
     def run(self):
         """
@@ -66,6 +73,8 @@ class DemoPlugin1(ManoBasePlugin):
         """
         # lets run for 30 seconds and stop
         time.sleep(30)
+        print('Timeout')
+        exit(1)
 
     def on_registration_ok(self):
         """
@@ -91,24 +100,51 @@ class DemoPlugin1(ManoBasePlugin):
 #        time.sleep(5)
 #        os._exit(0)
 
+        #Add new VIM to IA
+        vim_message = json.dumps({'wr_type' : 'compute', 'vim_type': 'Mock', 'vim_address' : 'http://localhost:9999', 'username' : 'Eve', 'pass':'Operator'})
+
+        self.manoconn.call_async(self.on_infrastructure_adaptor_reply, 
+                                'infrastructure.management.compute.add',
+                                vim_message)
+
+        time.sleep(3)
+
         #At deployment, this plugin generates a service request, identical to how the GK will do it in the future.
         message = self.createGkNewServiceRequestMessage()
 
         self.manoconn.call_async(
-                        self.on_service_request_from_gk,
+                        self.on_slm_messages,
                         "service.instances.create",
                         message,
                         content_type="application/yaml")
 
+    def on_infrastructure_adaptor_reply(self, ch, method, properties, message):
+        
+        print('infra response: ' + str(json.loads(str(message, "utf-8"))))
 
-    def on_service_request_from_gk(self, ch, method, properties, message):
+
+    def on_slm_messages(self, ch, method, properties, message):
         """
-        Printing response from the SLM to the GK on deployment message.
+        Printing response from the SLM to the GK on all messages.
         """
+        msg = yaml.load(message)
+
         print("RESPONSE FROM GK START")
-        print(yaml.load(message))
+        print(msg)
         print("RESPONSE FROM GK END")
+        if 'error' in msg.keys(): 		
+            if msg['error'] != None:	
+                print(msg['error'])
+                exit(1)
+        if 'status' in msg.keys():
+            if msg['status'] == 'Deployment completed':
+                exit(0)
+        
 
+    def callback_print(self, ch, method, properties, message):
+
+        print('correlation_id: ' + str(properties.correlation_id))  
+        print('message: ' + str(message))      
 
     def on_service_deploy_request(self, ch, method, properties, message):
         """
@@ -118,6 +154,16 @@ class DemoPlugin1(ManoBasePlugin):
         LOG.debug("request from SLM for IA: %r" % str(yaml.load(message)))
         if properties.app_id != 'son-plugin.DemoPlugin1':
             self.manoconn.notify("infrastructure.service.deploy", self.createInfrastructureAdapterResponseMessage(), content_type='application/yaml', correlation_id=properties.correlation_id)
+
+    def on_resource_availability_request(self, ch, method, properties, message):
+        """
+        IA faking
+        """
+
+        if properties.app_id != 'son-plugin.DemoPlugin1':
+            LOG.debug("SLM request for resources: %r" % str(yaml.load(message)))
+            self.manoconn.notify("infrastructure.management.compute.resources", yaml.dump({'dummy':'dummy'}), content_type='application/yaml', correlation_id=properties.correlation_id)
+
 
     def _on_example_request(self, ch, method, properties, message):
         """
@@ -143,7 +189,7 @@ class DemoPlugin1(ManoBasePlugin):
         This method helps creating messages for the service request packets.
         """
         
-        path_descriptors = '/test_descriptors/'
+        path_descriptors = 'test_descriptors/'
     	#import the nsd and vnfds that form the service	
         nsd_descriptor   = open(path_descriptors + 'sonata-demo.yml','r')
         vnfd1_descriptor = open(path_descriptors + 'firewall-vnfd.yml','r')

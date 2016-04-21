@@ -7,11 +7,12 @@
 ## VNF descriptor.
 ##
 descriptor_version: "vnfd-schema-01"
-vnf_group: "eu.sonata-nfv"
-vnf_name: "firewall-vnf"
-vnf_version: "0.1"
-vnf_author: "Steven van Rossem, iMinds"
-vnf_description: >
+
+vendor: "eu.sonata-nfv"
+name: "firewall-vnf"
+version: "0.2"
+author: "Steven van Rossem, iMinds"
+description: >
   "A first firewall VNF descriptor"
 
 ##
@@ -30,6 +31,13 @@ virtual_deployment_units:
       storage:
         size: 10
         size_unit: "GB"
+    monitoring_parameters:
+      - name: "cpu_load"
+        unit: "Percentage"
+        frequency: 1
+        frequency_unit: "kHz"
+      - name: "memory_consumption"
+        unit: "MB"
     connection_points:
       - id: "vdu01:cp01"
         type: "interface"

@@ -9,11 +9,11 @@
 ---
 descriptor_version: "1.0"
 
-ns_group: "eu.sonata-nfv.service-descriptor"
-ns_name: "sonata-demo"
-ns_version: "0.1"
-ns_author: "Michael Bredel, NEC Labs Europe"
-ns_description: >
+vendor: "eu.sonata-nfv.service-descriptor"
+name: "sonata-demo"
+version: "0.2"
+author: "Michael Bredel, NEC Labs Europe"
+description: >
   "The network service descriptor for the SONATA demo,
    comprising iperf, a firewall, and tcpump."
 
@@ -23,15 +23,15 @@ ns_description: >
 ##
 network_functions:
   - vnf_id: "vnf_firewall"
-    vnf_group: "eu.sonata-nfv"
+    vnf_vendor: "eu.sonata-nfv"
     vnf_name: "firewall-vnf"
     vnf_version: "0.1"
   - vnf_id: "vnf_iperf"
-    vnf_group: "eu.sonata-nfv"
+    vnf_vendor: "eu.sonata-nfv"
     vnf_name: "iperf-vnf"
     vnf_version: "0.1"
   - vnf_id: "vnf_tcpdump"
-    vnf_group: "eu.sonata-nfv"
+    vnf_vendor: "eu.sonata-nfv"
     vnf_name: "tcpdump-vnf"
     vnf_version: "0.1"
 

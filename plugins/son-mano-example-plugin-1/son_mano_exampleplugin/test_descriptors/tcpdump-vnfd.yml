@@ -7,11 +7,12 @@
 ## VNF descriptor.
 ##
 descriptor_version: "vnfd-schema-01"
-vnf_group: "eu.sonata-nfv"
-vnf_name: "tcpdump-vnf"
-vnf_version: "0.1"
-vnf_author: "Steven van Rossem, iMinds"
-vnf_description: >
+
+vendor: "eu.sonata-nfv"
+name: "tcpdump-vnf"
+version: "0.2"
+author: "Steven van Rossem, iMinds"
+description: >
   "A first tcpdump VNF descriptor. The tcpdump
    VNF acts as a traffic sink."
 

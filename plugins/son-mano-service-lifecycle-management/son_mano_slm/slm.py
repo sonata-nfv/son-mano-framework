@@ -155,6 +155,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
                               'error'     : 'Number of VNFDs doesn\'t match number of vnfs',
                               'timestamp' : time.time()})
 
+        message_for_IA = self.build_message_for_IA_from_gk(service_request_from_gk)
+
         # TODO build request to IA: format is still to be defined
         resource_request = {};
 
@@ -170,34 +172,45 @@ class ServiceLifecycleManager(ManoBasePlugin):
             response_from_ssm = yaml.load(body)            
             print('response_from_ssm: ' + str(response_from_ssm))
 
-            self.manoconn.call_async(self.callback_factory(service_request_from_gk),
-                                 INFRA_ADAPTOR_RESOURCE_AVAILABILITY_REPLY_TOPIC,
-                                 yaml.dump(resource_request),
-                                 correlation_id=properties.correlation_id)
-        
+#            self.manoconn.call_async(self.callback_factory(service_request_from_gk),
+#                                 INFRA_ADAPTOR_RESOURCE_AVAILABILITY_REPLY_TOPIC,
+#                                 yaml.dump(resource_request),
+#                                 correlation_id=properties.correlation_id)
+
+            self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply, 
+                                 INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC, 
+                                 yaml.dump(message_for_IA), 
+                                 correlation_id=properties.correlation_id,
+				 content_type="application/yaml")                        
+
         else:            
             #we send the resulting message to the IA, and return a message to the GK indicating that the process is initiated.        
-            self.manoconn.call_async(self.callback_factory(service_request_from_gk),
-                                 INFRA_ADAPTOR_RESOURCE_AVAILABILITY_REPLY_TOPIC,
-                                 yaml.dump(resource_request),
-                                 correlation_id=properties.correlation_id)
+#            self.manoconn.call_async(self.callback_factory(service_request_from_gk),
+#                                 INFRA_ADAPTOR_RESOURCE_AVAILABILITY_REPLY_TOPIC,
+#                                 yaml.dump(resource_request),
+#                                 correlation_id=properties.correlation_id)
+
+            self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply, 
+                                 INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC, 
+                                 yaml.dump(message_for_IA), 
+                                 correlation_id=properties.correlation_id,
+				 content_type="application/yaml")                        
 
         return yaml.dump({'status'    : 'INSTANTIATING',        #INSTANTIATING or ERROR
-                          'error'     : 'None',         #NULL or a string describing the ERROR
+                          'error'     : None,         #NULL or a string describing the ERROR
                           'timestamp' : time.time()})  #time() returns the number of seconds since the epoch in UTC as a float      
 
-    def callback_factory(self, nsd_request):
-        request = nsd_request
+#    def callback_factory(self, nsd_request):
+#        request = nsd_request
 
-        def on_infra_adaptor_resource_availability_reply(self, ch, method, properties, message):
-            # TODO handle IA response: format is still to be defined
-            self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply,
-                                 INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC,
-                                 yaml.dump(request),
-                                 correlation_id=properties.correlation_id)
-
-
-        return on_infra_adaptor_resource_availability_reply
+#        def on_infra_adaptor_resource_availability_reply(ch, method, properties, message):
+#            # TODO handle IA response: format is still to be defined
+#            self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply,
+#                                 INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC,
+#                                 yaml.dump(request),
+#                                 correlation_id=properties.correlation_id)
+#
+#        return on_infra_adaptor_resource_availability_reply
 
     def on_infra_adaptor_service_deploy_reply(self, ch, method, properties, message):
         """
@@ -213,14 +226,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
         request_status = msg['request_status']
         message_for_gk['request_status'] = request_status
 
-        if request_status == 'RUNNING':
-            #Retrieve NSR from message
+        if request_status[:6] == 'normal':
             nsr = msg['nsr'];
             if ('id' not in nsr):
                 nsr['id'] = uuid.uuid4().hex
 
             #Retrieve VNFRs from message
-            vnfrs = msg["vnfr"]
+            vnfrs = msg["vnfrList"]
             ## Store vnfrs in the repository and add vnfr ids to nsr if it is not already present
             if ('vnfr' not in nsr):
                 nsr['vnfr'] = []
@@ -268,8 +280,16 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     message_for_gk['error']['nsr'] = {'http_code':nsr_response.status_code, 'message':nsr_response.json()}
             except:
                 message_for_gk['error']['nsr'] = {'http_code':'0', 'message':'Timeout when contacting server'}
+            
+            if message_for_gk['error'] == {}:
+                message_for_gk['error'] = None
+                message_for_gk['status'] = 'Deployment completed'
                 
-        print(message_for_gk)
+        else:
+            message_for_gk['error'] = {'request_status_from_IA' : request_status}
+
+#        print(message_for_gk)
+
         self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(message_for_gk))
 
 
@@ -302,6 +322,19 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         #TODO: Add this new forwarding graph to the NSD, and request an update from the IA.
 
+    def build_message_for_IA_from_gk(self, message):
+        """
+        This method converts the deploy request from the gk to a messsaga for the IA
+        """
+        resulting_message = {}
+        resulting_message['nsd'] = message['NSD']
+        resulting_message['vnfdList'] = []
+        
+        for key in message.keys():
+            if key[:4] == 'VNFD':
+                resulting_message['vnfdList'].append(message[key])
+
+        return resulting_message
 
 def main():
     """

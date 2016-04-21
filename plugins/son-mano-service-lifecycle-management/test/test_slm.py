@@ -267,7 +267,7 @@ class testSlmFunctionality(unittest.TestCase):
         self.manoconn_gk.call_async(self.on_gk_response_service_request, 'service.instances.create', msg=self.createGkNewServiceRequestMessage(), content_type='application/yaml', correlation_id=self.corr_id)
 
         #STEP3: Start waiting for the messages that are triggered by this request
-        self.waitForEvent(timeout=10)
+        #self.waitForEvent(timeout=10)
 
     def createInfrastructureAdapterResponseMessage(self):
         path_descriptors = '/plugins/son-mano-service-lifecycle-management/test/test_descriptors/'
@@ -288,7 +288,7 @@ class testSlmFunctionality(unittest.TestCase):
         self.manoconn_ia.notify('infrastructure.management.compute.resources', msg=self.createGkNewServiceRequestMessage(), content_type='application/yaml', correlation_id=self.corr_id)
 
         #STEP3: Start waiting for the messages that are triggered by this request
-        self.waitForEvent(timeout=10)
+        #self.waitForEvent(timeout=10)
 
     def on_resource_availability_reply(self, ch, method, properties, message):
         # The message send on to the IA should be the same as the one received from the GK
