@@ -304,7 +304,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         # return its result
         self.publish(props.reply_to, result,
                      correlation_id=props.correlation_id,
-                     headers={"key": None})
+                     headers={"key": None, "type": "reply"})
 
     def _on_call_async_request_received(self, ch, method, props, body):
         """
@@ -392,6 +392,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
             self._async_calls_pending[corr_id] = cbf
         # ensure that optional key is included into header
         headers["key"] = key
+        headers["type"] = "request"
         # publish request message
         self.publish(topic, msg,
                      content_type=content_type,
