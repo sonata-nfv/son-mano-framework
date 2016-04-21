@@ -197,7 +197,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 				 content_type="application/yaml")                        
 
         return yaml.dump({'status'    : 'INSTANTIATING',        #INSTANTIATING or ERROR
-                          'error'     : 'None',         #NULL or a string describing the ERROR
+                          'error'     : None,         #NULL or a string describing the ERROR
                           'timestamp' : time.time()})  #time() returns the number of seconds since the epoch in UTC as a float      
 
 #    def callback_factory(self, nsd_request):
@@ -226,8 +226,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         request_status = msg['request_status']
         message_for_gk['request_status'] = request_status
 
-        if request_status == 'normal_operation':
-            #Retrieve NSR from message
+        if request_status[:6] == 'normal':
             nsr = msg['nsr'];
             if ('id' not in nsr):
                 nsr['id'] = uuid.uuid4().hex
@@ -281,9 +280,15 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     message_for_gk['error']['nsr'] = {'http_code':nsr_response.status_code, 'message':nsr_response.json()}
             except:
                 message_for_gk['error']['nsr'] = {'http_code':'0', 'message':'Timeout when contacting server'}
+            
+            if message_for_gk['error'] == {}:
+                message_for_gk['error'] = None
+                message_for_gk['status'] = 'Deployment completed'
                 
         else:
             message_for_gk['error'] = {'request_status_from_IA' : request_status}
+
+#        print(message_for_gk)
 
         self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(message_for_gk))
 

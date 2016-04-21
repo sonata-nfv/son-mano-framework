@@ -64,12 +64,17 @@ class DemoPlugin1(ManoBasePlugin):
         # Activate this to sniff and print all messages on the broker
         self.manoconn.subscribe(self.callback_print, "infrastructure.service.deploy")
 
+        #We need to receive all messages from the slm intended for the gk
+        self.manoconn.subscribe(self.on_slm_messages, "service.instance.create")
+
     def run(self):
         """
         Plugin logic. Does nothing in our example.
         """
         # lets run for 30 seconds and stop
         time.sleep(30)
+        print('Timeout')
+        exit(1)
 
     def on_registration_ok(self):
         """
@@ -102,13 +107,13 @@ class DemoPlugin1(ManoBasePlugin):
                                 'infrastructure.management.compute.add',
                                 vim_message)
 
-        time.sleep(10)
+        time.sleep(3)
 
         #At deployment, this plugin generates a service request, identical to how the GK will do it in the future.
         message = self.createGkNewServiceRequestMessage()
 
         self.manoconn.call_async(
-                        self.on_service_request_from_gk,
+                        self.on_slm_messages,
                         "service.instances.create",
                         message,
                         content_type="application/yaml")
@@ -118,14 +123,23 @@ class DemoPlugin1(ManoBasePlugin):
         print('infra response: ' + str(json.loads(str(message, "utf-8"))))
 
 
-    def on_service_request_from_gk(self, ch, method, properties, message):
+    def on_slm_messages(self, ch, method, properties, message):
         """
-        Printing response from the SLM to the GK on deployment message.
+        Printing response from the SLM to the GK on all messages.
         """
-        print("RESPONSE FROM GK START")
-        print(yaml.load(message))
-        print("RESPONSE FROM GK END")
+        msg = yaml.load(message)
 
+        print("RESPONSE FROM GK START")
+        print(msg)
+        print("RESPONSE FROM GK END")
+        if 'error' in msg.keys(): 		
+            if msg['error'] != None:	
+                print(msg['error'])
+                exit(1)
+        if 'status' in msg.keys():
+            if msg['status'] == 'Deployment completed':
+                exit(0)
+        
 
     def callback_print(self, ch, method, properties, message):
 
@@ -175,7 +189,7 @@ class DemoPlugin1(ManoBasePlugin):
         This method helps creating messages for the service request packets.
         """
         
-        path_descriptors = '/test_descriptors/'
+        path_descriptors = 'test_descriptors/'
     	#import the nsd and vnfds that form the service	
         nsd_descriptor   = open(path_descriptors + 'sonata-demo.yml','r')
         vnfd1_descriptor = open(path_descriptors + 'firewall-vnfd.yml','r')
