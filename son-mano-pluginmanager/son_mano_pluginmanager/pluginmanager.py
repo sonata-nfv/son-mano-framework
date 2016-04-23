@@ -28,13 +28,8 @@ class SonPluginManager(ManoBasePlugin):
     """
 
     def __init__(self):
-        # get configs from ENV
-        mongo_host = os.environ.get("mongo_host")
-        if mongo_host is None:
-            mongo_host = "127.0.0.1"
-
         # initialize plugin DB model
-        model.initialize(host=mongo_host)
+        model.initialize()
 
         # start up management interface
         interface.start(self)

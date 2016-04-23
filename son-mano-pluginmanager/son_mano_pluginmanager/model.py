@@ -1,10 +1,11 @@
 import logging
+import os
 from datetime import datetime
 from mongoengine import Document, connect, StringField, DateTimeField, BooleanField, signals
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("son-mano-pluginmanger:model")
-LOG.setLevel(logging.DEBUG)
+LOG.setLevel(logging.INFO)
 
 
 class Plugin(Document):
@@ -48,7 +49,10 @@ class Plugin(Document):
         return res
 
 
-def initialize(db="sonata-plugin-manager", host="127.0.0.1", port=27017, clear_db=True):
+def initialize(db="sonata-plugin-manager",
+               host=os.environ.get("mongo_host", "127.0.0.1"),
+               port=int(os.environ.get("mongo_port", 27017)),
+               clear_db=True):
     db_conn = connect(db, host=host, port=port)
     LOG.info("Connected to MongoDB %r@%s:%d" % (db, host, port))
     if clear_db:

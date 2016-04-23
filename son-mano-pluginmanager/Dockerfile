@@ -3,6 +3,7 @@ MAINTAINER SONATA
 
 # configrurations
 ENV mongo_host mongo
+ENV mongo_port 27017
 ENV broker_host amqp://guest:guest@broker:5672/%2F
 ENV broker_exchange son-kernel
 
