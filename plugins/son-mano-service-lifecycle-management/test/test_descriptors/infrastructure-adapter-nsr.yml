@@ -16,7 +16,7 @@ nsr:
     - id: "vnf_firewall"
     - id: "vnf_iperf"
     - id: "vnf_tcpdump"
-vnfr:
+vnfrList:
   - id: "vnfr-1"
     vendor: "dummy-vendor"
     descriptor_version: "1.0"
@@ -100,4 +100,4 @@ vnfr:
         monitoring_parameter: "parameter-2"
       - 3:
         monitoring_parameter: "parameter-3"
-request_status: "RUNNING"
+request_status: "normal"
