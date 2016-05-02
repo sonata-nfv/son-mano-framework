@@ -247,12 +247,15 @@ class testSlmFunctionality(unittest.TestCase):
         return
 
     def on_service_deployment_response(self, ch, method, properties, message):
+        raise AssertionError("esto llega juasjuas")
         msg =  yaml.load(message)
         self.assertIn('request_status', msg.keys(), msg='request_status is not a key')
         self.eventFinished()
         return
 
     def do_nothing(self, ch, method, properties, message):
+
+        self.eventFinished()
         return
 
     def testGkNewServiceRequest(self):
@@ -267,7 +270,8 @@ class testSlmFunctionality(unittest.TestCase):
         self.manoconn_gk.call_async(self.on_gk_response_service_request, 'service.instances.create', msg=self.createGkNewServiceRequestMessage(), content_type='application/yaml', correlation_id=self.corr_id)
 
         #STEP3: Start waiting for the messages that are triggered by this request
-        #self.waitForEvent(timeout=10)
+        self.waitForEvent(timeout=10)
+
 
     def createInfrastructureAdapterResponseMessage(self):
         path_descriptors = '/plugins/son-mano-service-lifecycle-management/test/test_descriptors/'
@@ -275,6 +279,7 @@ class testSlmFunctionality(unittest.TestCase):
         ia_nsr = open(path_descriptors + 'infrastructure-adapter-nsr.yml','r')
 
         return str(yaml.load(ia_nsr))
+
 
     def testInfrastructureAdaptorResourceAvailabilityReply(self):
 
@@ -288,10 +293,14 @@ class testSlmFunctionality(unittest.TestCase):
         self.manoconn_ia.notify('infrastructure.management.compute.resources', msg=self.createGkNewServiceRequestMessage(), content_type='application/yaml', correlation_id=self.corr_id)
 
         #STEP3: Start waiting for the messages that are triggered by this request
-        #self.waitForEvent(timeout=10)
+        self.wait_for_event.clear()
+        self.waitForEvent(timeout=10)
+
+
 
     def on_resource_availability_reply(self, ch, method, properties, message):
         # The message send on to the IA should be the same as the one received from the GK
+
         received_msg = yaml.load(message)
         sent_msg     = yaml.load(self.createGkNewServiceRequestMessage())
         self.assertEqual(received_msg, sent_msg, msg='Not the same message.')
@@ -309,7 +318,7 @@ class testSlmFunctionality(unittest.TestCase):
         # TODO: deactivated (seems to break local tests)
         #STEP3: Start waiting for the messages that are triggered by this request
         #self.wait_for_event.clear()
-        #self.waitForEvent(timeout=10)
+        self.waitForEvent(timeout=10)
 
 if __name__ == '__main__':
     unittest.main()
