@@ -247,7 +247,6 @@ class testSlmFunctionality(unittest.TestCase):
         return
 
     def on_service_deployment_response(self, ch, method, properties, message):
-        raise AssertionError("esto llega juasjuas")
         msg =  yaml.load(message)
         self.assertIn('request_status', msg.keys(), msg='request_status is not a key')
         self.eventFinished()
