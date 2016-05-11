@@ -14,18 +14,23 @@ The following lead developers are responsible for this repository and have admin
 
 ## Environment
 * Python 3.4
+* RabbitMQ (Mozilla Public License)
+* MongoDB (AGPLv3)
+* Docker (Apache 2.0)
+* docker-compose (Apache 2.0)
 
 ## Dependencies
-* MongoDB
-* mongoengine
-* Docker
-* docker-compose
-* RabbitMQ
-* pika
-* pytest
-* pytest-runner
-* Flask
-* flask-restful
+* mongoengine (public domain)
+* pika (public domain)
+* pytest (MIT)
+* pytest-runner (MIT)
+* Flask (BSD)
+* flask-restful (BSD)
+* requests (Apache 2.0)
+
+## 3rd-party code used
+* (none)
+
 
 ## Folder structure
 
