@@ -61,7 +61,7 @@ class DemoPlugin1(ManoBasePlugin):
 #        self.manoconn.subscribe(self.callback_print, "infrastructure.service.deploy")
 
         #We need to receive all messages from the slm intended for the gk
-        self.manoconn.subscribe(self.on_slm_messages, "service.instance.create")
+        self.manoconn.subscribe(self.on_slm_messages, "service.instances.create")
 
         #Simulate resource request interaction
         self.manoconn.register_async_endpoint(self.on_resources_request, "infrastructure.management.compute.resources")

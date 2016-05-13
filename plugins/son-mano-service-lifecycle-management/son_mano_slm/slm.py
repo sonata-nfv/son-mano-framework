@@ -9,7 +9,10 @@ import requests
 import uuid
 import threading
 import json
-import slm_helpers as tools
+try:
+    import slm_helpers as tools
+except ImportError:
+    pass
 
 from sonmanobase.plugin import ManoBasePlugin
 
@@ -220,9 +223,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method handles the IA replying if it has enough resources to deploy the service.
         """
         msg = yaml.load(message)
-        print('numbertje')
-        print(msg)
-        print(properties)
 
         def contacting_infa_adaptor_for_service_deploy(cbf, topic, message, correlation_id):
             """
@@ -243,7 +243,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         #If the resources are not available, the deployment is aborted and the gatekeeper informed.
         else:
-            print('GOT HEEEERE')
             response_message = {'error': msg}
             self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(response_message), correlation_id = properties.correlation_id)
         
@@ -256,7 +255,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         The GK should be notified of the result of the service request.
         """
 
-        print('GOT HERE')
         msg = yaml.load(message)
         #The message that will be returned to the gk
         message_for_gk = {}
@@ -280,7 +278,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     nsr['vnfr'].append(vnfr['id'])
                 #Store the message, catch exception when time-out occurs
                 try:
-                    vnfr_response = requests.post(VNFR_REPOSITORY_URL + 'vnf-instances', data=yaml.dump(vnfr), headers={'Content-Type':'application/x-yaml'}, timeout=20.0)
+                    vnfr_response = requests.post(VNFR_REPOSITORY_URL + 'vnf-instances', data=yaml.dump(vnfr), headers={'Content-Type':'application/x-yaml'}, timeout=10.0)
                     #If storage succeeds, add uuids to reply to gk
                     if (vnfr_response.status_code == 200):
                         if 'vnfr' in message_for_gk.keys():
@@ -307,9 +305,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     break
                     
             #Store nsr in the repository, catch exception when time-out occurs
-            print(time.time())
             try:
-                nsr_response = requests.post(NSR_REPOSITORY_URL + 'ns-instances', data=json.dumps(nsr), headers={'Content-Type':'application/json'}, timeout=20.0)
+                nsr_response = requests.post(NSR_REPOSITORY_URL + 'ns-instances', data=json.dumps(nsr), headers={'Content-Type':'application/json'}, timeout=10.0)
                 if (nsr_response.status_code == 200):
                     #The reply should contain an uuid, but just in case
                     if 'nsr_uuid' in nsr_response.json().keys():
@@ -319,9 +316,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 else:
                     message_for_gk['error']['nsr'] = {'http_code':nsr_response.status_code, 'message':nsr_response.json()}
             except:
-                traceback.print_exc()
                 message_for_gk['error']['nsr'] = {'http_code':'0', 'message':'Timeout when contacting server'}
-            print(time.time())
             
             if message_for_gk['error'] == {}:
                 message_for_gk['error'] = None
@@ -329,8 +324,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 
         else:
             message_for_gk['error'] = {'request_status_from_IA' : request_status}
-
-        print(message_for_gk)
 
         #Inform the gk of the result.
         self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(message_for_gk), correlation_id=properties.correlation_id)
@@ -344,13 +337,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """        
         #A deployed ssm is registered in the list as a dictionary,  with the name as key (comparable with requested ssms) and the uuid (which is a platform variable) of the ssm as value.
         msg = yaml.load(message)
-        print('ssm registration request message: ' + str(msg))
         if 'ssm_name' in msg.keys() and 'ssm_uuid' in msg.keys():
             self.deployed_ssms[msg['ssm_name']] = {'uuid':msg['ssm_uuid']}
 
         #The SLM needs to register on the topic on which the SSM will broadcast service graph updates. This can not be done with an async_call, since other plugins (monitoring) can trigger the SSM to do this.
         self.manoconn.register_notification_endpoint(self.on_new_service_graph_received,'ssm.scaling.' + msg['ssm_uuid'] + '.done')
-        print(str(self.deployed_ssms))
 
 def main():
     """
