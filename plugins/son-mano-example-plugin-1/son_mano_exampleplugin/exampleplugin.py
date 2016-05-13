@@ -57,15 +57,15 @@ class DemoPlugin1(ManoBasePlugin):
 #            self.on_service_deploy_request,
 #            "infrastructure.service.deploy")
 #        
-#        self.manoconn.register_notification_endpoint(
-#            self.on_resource_availability_request,
-#            "infrastructure.management.compute.resources")
-
         # Activate this to sniff and print all messages on the broker
-        self.manoconn.subscribe(self.callback_print, "infrastructure.service.deploy")
+#        self.manoconn.subscribe(self.callback_print, "infrastructure.service.deploy")
 
         #We need to receive all messages from the slm intended for the gk
         self.manoconn.subscribe(self.on_slm_messages, "service.instance.create")
+
+        #Simulate resource request interaction
+        self.manoconn.register_async_endpoint(self.on_resources_request, "infrastructure.management.compute.resources")
+	
 
     def run(self):
         """
@@ -74,7 +74,7 @@ class DemoPlugin1(ManoBasePlugin):
         # lets run for 30 seconds and stop
         time.sleep(30)
         print('Timeout')
-        exit(1)
+        os._exit(1)
 
     def on_registration_ok(self):
         """
@@ -122,6 +122,14 @@ class DemoPlugin1(ManoBasePlugin):
         
         print('infra response: ' + str(json.loads(str(message, "utf-8"))))
 
+    def on_resources_request(self, ch, method, properties, message):
+
+        response = "OK"
+        
+        if properties.app_id != 'son-plugin.DemoPlugin1':
+            self.manoconn.notify("infrastructure.management.compute.resources", yaml.dump(response), content_type='text/x-yaml', correlation_id=properties.correlation_id)
+        
+
 
     def on_slm_messages(self, ch, method, properties, message):
         """
@@ -135,10 +143,10 @@ class DemoPlugin1(ManoBasePlugin):
         if 'error' in msg.keys(): 		
             if msg['error'] != None:	
                 print(msg['error'])
-                exit(1)
+                os._exit(1)
         if 'status' in msg.keys():
             if msg['status'] == 'Deployment completed':
-                exit(0)
+                os._exit(0)
         
 
     def callback_print(self, ch, method, properties, message):
@@ -154,16 +162,6 @@ class DemoPlugin1(ManoBasePlugin):
         LOG.debug("request from SLM for IA: %r" % str(yaml.load(message)))
         if properties.app_id != 'son-plugin.DemoPlugin1':
             self.manoconn.notify("infrastructure.service.deploy", self.createInfrastructureAdapterResponseMessage(), content_type='application/yaml', correlation_id=properties.correlation_id)
-
-    def on_resource_availability_request(self, ch, method, properties, message):
-        """
-        IA faking
-        """
-
-        if properties.app_id != 'son-plugin.DemoPlugin1':
-            LOG.debug("SLM request for resources: %r" % str(yaml.load(message)))
-            self.manoconn.notify("infrastructure.management.compute.resources", yaml.dump({'dummy':'dummy'}), content_type='application/yaml', correlation_id=properties.correlation_id)
-
 
     def _on_example_request(self, ch, method, properties, message):
         """
@@ -212,8 +210,8 @@ class DemoPlugin1(ManoBasePlugin):
 def main():
     # reduce log level to have a nice output for demonstration
     # reduce messaging log level to have a nicer output for this plugin
-    logging.getLogger("son-mano-base:messaging").setLevel(logging.DEBUG)
-    logging.getLogger("son-mano-base:plugin").setLevel(logging.DEBUG)
+    logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
+    logging.getLogger("son-mano-base:plugin").setLevel(logging.INFO)
     DemoPlugin1()
 
 if __name__ == '__main__':

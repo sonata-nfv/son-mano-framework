@@ -2,13 +2,14 @@
 This is SONATA's service lifecycle management plugin
 """
 
-
 import logging
 import yaml
 import time
 import requests
 import uuid
+import threading
 import json
+import slm_helpers as tools
 
 from sonmanobase.plugin import ManoBasePlugin
 
@@ -52,6 +53,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         :return:
         """
         self.deployed_ssms = {}
+        self.service_requests_being_handled = {}
 
         # call super class (will automatically connect to broker and register the SLM to the plugin manger)
         super(self.__class__, self).__init__(version="0.1-dev",description="This is the SLM plugin")
@@ -155,62 +157,97 @@ class ServiceLifecycleManager(ManoBasePlugin):
                               'error'     : 'Number of VNFDs doesn\'t match number of vnfs',
                               'timestamp' : time.time()})
 
-        message_for_IA = self.build_message_for_IA_from_gk(service_request_from_gk)
+        #If all checks on the received message pass, an uuid is created for the service, and we add it to the dict of services that are being deployed. 
+        #Each VNF also gets an uuid. This is added to the VNFD dictionary.
+        #The correlation_id is used as key for this dict, since it should be available in all the callback functions.
+        self.service_requests_being_handled[properties.correlation_id] = service_request_from_gk
+#        self.service_requests_being_handled[properties.correlation_id]['instance_uuid'] = uuid.uuid4().hex
+#        for key in service_request_from_gk.keys():
+#            if key[:4] == 'VNFD':
+#                self.service_requests_being_handled[properties.correlation_id][key]['instance_uuid'] = uuid.uuid4().hex
 
-        # TODO build request to IA: format is still to be defined
-        resource_request = {};
+        #We make sure that all required SSMs are deployed.
+        #The order of the required ssms is the order in which they are to be called. To garantuee that we call
+        #all of them, we add them to the service_requests_being_handled dictionary.
+        #Each SSM should be able to handle the same input format, and return the same output format. 
+        self.service_requests_being_handled[properties.correlation_id]['ssms_to_handle'] = []
+        if 'SSMs' in service_request_from_gk['NSD'].keys():
+            #Check whether each SSM is already deployed by previous service requests. If not, deploy them.
+            for ssm in service_request_from_gk['NSD']['SSMs']:
+                if ssm['name'] not in self.deployed_ssms.keys():
+                    #TODO: deploy the SSM
+                    pass
+            self.serice_requests_being_handled[properties.correlation_id]['ssms_to_handle'] = service_request_from_gk['NSD']['SSMs']
+    
 
-        #If all the above checks succeed, we can proceed with the deployment. We first check whether SSMs need to be deployed.
-        if 'ssm' in service_request_from_gk['NSD'].keys():
-            #If a SSM is required, it needs to be deployed and contacted. Check whether the SSM is already deployed by previous service requests.
-            if service_request_from_gk['NSD']['ssm']['ssm_name'] not in self.deployed_ssms.keys():
-                #TODO: deploy the SSM
-                pass
-            #Contacting the SSM for now is a call_sync. This because, when the response comes, we need to combine it with other data, accesible in this method, but not inside a callback function.
-            message_for_ssm = {'current_state' : 0}
-            (ch, method, props, body) = self.manoconn.call_sync('ssm.scaling.' + str(self.deployed_ssms[service_request_from_gk['NSD']['ssm']['ssm_name']]['uuid']) + '.compute', yaml.dump(message_for_ssm))
-            response_from_ssm = yaml.load(body)            
-            print('response_from_ssm: ' + str(response_from_ssm))
-
-            self.manoconn.call_async(self.callback_factory(service_request_from_gk),
-                                 INFRA_ADAPTOR_RESOURCE_AVAILABILITY_REPLY_TOPIC,
-                                 yaml.dump(resource_request),
-                                 correlation_id=properties.correlation_id)
-
-            #self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply,
-            #                     INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC,
-            #                     yaml.dump(message_for_IA),
-            #                     correlation_id=properties.correlation_id,
-			#	 content_type="application/yaml")
-
-        else:            
-            #we send the resulting message to the IA, and return a message to the GK indicating that the process is initiated.        
-            self.manoconn.call_async(self.callback_factory(service_request_from_gk),
-                                 INFRA_ADAPTOR_RESOURCE_AVAILABILITY_REPLY_TOPIC,
-                                 yaml.dump(resource_request),
-                                 correlation_id=properties.correlation_id)
-
-            #self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply,
-            #                     INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC,
-            #                     yaml.dump(message_for_IA),
-            #                     correlation_id=properties.correlation_id,
-			#	 content_type="application/yaml")
+        #After the received request has been processed, we can start handling it in a different thread.
+        t = threading.Thread(target=self.start_new_service_deployment, args=(ch, method, properties, message))
+        t.daemon = True
+        t.start()
 
         return yaml.dump({'status'    : 'INSTANTIATING',        #INSTANTIATING or ERROR
                           'error'     : None,         #NULL or a string describing the ERROR
                           'timestamp' : time.time()})  #time() returns the number of seconds since the epoch in UTC as a float      
 
-    def callback_factory(self, nsd_request):
-        request = nsd_request
+    def start_new_service_deployment(self, ch, method, properties, message):
+        """
+        This method initiates the deployment of a new service
+        """
+        #TODO: if this method is reached as callback on a ssm reply, handle the response of the ssm --> add the data to the dict
 
-        def on_infra_adaptor_resource_availability_reply(ch, method, properties, message):
-            # TODO handle IA response: format is still to be defined
-            self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply,
-                                 INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC,
-                                 yaml.dump(request),
+        #Contact the SSMs if needed
+        if self.service_requests_being_handled[properties.correlation_id]['ssms_to_handle'] != []:
+            ssm_to_interact_with = self.service_requests_being_handled[properties.correlation_id]['ssms_to_handle'].pop(0)
+            #TODO: build message for ssm if needed (I propose to keep it generalised, for example the entire data field in the service_requests_being_handled)
+            message_for_ssm = {'dummy':'dummy'}
+            #Contacting the SSM
+            self.manoconn.call_async(self.start_new_service_deployment, 'ssm.scaling.' + str(ssm_to_interact_with['ssm_name']['uuid']) + '.compute', yaml.dump(message_for_ssm))
+
+        #If the list of SSMs to handle is empty, it means we can continu with the deployment phase, by requesting the IA if it has enough available resources.
+        else:               
+            # TODO build request to IA: format is still to be defined. Use properties.correlation_id to extract request info from service_requests_being_handeld.
+            resource_request = tools.build_resource_request(self.service_requests_being_handled[properties.correlation_id])
+
+            #Before we request the IA to deploy the service, we check if it has the resources to do so.        
+            self.manoconn.call_async(self.on_infra_adaptor_resource_availability_reply,
+                                 INFRA_ADAPTOR_RESOURCE_AVAILABILITY_REPLY_TOPIC,
+                                 yaml.dump(resource_request),
+                                 content_type="tex/x-yaml", 
                                  correlation_id=properties.correlation_id)
 
-        return on_infra_adaptor_resource_availability_reply
+    def on_infra_adaptor_resource_availability_reply(self, ch, method, properties, message):
+        """
+        This method handles the IA replying if it has enough resources to deploy the service.
+        """
+        msg = yaml.load(message)
+        print('numbertje')
+        print(msg)
+        print(properties)
+
+        def contacting_infa_adaptor_for_service_deploy(cbf, topic, message, correlation_id):
+            """
+            Dummy call_async intermediate, to explicitely run it in different thread
+            """            
+            self.manoconn.call_async(cbf, topic, message, correlation_id=correlation_id)
+
+        #If the resources are available, we make a request to the IA to deploy the service.
+        if msg == 'OK':
+            request = tools.build_message_for_IA(self.service_requests_being_handled[properties.correlation_id])
+
+            t = threading.Thread(target=contacting_infa_adaptor_for_service_deploy, args=(self.on_infra_adaptor_service_deploy_reply,
+                                                                                               INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC,
+                                                                                               yaml.dump(request),
+                                                                                               properties.correlation_id))
+            t.daemon = True
+            t.start()
+
+        #If the resources are not available, the deployment is aborted and the gatekeeper informed.
+        else:
+            print('GOT HEEEERE')
+            response_message = {'error': msg}
+            self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(response_message), correlation_id = properties.correlation_id)
+        
+
 
     def on_infra_adaptor_service_deploy_reply(self, ch, method, properties, message):
         """
@@ -219,6 +256,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         The GK should be notified of the result of the service request.
         """
 
+        print('GOT HERE')
         msg = yaml.load(message)
         #The message that will be returned to the gk
         message_for_gk = {}
@@ -242,7 +280,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     nsr['vnfr'].append(vnfr['id'])
                 #Store the message, catch exception when time-out occurs
                 try:
-                    vnfr_response = self.postVnfrToRepository(yaml.dump(vnfr), {'Content-Type':'application/x-yaml'}, timeout=20.0)
+                    vnfr_response = requests.post(VNFR_REPOSITORY_URL + 'vnf-instances', data=yaml.dump(vnfr), headers={'Content-Type':'application/x-yaml'}, timeout=20.0)
                     #If storage succeeds, add uuids to reply to gk
                     if (vnfr_response.status_code == 200):
                         if 'vnfr' in message_for_gk.keys():
@@ -269,8 +307,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     break
                     
             #Store nsr in the repository, catch exception when time-out occurs
+            print(time.time())
             try:
-                nsr_response = self.postNsrToRepository(json.dumps(nsr), {'Content-Type':'application/json'}, timeout=20.0)
+                nsr_response = requests.post(NSR_REPOSITORY_URL + 'ns-instances', data=json.dumps(nsr), headers={'Content-Type':'application/json'}, timeout=20.0)
                 if (nsr_response.status_code == 200):
                     #The reply should contain an uuid, but just in case
                     if 'nsr_uuid' in nsr_response.json().keys():
@@ -280,7 +319,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 else:
                     message_for_gk['error']['nsr'] = {'http_code':nsr_response.status_code, 'message':nsr_response.json()}
             except:
+                traceback.print_exc()
                 message_for_gk['error']['nsr'] = {'http_code':'0', 'message':'Timeout when contacting server'}
+            print(time.time())
             
             if message_for_gk['error'] == {}:
                 message_for_gk['error'] = None
@@ -289,17 +330,14 @@ class ServiceLifecycleManager(ManoBasePlugin):
         else:
             message_for_gk['error'] = {'request_status_from_IA' : request_status}
 
-#        print(message_for_gk)
+        print(message_for_gk)
 
-        self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(message_for_gk))
+        #Inform the gk of the result.
+        self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(message_for_gk), correlation_id=properties.correlation_id)
+        #Delete service request from handling dictionary, as handling is completed.
+        self.service_requests_being_handled.pop(properties.correlation_id, None)
 
 
-    def postNsrToRepository(self, nsr, headers, timeout=None):
-        return requests.post(NSR_REPOSITORY_URL + 'ns-instances', data=nsr, headers=headers, timeout=timeout)
-
-    def postVnfrToRepository(self, vnfr, headers, timeout=None):
-        return requests.post(VNFR_REPOSITORY_URL + 'vnf-instances', data=vnfr, headers=headers, timeout=timeout)
-        
     def on_ssm_registration(self, ch, method, properties, message):
         """
         This method registers a newly deployed SSM in the SLM.
@@ -314,29 +352,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.manoconn.register_notification_endpoint(self.on_new_service_graph_received,'ssm.scaling.' + msg['ssm_uuid'] + '.done')
         print(str(self.deployed_ssms))
 
-    def on_new_service_graph_received(self, ch, method, properties, message):
-        """
-        This method is called when an updated service graph is received from the SSM.
-        This method translates these new results into new instructions for the Infrastructure Adapter.
-        """
-        new_forwarding_graph = yaml.load(message)
-
-        #TODO: Add this new forwarding graph to the NSD, and request an update from the IA.
-
-    def build_message_for_IA_from_gk(self, message):
-        """
-        This method converts the deploy request from the gk to a messsaga for the IA
-        """
-        resulting_message = {}
-        resulting_message['nsd'] = message['NSD']
-        resulting_message['vnfdList'] = []
-        
-        for key in message.keys():
-            if key[:4] == 'VNFD':
-                resulting_message['vnfdList'].append(message[key])
-
-        return resulting_message
-
 def main():
     """
     Entry point to start plugin.
@@ -345,6 +360,7 @@ def main():
     # reduce messaging log level to have a nicer output for this plugin
     logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
     logging.getLogger("son-mano-base:plugin").setLevel(logging.INFO)
+#    logging.getLogger("pika").setLevel(logging.DEBUG)
     # create our service lifecycle manager
     ServiceLifecycleManager()
 
