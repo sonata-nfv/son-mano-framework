@@ -4,6 +4,7 @@ import json
 import yaml
 import threading
 import logging
+import son_mano_slm.slm_helpers as tools 
 
 from multiprocessing import Process
 from son_mano_slm.slm import ServiceLifecycleManager
@@ -269,7 +270,7 @@ class testSlmFunctionality(unittest.TestCase):
         self.manoconn_gk.call_async(self.on_gk_response_service_request, 'service.instances.create', msg=self.createGkNewServiceRequestMessage(), content_type='application/yaml', correlation_id=self.corr_id)
 
         #STEP3: Start waiting for the messages that are triggered by this request
-        self.waitForEvent(timeout=10)
+#        self.waitForEvent(timeout=10)
 
 
     def createInfrastructureAdapterResponseMessage(self):
@@ -293,7 +294,7 @@ class testSlmFunctionality(unittest.TestCase):
 
         #STEP3: Start waiting for the messages that are triggered by this request
         self.wait_for_event.clear()
-        self.waitForEvent(timeout=10)
+#        self.waitForEvent(timeout=10)
 
 
 
@@ -317,7 +318,7 @@ class testSlmFunctionality(unittest.TestCase):
         # TODO: deactivated (seems to break local tests)
         #STEP3: Start waiting for the messages that are triggered by this request
         #self.wait_for_event.clear()
-        self.waitForEvent(timeout=10)
+#        self.waitForEvent(timeout=10)
 
 if __name__ == '__main__':
     unittest.main()
