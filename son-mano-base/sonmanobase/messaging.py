@@ -228,7 +228,9 @@ class ManoBrokerConnection(object):
         message is received.
         :return: consumer tag
         """
-        topic_receive_queue = self.base_queue + "." + topic
+        # ATTENTION: Queues are identified by base_queue_name, topic, and a uuid for this
+        # particular subscription. Ensures that we have exactly one queue per subscription.
+        topic_receive_queue = "%s.%s.%s" % (self.base_queue, topic, str(uuid.uuid1()))
         self._setup_queue(topic_receive_queue, topic)
         # define a callback function to be called whenever a message arrives in our queue
         bc = self._channel.basic_consume(
