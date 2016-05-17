@@ -10,6 +10,7 @@ import time
 import sys
 import os
 import yaml
+import uuid
 
 sys.path.append("../../../son-mano-base")
 from sonmanobase.plugin import ManoBasePlugin
@@ -32,6 +33,8 @@ class DemoPlugin1(ManoBasePlugin):
     """
 
     def __init__(self):
+        self.correlation_id = uuid.uuid4().hex
+
         # call super class to do all the messaging and registration overhead
         super(self.__class__, self).__init__(version="0.1-dev")
 
@@ -63,10 +66,6 @@ class DemoPlugin1(ManoBasePlugin):
         #We need to receive all messages from the slm intended for the gk
         self.manoconn.subscribe(self.on_slm_messages, "service.instances.create")
 
-        #Simulate resource request interaction
-        self.manoconn.register_async_endpoint(self.on_resources_request, "infrastructure.management.compute.resources")
-	
-
     def run(self):
         """
         Plugin logic. Does nothing in our example.
@@ -85,21 +84,6 @@ class DemoPlugin1(ManoBasePlugin):
     def on_lifecycle_start(self, ch, method, properties, message):
         super(self.__class__, self).on_lifecycle_start(ch, method, properties, message)
 
-#        # Example that shows how to send a request/response message
-#        time.sleep(1)
-#        self.manoconn.call_async(
-#                        self._on_example_request_response,
-#                        "example.plugin.%s.request" % str(self.uuid),
-#                        json.dumps({"content": "my request"}))
-#        time.sleep(1)
-#        # Example that shows how to send a notification message
-#        self.manoconn.notify(
-#                        "example.plugin.%s.notification" % str(self.uuid),
-#                        json.dumps({"content": "my notification"}))
-
-#        time.sleep(5)
-#        os._exit(0)
-
         #Add new VIM to IA
         vim_message = json.dumps({'wr_type' : 'compute', 'vim_type': 'Mock', 'vim_address' : 'http://localhost:9999', 'username' : 'Eve', 'pass':'Operator'})
 
@@ -116,20 +100,12 @@ class DemoPlugin1(ManoBasePlugin):
                         self.on_slm_messages,
                         "service.instances.create",
                         message,
-                        content_type="application/yaml")
+                        content_type="application/yaml",
+                        correlation_id=self.correlation_id)
 
     def on_infrastructure_adaptor_reply(self, ch, method, properties, message):
         
         print('infra response: ' + str(json.loads(str(message, "utf-8"))))
-
-    def on_resources_request(self, ch, method, properties, message):
-
-        response = "OK"
-        
-        if properties.app_id != 'son-plugin.DemoPlugin1':
-            self.manoconn.notify("infrastructure.management.compute.resources", yaml.dump(response), content_type='text/x-yaml', correlation_id=properties.correlation_id)
-        
-
 
     def on_slm_messages(self, ch, method, properties, message):
         """
@@ -138,13 +114,13 @@ class DemoPlugin1(ManoBasePlugin):
         msg = yaml.load(message)
 
         print("RESPONSE FROM GK START")
-        print(msg)
+#        print(msg)
         print("RESPONSE FROM GK END")
-        if 'error' in msg.keys(): 		
+        if 'error' in msg.keys() and (properties.correlation_id == self.correlation_id): 		
             if msg['error'] != None:	
                 print(msg['error'])
                 os._exit(1)
-        if 'status' in msg.keys():
+        if 'status' in msg.keys() and (properties.correlation_id == self.correlation_id):
             if msg['status'] == 'Deployment completed':
                 os._exit(0)
         
