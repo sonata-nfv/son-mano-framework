@@ -30,7 +30,7 @@ GK_INSTANCE_CREATE_TOPIC = "service.instances.create"
 INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC = "infrastructure.service.deploy"
 
 # The topic to which resource availabiltiy replies of the Infrastructure Adaptor are published
-INFRA_ADAPTOR_RESOURCE_AVAILABILITY_REPLY_TOPIC = "infrastructure.management.compute.resources";
+INFRA_ADAPTOR_RESOURCE_AVAILABILITY_REPLY_TOPIC = "infrastructure.management.compute.resourceAvailability";
 
 # The NSR Repository can be accessed through a RESTful API
 NSR_REPOSITORY_URL = "http://api.int.sonata-nfv.eu:4002/records/nsr/"
@@ -164,10 +164,14 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #Each VNF also gets an uuid. This is added to the VNFD dictionary.
         #The correlation_id is used as key for this dict, since it should be available in all the callback functions.
         self.service_requests_being_handled[properties.correlation_id] = service_request_from_gk
-#        self.service_requests_being_handled[properties.correlation_id]['instance_uuid'] = uuid.uuid4().hex
-#        for key in service_request_from_gk.keys():
-#            if key[:4] == 'VNFD':
-#                self.service_requests_being_handled[properties.correlation_id][key]['instance_uuid'] = uuid.uuid4().hex
+
+        #Since the key will change when new async calls are being made (each new call needs a unique corr_id), we need to keep track of the original one to reply to the GK at a later stage.
+        self.service_requests_being_handled[properties.correlation_id]['original_corr_id'] = properties.correlation_id 
+
+        self.service_requests_being_handled[properties.correlation_id]['instance_uuid'] = uuid.uuid4().hex
+        for key in service_request_from_gk.keys():
+            if key[:4] == 'VNFD':
+                self.service_requests_being_handled[properties.correlation_id][key]['instance_uuid'] = uuid.uuid4().hex
 
         #We make sure that all required SSMs are deployed.
         #The order of the required ssms is the order in which they are to be called. To garantuee that we call
@@ -200,23 +204,28 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         #Contact the SSMs if needed
         if self.service_requests_being_handled[properties.correlation_id]['ssms_to_handle'] != []:
+            LOG.info("Deploying new SSM")
+
             ssm_to_interact_with = self.service_requests_being_handled[properties.correlation_id]['ssms_to_handle'].pop(0)
             #TODO: build message for ssm if needed (I propose to keep it generalised, for example the entire data field in the service_requests_being_handled)
             message_for_ssm = {'dummy':'dummy'}
-            #Contacting the SSM
-            self.manoconn.call_async(self.start_new_service_deployment, 'ssm.scaling.' + str(ssm_to_interact_with['ssm_name']['uuid']) + '.compute', yaml.dump(message_for_ssm))
+            #Contacting the SSM. In the service_requests_being_handled dictionary, we replace the old corr_id with the new one, to be able to keep track of the request
+            new_corr_id, self.service_requests_being_handled = tools.replace_old_corr_id_by_new(self.service_requests_being_handled, properties.correlation_id)
+            self.manoconn.call_async(self.start_new_service_deployment, 'ssm.scaling.' + str(ssm_to_interact_with['ssm_name']['uuid']) + '.compute', yaml.dump(message_for_ssm), correlation_id=new_corr_id)
 
         #If the list of SSMs to handle is empty, it means we can continu with the deployment phase, by requesting the IA if it has enough available resources.
         else:               
+            LOG.info("Requesting resources")
             # TODO build request to IA: format is still to be defined. Use properties.correlation_id to extract request info from service_requests_being_handeld.
             resource_request = tools.build_resource_request(self.service_requests_being_handled[properties.correlation_id])
 
-            #Before we request the IA to deploy the service, we check if it has the resources to do so.        
+            #Before we request the IA to deploy the service, we check if it has the resources to do so. In the service_requests_being_handled dictionary, we replace the old corr_id with the new one, to be able to keep track of the request
+            new_corr_id, self.service_requests_being_handled = tools.replace_old_corr_id_by_new(self.service_requests_being_handled, properties.correlation_id)      
             self.manoconn.call_async(self.on_infra_adaptor_resource_availability_reply,
                                  INFRA_ADAPTOR_RESOURCE_AVAILABILITY_REPLY_TOPIC,
                                  yaml.dump(resource_request),
                                  content_type="tex/x-yaml", 
-                                 correlation_id=properties.correlation_id)
+                                 correlation_id=new_corr_id)
 
     def on_infra_adaptor_resource_availability_reply(self, ch, method, properties, message):
         """
@@ -231,22 +240,25 @@ class ServiceLifecycleManager(ManoBasePlugin):
             self.manoconn.call_async(cbf, topic, message, correlation_id=correlation_id)
 
         #If the resources are available, we make a request to the IA to deploy the service.
-        if msg == 'OK':
+        if msg['status'] == 'OK':
+            LOG.info("Deploying service")
             request = tools.build_message_for_IA(self.service_requests_being_handled[properties.correlation_id])
+            #In the service_requests_being_handled dictionary, we replace the old corr_id with the new one, to be able to keep track of the request
+            new_corr_id, self.service_requests_being_handled = tools.replace_old_corr_id_by_new(self.service_requests_being_handled, properties.correlation_id)
 
             t = threading.Thread(target=contacting_infa_adaptor_for_service_deploy, args=(self.on_infra_adaptor_service_deploy_reply,
                                                                                                INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC,
                                                                                                yaml.dump(request),
-                                                                                               properties.correlation_id))
+                                                                                               new_corr_id))
             t.daemon = True
             t.start()
 
         #If the resources are not available, the deployment is aborted and the gatekeeper informed.
         else:
+            LOG.info("Error with resource availability")
+            LOG.info(msg)
             response_message = {'error': msg}
-            self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(response_message), correlation_id = properties.correlation_id)
-        
-
+            self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(response_message), correlation_id = self.service_requests_being_handled[properties.correlation_id]['original_corr_id'])
 
     def on_infra_adaptor_service_deploy_reply(self, ch, method, properties, message):
         """
@@ -254,6 +266,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         Based on the content of the reply message, the NSR has to be contacted.
         The GK should be notified of the result of the service request.
         """
+
+        LOG.info("Handling deployment info")
 
         msg = yaml.load(message)
         #The message that will be returned to the gk
@@ -326,7 +340,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             message_for_gk['error'] = {'request_status_from_IA' : request_status}
 
         #Inform the gk of the result.
-        self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(message_for_gk), correlation_id=properties.correlation_id)
+        self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(message_for_gk), correlation_id=self.service_requests_being_handled[properties.correlation_id]['original_corr_id'])
         #Delete service request from handling dictionary, as handling is completed.
         self.service_requests_being_handled.pop(properties.correlation_id, None)
 

@@ -1,4 +1,5 @@
 import requests
+import uuid
 
 def build_message_for_IA(request_dictionary):
     """
@@ -11,6 +12,8 @@ def build_message_for_IA(request_dictionary):
     
     for key in request_dictionary.keys():
         if key[:4] == 'VNFD':
+            #To be removed when IA can handle instance_uuid as keys
+            request_dictionary[key].pop('instance_uuid', None)
             resulting_message['vnfdList'].append(request_dictionary[key])
 
     return resulting_message
@@ -35,3 +38,15 @@ def build_resource_request(descriptors):
             needed_storage = needed_storage + descriptors[key]['virtual_deployment_units'][0]['resource_requirements']['storage']['size']
 
     return {'cpu':needed_cpu, 'memory':needed_memory, 'storage':needed_storage, 'memory_unit':memory_unit, 'storage_unit':storage_unit}
+
+def replace_old_corr_id_by_new(dictionary, old_correlation_id):
+    """
+    This method takes a dictionary with uuid's as keys. The method replaces a certain key with a new uuid.
+    """
+
+    new_correlation_id = uuid.uuid4().hex    
+    dictionary[new_correlation_id] = dictionary[old_correlation_id]
+    dictionary.pop(old_correlation_id, None)
+
+    return new_correlation_id, dictionary
+    
