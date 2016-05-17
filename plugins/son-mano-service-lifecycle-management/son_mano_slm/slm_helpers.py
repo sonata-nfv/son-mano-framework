@@ -6,14 +6,13 @@ def build_message_for_IA(request_dictionary):
     This method converts the deploy request from the gk to a messsaga for the IA
     """
     resulting_message = {}
-#    resulting_message['instance_uuid'] = request_dictionary['instance_uuid']
     resulting_message['nsd'] = request_dictionary['NSD']
     resulting_message['vnfdList'] = []
     
     for key in request_dictionary.keys():
         if key[:4] == 'VNFD':
             #To be removed when IA can handle instance_uuid as keys
-            request_dictionary[key].pop('instance_uuid', None)
+#            request_dictionary[key].pop('instance_uuid', None)
             resulting_message['vnfdList'].append(request_dictionary[key])
 
     return resulting_message

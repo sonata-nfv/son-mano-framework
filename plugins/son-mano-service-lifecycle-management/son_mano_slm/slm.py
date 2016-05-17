@@ -9,12 +9,12 @@ import requests
 import uuid
 import threading
 import json
-try:
-    import slm_helpers as tools
-except ImportError:
-    pass
 
 from sonmanobase.plugin import ManoBasePlugin
+try:
+    from son_mano_slm import slm_helpers as tools
+except:
+    import slm_helpers as tools
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("plugin:slm")
@@ -139,13 +139,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         #The service request in the yaml file should be a dictionary
         if not isinstance(service_request_from_gk, dict):
-            return yaml.dump({'status'    : 'REJECTED',        
+            return yaml.dump({'status'    : 'ERROR',        
                               'error'     : 'Message is not a dictionary',
                               'timestamp' : time.time()})
 
         #The dictionary should contain a 'NSD' key
         if 'NSD' not in service_request_from_gk.keys():
-            return yaml.dump({'status'    : 'REJECTED',        
+            return yaml.dump({'status'    : 'ERROR',        
                               'error'     : 'No NSD field in dictionary',
                               'timestamp' : time.time()})
 
@@ -156,7 +156,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 number_of_vnfds = number_of_vnfds + 1
 
         if len(service_request_from_gk['NSD']['network_functions']) != number_of_vnfds:
-            return yaml.dump({'status'    : 'REJECTED',        
+            return yaml.dump({'status'    : 'ERROR',        
                               'error'     : 'Number of VNFDs doesn\'t match number of vnfs',
                               'timestamp' : time.time()})
 
@@ -168,7 +168,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #Since the key will change when new async calls are being made (each new call needs a unique corr_id), we need to keep track of the original one to reply to the GK at a later stage.
         self.service_requests_being_handled[properties.correlation_id]['original_corr_id'] = properties.correlation_id 
 
-        self.service_requests_being_handled[properties.correlation_id]['instance_uuid'] = uuid.uuid4().hex
+        self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'] = uuid.uuid4().hex
         for key in service_request_from_gk.keys():
             if key[:4] == 'VNFD':
                 self.service_requests_being_handled[properties.correlation_id][key]['instance_uuid'] = uuid.uuid4().hex
@@ -257,7 +257,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         else:
             LOG.info("Error with resource availability")
             LOG.info(msg)
-            response_message = {'error': msg}
+            response_message = {'status':'ERROR', 'error': msg['status'], 'timestamp':time.time()}
             self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(response_message), correlation_id = self.service_requests_being_handled[properties.correlation_id]['original_corr_id'])
 
     def on_infra_adaptor_service_deploy_reply(self, ch, method, properties, message):
@@ -275,7 +275,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         message_for_gk['error'] = {}
         # filter result of service request out of the message and add it to the reply
         request_status = msg['request_status']
-        message_for_gk['request_status'] = request_status
+        message_for_gk['status'] = request_status
 
         if request_status[:6] == 'normal':
             nsr = msg['nsr'];
@@ -337,7 +337,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 message_for_gk['status'] = 'Deployment completed'
                 
         else:
-            message_for_gk['error'] = {'request_status_from_IA' : request_status}
+            message_for_gk['status'] = 'ERROR'
+            message_for_gk['error'] = 'Deployment result: ' + request_status
+
+        message_for_gk['timestamp'] = time.time()
 
         #Inform the gk of the result.
         self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(message_for_gk), correlation_id=self.service_requests_being_handled[properties.correlation_id]['original_corr_id'])
