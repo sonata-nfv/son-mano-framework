@@ -1,0 +1,42 @@
+{
+   "service":{
+      "sonata_srv_id":"005606ed-be7d-4ce3-983c-847039e3a5a2",
+      "name":"sonata-demo",
+      "description":"The network service descriptor for the SONATA demo.",
+      "pop_id": "",
+      "sonata_usr_id": "",
+      "host_id": ""
+   },
+   "functions":[
+      {
+         "sonata_func_id":"24f89c1a-1259-4a1f-b0fd-c3ae99a4b626",
+         "name":"firewall-vnf",
+         "description":"A first firewall VNF descriptor.",
+         "pop_id": "",
+         "host_id":[
+            "38c21ae2-7312-4640-b327-35de65e710a3"
+         ],
+         "metrics":[
+            {
+               "name": "vm_cpu_perc",
+               "interval":20,
+               "units":"Percentage",
+               "cmd": "command1",
+               "description":"CPU percentage metric",
+               "threshold": 10
+
+            }
+         ]
+      }
+   ],
+   "rules":[
+      {
+         "name": "mon:rule:vm_cpu_perc",
+         "duration": "10s",
+         "notification_type":2,
+         "condition": "vdu01:vm_cpu_perc > 10",
+         "summary": "cpu-perc",
+         "description": "if cpu exceeds 10%"
+      }
+   ]
+}
