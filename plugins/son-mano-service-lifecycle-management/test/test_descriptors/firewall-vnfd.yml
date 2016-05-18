@@ -7,11 +7,12 @@
 ## VNF descriptor.
 ##
 descriptor_version: "vnfd-schema-01"
-vnf_group: "eu.sonata-nfv"
-vnf_name: "firewall-vnf"
-vnf_version: "0.1"
-vnf_author: "Steven van Rossem, iMinds"
-vnf_description: >
+
+vendor: "eu.sonata-nfv"
+name: "firewall-vnf"
+version: "0.2"
+author: "Steven van Rossem, iMinds"
+description: >
   "A first firewall VNF descriptor"
 
 ##
@@ -19,8 +20,8 @@ vnf_description: >
 ##
 virtual_deployment_units:
   - id: "vdu01"
-    vm_image: "file:///docker_files/firewall/Dockerfile"
-    vm_image_format: "docker"
+    vm_image: "http://registry.sonata-nfv.eu/html/files/VM_images/sonata-VM-2ports.qcow"
+    vm_image_format: "qcow2"
     resource_requirements:
       cpu:
         vcpus: 1
@@ -30,12 +31,21 @@ virtual_deployment_units:
       storage:
         size: 10
         size_unit: "GB"
+    monitoring_parameters:
+      - name: "vm_cpu_perc"
+        unit: "Percentage"
+      - name: "vm_mem_pers"
+        unit: "Percentage"
+      - name: "vm_net_rx_MB"
+        unit: "MB"
+      - name: "vm_net_tx_MB"
+        unit: "Mbps"
     connection_points:
-      - id: "vdu01:cp01"
+      - id: "vdu01:eth0"
         type: "interface"
-      - id: "vdu01:cp02"
+      - id: "vdu01:eth1"
         type: "interface"
-      - id: "vdu01:cp03"
+      - id: "vdu01:eth2"
         type: "interface"
 
 ##
@@ -46,27 +56,68 @@ virtual_links:
   - id: "mgmt"
     connectivity_type: "E-LAN"
     connection_points_reference:
-      - "vdu01:cp01"
-      - "vnf:mgmt"
+      - "vdu01:eth0"
+      - "mgmt"
+    dhcp: True
   - id: "input"
     connectivity_type: "E-Line"
     connection_points_reference:
-      - "vdu01:cp02"
-      - "vnf:input"
+      - "vdu01:eth1"
+      - "input"
+    dhcp: True
   - id: "output"
     connectivity_type: "E-Line"
     connection_points_reference:
-      - "vdu01:cp03"
-      - "vnf:output"
+      - "vdu01:eth2"
+      - "output"
+    dhcp: True
 
 ##
-## The VNF connection points to the 
+## The VNF connection points to the
 ## outside world.
 ##
 connection_points:
-  - id: "vnf:mgmt"
+  - id: "mgmt"
     type: "interface"
-  - id: "vnf:input"
+  - id: "input"
     type: "interface"
-  - id: "vnf:output"
+  - id: "output"
     type: "interface"
+
+##
+## The monitoring rules that react
+## to the monitoring parameters
+##
+monitoring_rules:
+  - name: "mon:rule:vm_cpu_perc"
+    description: "Trigger events if CPU load is above 10 percent."
+    duration: 10
+    duration_unit: "s"
+    condition: "vdu01:vm_cpu_perc > 10"
+    notification:
+      - name: "notification01"
+        type: "rabbitmq_message"
+  - name: "mon:rule:vm_mem_perc"
+    description: "Trigger events if memory consumption is above 10 percent."
+    duration: 10
+    duration_unit: "s"
+    condition: "vdu01:vm_mem_perc > 10"
+    notification:
+      - name: "notification02"
+        type: "rabbitmq_message"
+  - name: "mon:rule:rx"
+    duration: 10
+    duration_unit: "s"
+    condition: "vdu01:vm_net_rx_MB > 10"
+    notification:
+      - name: "notification03"
+        type: "rabbitmq_message"
+  - name: "mon:rule:tx"
+    duration: 10
+    duration_unit: "s"
+    condition: "vdu01:vm_net_tx_MB > 10"
+    notification:
+      - name: "notification04"
+        type: "rabbitmq_message"
+
+

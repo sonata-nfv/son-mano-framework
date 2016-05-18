@@ -9,11 +9,11 @@
 ---
 descriptor_version: "1.0"
 
-ns_group: "eu.sonata-nfv.service-descriptor"
-ns_name: "sonata-demo"
-ns_version: "0.1"
-ns_author: "Michael Bredel, NEC Labs Europe"
-ns_description: >
+vendor: "eu.sonata-nfv.service-descriptor"
+name: "sonata-demo"
+version: "0.2"
+author: "Michael Bredel, NEC Labs Europe"
+description: >
   "The network service descriptor for the SONATA demo,
    comprising iperf, a firewall, and tcpump."
 
@@ -23,20 +23,20 @@ ns_description: >
 ##
 network_functions:
   - vnf_id: "vnf_firewall"
-    vnf_group: "eu.sonata-nfv"
+    vnf_vendor: "eu.sonata-nfv"
     vnf_name: "firewall-vnf"
     vnf_version: "0.1"
   - vnf_id: "vnf_iperf"
-    vnf_group: "eu.sonata-nfv"
+    vnf_vendor: "eu.sonata-nfv"
     vnf_name: "iperf-vnf"
     vnf_version: "0.1"
   - vnf_id: "vnf_tcpdump"
-    vnf_group: "eu.sonata-nfv"
+    vnf_vendor: "eu.sonata-nfv"
     vnf_name: "tcpdump-vnf"
     vnf_version: "0.1"
 
 ##
-## The NS connection points to the 
+## The NS connection points to the
 ## outside world.
 ##
 connection_points:
@@ -68,11 +68,11 @@ virtual_links:
     connectivity_type: "E-Line"
     connection_points_reference:
       - "vnf_iperf:output"
-      - "vns_firewall:input"
+      - "vnf_firewall:input"
   - id: "firewall-2-tcpdump"
     connectivity_type: "E-Line"
     connection_points_reference:
-      - "vns_firewall:output"
+      - "vnf_firewall:output"
       - "vnf_tcpdump:input"
   - id: "tcpdump-2-output"
     connectivity_type: "E-Line"
@@ -87,6 +87,12 @@ forwarding_graphs:
   - fg_id: "ns:fg01"
     number_of_endpoints: 2
     number_of_virtual_links: 4
+    constituent_virtual_links:
+      - "mgmt"
+      - "input-2-iperf"
+      - "iperf-2-firewall"
+      - "firewall-2-tcpdump"
+      - "tcpdump-2-output"
     constituent_vnfs:
       - "vnf_iperf"
       - "vnf_firewall"
@@ -111,4 +117,4 @@ forwarding_graphs:
             position: 7
           - connection_point_ref: "ns:output"
             position: 8
-
+            

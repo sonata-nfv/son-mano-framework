@@ -7,11 +7,12 @@
 ## VNF descriptor.
 ##
 descriptor_version: "vnfd-schema-01"
-vnf_group: "eu.sonata-nfv"
-vnf_name: "tcpdump-vnf"
-vnf_version: "0.1"
-vnf_author: "Steven van Rossem, iMinds"
-vnf_description: >
+
+vendor: "eu.sonata-nfv"
+name: "tcpdump-vnf"
+version: "0.2"
+author: "Steven van Rossem, iMinds"
+description: >
   "A first tcpdump VNF descriptor. The tcpdump
    VNF acts as a traffic sink."
 
@@ -48,26 +49,26 @@ virtual_links:
     connectivity_type: "E-LAN"
     connection_points_reference:
       - "vdu01:cp01"
-      - "vnf:mgmt"
+      - "mgmt"
   - id: "input"
     connectivity_type: "E-Line"
     connection_points_reference:
       - "vdu01:cp02"
-      - "vnf:input"
+      - "input"
   - id: "output"
     connectivity_type: "E-Line"
     connection_points_reference:
       - "vdu01:cp03"
-      - "vnf:output"
+      - "output"
 
 ##
-## The VNF connection points to the 
+## The VNF connection points to the
 ## outside world.
 ##
 connection_points:
-  - id: "vnf:mgmt"
+  - id: "mgmt"
     type: "interface"
-  - id: "vnf:input"
+  - id: "input"
     type: "interface"
-  - id: "vnf:output"
+  - id: "output"
     type: "interface"
