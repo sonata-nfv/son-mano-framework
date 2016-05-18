@@ -66,6 +66,8 @@ class DemoPlugin1(ManoBasePlugin):
         #We need to receive all messages from the slm intended for the gk
         self.manoconn.subscribe(self.on_slm_messages, "service.instances.create")
 
+        self.manoconn.subscribe(self.on_list, "infrastructure.management.compute.list")
+
     def run(self):
         """
         Plugin logic. Does nothing in our example.
@@ -85,7 +87,7 @@ class DemoPlugin1(ManoBasePlugin):
         super(self.__class__, self).on_lifecycle_start(ch, method, properties, message)
 
         #Add new VIM to IA
-        vim_message = json.dumps({'wr_type' : 'compute', 'vim_type': 'Mock', 'vim_address' : 'http://localhost:9999', 'username' : 'Eve', 'pass':'Operator'})
+        vim_message = json.dumps({'tenant':'iMinds', 'wr_type' : 'compute', 'vim_type': 'Mock', 'vim_address' : 'http://localhost:9999', 'username' : 'Eve', 'pass':'Operator'})
 
         self.manoconn.call_async(self.on_infrastructure_adaptor_reply, 
                                 'infrastructure.management.compute.add',
@@ -181,6 +183,8 @@ class DemoPlugin1(ManoBasePlugin):
 
         return str(ia_nsr)
 
+    def on_list(self, ch, method, properties, message):
+        print(properties)
 
 
 def main():
