@@ -75,6 +75,7 @@ What will happen? The example plugin will ...
 
 * `docker build -t pluginmanager -f son-mano-pluginmanager/Dockerfile .`
 * `docker build -t exampleplugin -f plugins/son-mano-example-plugin-1/Dockerfile .`
+* `docker build -t testplugin -f plugins/son-mano-test-plugin/Dockerfile .`
 
 #### Run each component as a container
 
@@ -82,8 +83,9 @@ We need to run a default RabbitMQ and a default MonoDB container before we can r
 
 * `docker run -d -p 5672:5672 --name broker rabbitmq:3`
 * `docker run -d -p 27017:27017 --name mongo mongo`
-* `docker run -it --link broker:broker --link mongo:mongo --name pluginmanager pluginmanager`
-* `docker run -it --link broker:broker --name exampleplugin exampleplugin`
+* `docker run -it --rm --link broker:broker --link mongo:mongo --name pluginmanager pluginmanager`
+* `docker run -it --rm --link broker:broker --name exampleplugin exampleplugin`
+* `docker run -it --rm --link broker:broker --name testplugin testplugin`
 
 
 ### Docker Compose support (should be used to deploy the platform)
