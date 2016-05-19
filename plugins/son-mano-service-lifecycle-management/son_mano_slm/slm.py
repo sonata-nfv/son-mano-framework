@@ -323,11 +323,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
         LOG.info("Handling deployment info")
 
         msg = yaml.load(message)
+        print(msg.keys())
         #The message that will be returned to the gk
         message_for_gk = {}
         message_for_gk['error'] = {}
         # filter result of service request out of the message and add it to the reply
-        request_status = msg['request_status']
+        request_status = msg['status']
         message_for_gk['status'] = request_status
 
         if request_status[:6] == 'normal':
@@ -336,7 +337,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 nsr['id'] = uuid.uuid4().hex
 
             #Retrieve VNFRs from message
-            vnfrs = msg["vnfrs"]
+            #Error handling because API between SLM and IA is not final yet.
+            try:
+                vnfrs = msg["vnfrs"]
+            except:
+                vnfrs = msg["vnfrList"]
             ## Store vnfrs in the repository and add vnfr ids to nsr if it is not already present
             if ('vnfr' not in nsr):
                 nsr['vnfr'] = []
