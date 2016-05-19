@@ -9,12 +9,12 @@ import requests
 import uuid
 import threading
 import json
-try:
-    import slm_helpers as tools
-except ImportError:
-    pass
 
 from sonmanobase.plugin import ManoBasePlugin
+try:
+    from son_mano_slm import slm_helpers as tools
+except:
+    import slm_helpers as tools
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("plugin:slm")
@@ -30,7 +30,10 @@ GK_INSTANCE_CREATE_TOPIC = "service.instances.create"
 INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC = "infrastructure.service.deploy"
 
 # The topic to which resource availabiltiy replies of the Infrastructure Adaptor are published
-INFRA_ADAPTOR_RESOURCE_AVAILABILITY_REPLY_TOPIC = "infrastructure.management.compute.resources";
+INFRA_ADAPTOR_RESOURCE_AVAILABILITY_REPLY_TOPIC = "infrastructure.management.compute.resourceAvailability"
+
+# The topic to which available vims are published
+INFRA_ADAPTOR_AVAILABLE_VIMS = 'infrastructure.management.compute.list'
 
 # The NSR Repository can be accessed through a RESTful API
 NSR_REPOSITORY_URL = "http://api.int.sonata-nfv.eu:4002/records/nsr/"
@@ -139,13 +142,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         #The service request in the yaml file should be a dictionary
         if not isinstance(service_request_from_gk, dict):
-            return yaml.dump({'status'    : 'REJECTED',        
+            return yaml.dump({'status'    : 'ERROR',        
                               'error'     : 'Message is not a dictionary',
                               'timestamp' : time.time()})
 
         #The dictionary should contain a 'NSD' key
         if 'NSD' not in service_request_from_gk.keys():
-            return yaml.dump({'status'    : 'REJECTED',        
+            return yaml.dump({'status'    : 'ERROR',        
                               'error'     : 'No NSD field in dictionary',
                               'timestamp' : time.time()})
 
@@ -156,7 +159,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 number_of_vnfds = number_of_vnfds + 1
 
         if len(service_request_from_gk['NSD']['network_functions']) != number_of_vnfds:
-            return yaml.dump({'status'    : 'REJECTED',        
+            return yaml.dump({'status'    : 'ERROR',        
                               'error'     : 'Number of VNFDs doesn\'t match number of vnfs',
                               'timestamp' : time.time()})
 
@@ -164,10 +167,14 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #Each VNF also gets an uuid. This is added to the VNFD dictionary.
         #The correlation_id is used as key for this dict, since it should be available in all the callback functions.
         self.service_requests_being_handled[properties.correlation_id] = service_request_from_gk
-#        self.service_requests_being_handled[properties.correlation_id]['instance_uuid'] = uuid.uuid4().hex
-#        for key in service_request_from_gk.keys():
-#            if key[:4] == 'VNFD':
-#                self.service_requests_being_handled[properties.correlation_id][key]['instance_uuid'] = uuid.uuid4().hex
+
+        #Since the key will change when new async calls are being made (each new call needs a unique corr_id), we need to keep track of the original one to reply to the GK at a later stage.
+        self.service_requests_being_handled[properties.correlation_id]['original_corr_id'] = properties.correlation_id 
+
+        self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'] = uuid.uuid4().hex
+        for key in service_request_from_gk.keys():
+            if key[:4] == 'VNFD':
+                self.service_requests_being_handled[properties.correlation_id][key]['instance_uuid'] = uuid.uuid4().hex
 
         #We make sure that all required SSMs are deployed.
         #The order of the required ssms is the order in which they are to be called. To garantuee that we call
@@ -198,55 +205,113 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         #TODO: if this method is reached as callback on a ssm reply, handle the response of the ssm --> add the data to the dict
 
-        #Contact the SSMs if needed
+        #The first step in the deployment of a new service is deploying the ssms.
         if self.service_requests_being_handled[properties.correlation_id]['ssms_to_handle'] != []:
+            LOG.info("Deploying new SSM")
+
             ssm_to_interact_with = self.service_requests_being_handled[properties.correlation_id]['ssms_to_handle'].pop(0)
             #TODO: build message for ssm if needed (I propose to keep it generalised, for example the entire data field in the service_requests_being_handled)
             message_for_ssm = {'dummy':'dummy'}
-            #Contacting the SSM
-            self.manoconn.call_async(self.start_new_service_deployment, 'ssm.scaling.' + str(ssm_to_interact_with['ssm_name']['uuid']) + '.compute', yaml.dump(message_for_ssm))
+            #Contacting the SSM. In the service_requests_being_handled dictionary, we replace the old corr_id with the new one, to be able to keep track of the request
+            new_corr_id, self.service_requests_being_handled = tools.replace_old_corr_id_by_new(self.service_requests_being_handled, properties.correlation_id)
+            self.manoconn.call_async(self.start_new_service_deployment, 'ssm.scaling.' + str(ssm_to_interact_with['ssm_name']['uuid']) + '.compute', yaml.dump(message_for_ssm), correlation_id=new_corr_id)
 
-        #If the list of SSMs to handle is empty, it means we can continu with the deployment phase, by requesting the IA if it has enough available resources.
+        #If the list of SSMs to handle is empty, it means we can continu with the deployment phase, by requesting the IA which are the available vims and if they have enough available resources.
         else:               
-            # TODO build request to IA: format is still to be defined. Use properties.correlation_id to extract request info from service_requests_being_handeld.
-            resource_request = tools.build_resource_request(self.service_requests_being_handled[properties.correlation_id])
+            LOG.info("SSM Deployment done.")
+            LOG.info("Requesting VIM list.")
+            #Once the SSMs are deployed, we continu with the deployment stages. First, we need to request a list of the available vims, in order to choose one to place the service on.
+            #This is done by sending a message with an empty body on the infrastructure.management.resource.list topic.
+            new_corr_id, self.service_requests_being_handled = tools.replace_old_corr_id_by_new(self.service_requests_being_handled, properties.correlation_id)  
+            self.manoconn.call_async(self.start_vim_selection, INFRA_ADAPTOR_AVAILABLE_VIMS, None, correlation_id=new_corr_id)
 
-            #Before we request the IA to deploy the service, we check if it has the resources to do so.        
-            self.manoconn.call_async(self.on_infra_adaptor_resource_availability_reply,
-                                 INFRA_ADAPTOR_RESOURCE_AVAILABILITY_REPLY_TOPIC,
-                                 yaml.dump(resource_request),
-                                 content_type="tex/x-yaml", 
-                                 correlation_id=properties.correlation_id)
+    def start_vim_selection(self, ch, method, properties, message):
+        """
+        This method manages the decision of which vim the service is going to be placed on.
+        """
+        #For now, we will go through the vims in the list and check if they have enough resources for the service. Once we find such a vim, we stick with this one.
+        #TODO: Outsource this process to an SSM if there is one available.
 
-    def on_infra_adaptor_resource_availability_reply(self, ch, method, properties, message):
-        """
-        This method handles the IA replying if it has enough resources to deploy the service.
-        """
+        LOG.info("Received VIM list")
+
         msg = yaml.load(message)
+        if not isinstance(msg, list):
+            self.inform_gk_with_error(properties.correlation_id, error_msg='No VIM.')
+            return
+        if len(msg) == 0:
+            self.inform_gk_with_error(properties.correlation_id, error_msg='No VIM.')
+            return
+
+        self.service_requests_being_handled[properties.correlation_id]['vims'] = msg
+
+        #TODO: If an SSM needs to select the vim, this is where to trigger it. Currently, an internal method is handling the decision.
+        self.select_first_vim_with_enough_resources(ch, method, properties, message)
+
+    def select_first_vim_with_enough_resources(self, ch, method, properties, message):
+        """
+        This method selects a vim based on the first vim it comes across with enough resources to deploy the service.
+        """
 
         def contacting_infa_adaptor_for_service_deploy(cbf, topic, message, correlation_id):
             """
-            Dummy call_async intermediate, to explicitely run it in different thread
+            Dummy call_async intermediate, to explicitly run it in different thread
             """            
             self.manoconn.call_async(cbf, topic, message, correlation_id=correlation_id)
 
-        #If the resources are available, we make a request to the IA to deploy the service.
-        if msg == 'OK':
-            request = tools.build_message_for_IA(self.service_requests_being_handled[properties.correlation_id])
+        
+        LOG.info("Started VIM selection.")
+        msg = yaml.load(message)
+        if isinstance(msg, dict):
+            if msg['status'] == 'OK':
+                self.service_requests_being_handled[properties.correlation_id]['vim'] = self.service_requests_being_handled[properties.correlation_id]['vim_under_review'] 
+                del self.service_requests_being_handled[properties.correlation_id]['vims']
+                del self.service_requests_being_handled[properties.correlation_id]['vim_under_review']
+                self.request_deployment_from_IA(properties.correlation_id)
+                return
 
-            t = threading.Thread(target=contacting_infa_adaptor_for_service_deploy, args=(self.on_infra_adaptor_service_deploy_reply,
-                                                                                               INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC,
-                                                                                               yaml.dump(request),
-                                                                                               properties.correlation_id))
+        #If the list is longer than 0, there are still vims to consider
+        if len(self.service_requests_being_handled[properties.correlation_id]['vims']) > 0:
+            new_vim_to_consider = self.service_requests_being_handled[properties.correlation_id]['vims'].pop(0)
+            self.service_requests_being_handled[properties.correlation_id]['vim_under_review'] = new_vim_to_consider
+            #check if the vim has enough resources
+            resource_request = tools.build_resource_request(self.service_requests_being_handled[properties.correlation_id], new_vim_to_consider)
+            new_corr_id, self.service_requests_being_handled = tools.replace_old_corr_id_by_new(self.service_requests_being_handled, properties.correlation_id)      
+
+            t = threading.Thread(target=contacting_infa_adaptor_for_service_deploy, args=(self.select_first_vim_with_enough_resources,
+                                                                                          INFRA_ADAPTOR_RESOURCE_AVAILABILITY_REPLY_TOPIC,
+                                                                                          yaml.dump(resource_request),
+                                                                                          new_corr_id))
+
             t.daemon = True
             t.start()
 
-        #If the resources are not available, the deployment is aborted and the gatekeeper informed.
+        #If the list is empty, none of the vims had enough resources
         else:
-            response_message = {'error': msg}
-            self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(response_message), correlation_id = properties.correlation_id)
-        
+            self.inform_gk_with_error(properties.correlation_id, error_msg='No VIM with enough resources.')
 
+    def inform_gk_with_error(self, correlation_id, error_msg=None):
+        """
+        This method informs the gk that no vim has the resources neede to deploy this service.
+        """
+
+        LOG.info("Inform GK of Error.")
+        response_message = {'status':'ERROR', 'error': error_msg, 'timestamp':time.time()}
+        self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(response_message), correlation_id = self.service_requests_being_handled[correlation_id]['original_corr_id'])
+
+
+    def request_deployment_from_IA(self, correlation_id):
+        """
+        This method is triggered once a vim is selected to place the service on.
+        """
+
+        LOG.info("Starting service deployment.")
+        request = tools.build_message_for_IA(self.service_requests_being_handled[correlation_id])
+        #In the service_requests_being_handled dictionary, we replace the old corr_id with the new one, to be able to keep track of the request
+        new_corr_id, self.service_requests_being_handled = tools.replace_old_corr_id_by_new(self.service_requests_being_handled, correlation_id)
+        self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply,
+                                 INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC,
+                                 yaml.dump(request),
+                                 correlation_id=new_corr_id)
 
     def on_infra_adaptor_service_deploy_reply(self, ch, method, properties, message):
         """
@@ -255,13 +320,15 @@ class ServiceLifecycleManager(ManoBasePlugin):
         The GK should be notified of the result of the service request.
         """
 
+        LOG.info("Handling deployment info")
+
         msg = yaml.load(message)
         #The message that will be returned to the gk
         message_for_gk = {}
         message_for_gk['error'] = {}
         # filter result of service request out of the message and add it to the reply
         request_status = msg['request_status']
-        message_for_gk['request_status'] = request_status
+        message_for_gk['status'] = request_status
 
         if request_status[:6] == 'normal':
             nsr = msg['nsr'];
@@ -269,7 +336,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 nsr['id'] = uuid.uuid4().hex
 
             #Retrieve VNFRs from message
-            vnfrs = msg["vnfrList"]
+            vnfrs = msg["vnfrs"]
             ## Store vnfrs in the repository and add vnfr ids to nsr if it is not already present
             if ('vnfr' not in nsr):
                 nsr['vnfr'] = []
@@ -323,10 +390,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 message_for_gk['status'] = 'Deployment completed'
                 
         else:
-            message_for_gk['error'] = {'request_status_from_IA' : request_status}
+            message_for_gk['status'] = 'ERROR'
+            message_for_gk['error'] = 'Deployment result: ' + request_status
+
+        message_for_gk['timestamp'] = time.time()
 
         #Inform the gk of the result.
-        self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(message_for_gk), correlation_id=properties.correlation_id)
+        self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(message_for_gk), correlation_id=self.service_requests_being_handled[properties.correlation_id]['original_corr_id'])
         #Delete service request from handling dictionary, as handling is completed.
         self.service_requests_being_handled.pop(properties.correlation_id, None)
 
