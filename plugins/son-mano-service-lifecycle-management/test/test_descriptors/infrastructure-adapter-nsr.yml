@@ -4,7 +4,7 @@
 nsr:
   ## NSD fields
   name:  "sonata-demo"
-  version: "0.1"
+  version: "0.2"
   connection_points:
     - id: "ns:mgmt"
       type: "interface"
@@ -17,41 +17,41 @@ nsr:
     - id: "vnf_iperf"
     - id: "vnf_tcpdump"
 vnfrList:
-  - id: "vnfr-1"
+  - id: "vnfr-firewall"
     vendor: "dummy-vendor"
     descriptor_version: "1.0"
-    version: "1.0"
+    version: "0.2"
     vdu:
-      - id: "vdu-0"
-      - id: "vdu-1"
+      - id: "vdu01"
     virtual_link:
       - 0:
-        id: "vlink-0"
+        id: "mgmt"
       - 1:
-        id: "vlink-1"
+        id: "input"
+      - 2:
+        id: "output"
     vnf_address:
       - 0:
         address: "10.0.0.5"
       - 1:
         address: "10.0.1.5"
+      - 2:
+        address: "10.0.2.5"
     connection_points:
       - 0:
-        id: "connect-point-0"
-        virtual_link_reference: "vlink-0"
+        id: "vdu01:eth0"
+        virtual_link_reference: "mgmt"
         type: "interface"
       - 1:
-        id: "connect-point-1"
-        virtual_link_reference: "vlink-0"
+        id: "vdu01:eth1"
+        virtual_link_reference: "input"
+        type: "interface"
+      - 2:
+        id: "vdu01:eth2"
+        virtual_link_reference: "output"
         type: "interface"
     lifecycle_event:
       start: "dummy-start-script"
-    dependency:
-      - 0:
-        source_vdu: "vdu-0"
-        target_vdu: "vdu-1"
-      - 1:
-        source_vdu: "vdu-1"
-        target_vdu: "vdu-0"
     deployment_flavour: "dummy-flavour"
     localization: "dummy-localization"
     parent_ns: "dummy-ns"
@@ -93,11 +93,159 @@ vnfrList:
     "__comment": "Comment on the VNFR"
     "monitoring_parameters":
       - 0:
-        monitoring_parameter: "parameter-0"
+        monitoring_parameter: "vm_cpu_perc"
       - 1:
-        monitoring_parameter: "parameter-1"
+        monitoring_parameter: "vm_mem_pers"
       - 2:
-        monitoring_parameter: "parameter-2"
+        monitoring_parameter: "vm_net_rx_MB"
       - 3:
-        monitoring_parameter: "parameter-3"
+        monitoring_parameter: "vm_net_tx_MB"
+  - id: "vnfr-iperf"
+    vendor: "dummy-vendor"
+    descriptor_version: "1.0"
+    version: "0.2"
+    vdu:
+      - id: "vdu01"
+    virtual_link:
+      - 0:
+        id: "mgmt"
+      - 1:
+        id: "input"
+      - 2:
+        id: "output"
+    vnf_address:
+      - 0:
+        address: "10.0.0.6"
+      - 1:
+        address: "10.0.1.6"
+      - 2:
+        address: "10.0.2.6"
+    connection_points:
+      - 0:
+        id: "vdu01:cp01"
+        virtual_link_reference: "mgmt"
+        type: "interface"
+      - 1:
+        id: "vdu01:cp02"
+        virtual_link_reference: "input"
+        type: "interface"
+      - 2:
+        id: "vdu01:cp03"
+        virtual_link_reference: "output"
+        type: "interface"
+    lifecycle_event:
+      start: "dummy-start-script"
+    deployment_flavour: "dummy-flavour"
+    localization: "dummy-localization"
+    parent_ns: "dummy-ns"
+    descriptor_reference: "dummy-descriptor"
+    vnfm_id: "dummy-vnfm"
+    connected_external_virtual_link:
+      - 0:
+        id: "external-link-0"
+      - 1:
+        id: "external-link-1"
+    status: "1"
+    notification:
+      - 0:
+        id: "master-0"
+        ip: "10.10.10.101"
+        port: "27"
+      - 1:
+        id: "master-1"
+        ip: "10.10.10.102"
+        port: "27"
+    lifecycle_event_history:
+      - 0:
+        event: "start"
+        timestamp: "12434234"
+        success: "True"
+      - 1:
+        event: "restart"
+        timestamp: "123332233"
+        success: "True"
+    audit_log:
+      - 0:
+        event: "event-0"
+        timestamp: "541232312"
+    runtime_policy_info:
+      - 0:
+        policy: "policy-0"
+      - 1:
+        policy: "policy-1"
+    "__comment": "Comment on the VNFR"
+  - id: "vnfr-tcpdump"
+    vendor: "dummy-vendor"
+    descriptor_version: "1.0"
+    version: "0.2"
+    vdu:
+      - id: "vdu01"
+    virtual_link:
+      - 0:
+        id: "mgmt"
+      - 1:
+        id: "input"
+      - 2:
+        id: "output"
+    vnf_address:
+      - 0:
+        address: "10.0.0.7"
+      - 1:
+        address: "10.0.1.7"
+      - 2:
+        address: "10.0.2.7"
+    connection_points:
+      - 0:
+        id: "vdu01:cp01"
+        virtual_link_reference: "mgmt"
+        type: "interface"
+      - 1:
+        id: "vdu01:cp02"
+        virtual_link_reference: "input"
+        type: "interface"
+      - 2:
+        id: "vdu01:cp03"
+        virtual_link_reference: "output"
+        type: "interface"
+    lifecycle_event:
+      start: "dummy-start-script"
+    deployment_flavour: "dummy-flavour"
+    localization: "dummy-localization"
+    parent_ns: "dummy-ns"
+    descriptor_reference: "dummy-descriptor"
+    vnfm_id: "dummy-vnfm"
+    connected_external_virtual_link:
+      - 0:
+        id: "external-link-0"
+      - 1:
+        id: "external-link-1"
+    status: "1"
+    notification:
+      - 0:
+        id: "master-0"
+        ip: "10.10.10.101"
+        port: "27"
+      - 1:
+        id: "master-1"
+        ip: "10.10.10.102"
+        port: "27"
+    lifecycle_event_history:
+      - 0:
+        event: "start"
+        timestamp: "12434234"
+        success: "True"
+      - 1:
+        event: "restart"
+        timestamp: "123332233"
+        success: "True"
+    audit_log:
+      - 0:
+        event: "event-0"
+        timestamp: "541232312"
+    runtime_policy_info:
+      - 0:
+        policy: "policy-0"
+      - 1:
+        policy: "policy-1"
+    "__comment": "Comment on the VNFR"
 request_status: "normal"
