@@ -29,6 +29,7 @@ ENV_DOCKER_HOST = "DOCKER_HOST"
 
 # TODO doc comments
 
+
 class ManoBaseExecutivePlugin(plugin.ManoBasePlugin):
 
     def __init__(self,
