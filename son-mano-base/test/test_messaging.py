@@ -201,8 +201,12 @@ class TestManoBrokerRequestResponseConnection(unittest.TestCase):
         # send publish to notify endpoint
         self.m.publish("test.interleave2", "my-notification1")
         # ensure that the subcriber still gets the message (and also sees the one from async_call)
-        self.assertEqual(self.wait_for_message(last_message_id=1), "ping-pong")
-        self.assertEqual(self.wait_for_message(last_message_id=1), "my-notification1")
+        result = list()
+        result.append(self.wait_for_message(last_message_id=1))
+        result.append(self.wait_for_message(last_message_id=1))
+        print(result)
+        self.assertIn("my-notification1", result)
+        self.assertIn("ping-pong", result)
 
 if __name__ == "__main__":
     unittest.main()
