@@ -40,7 +40,7 @@ class TestManoBaseExecutivePluginSsmManagement(unittest.TestCase):
     def test_initialize_plugin(self):
         ExecutivePluginStub(auto_docker_connect=False)
 
-    # @unittest.skip("disabled")
+    @unittest.skip("disabled")
     def test_docker_service_connection(self):
         e = ExecutivePluginStub()
         self.assertIsNotNone(e.dc.info().get("ServerVersion"))

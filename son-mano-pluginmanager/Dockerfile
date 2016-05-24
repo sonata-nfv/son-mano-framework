@@ -17,8 +17,6 @@ RUN python setup.py install
 
 WORKDIR /son-mano-pluginmanager
 
-# we need to reset the __pycache__ for correct test discovery
-RUN rm -rf test/__pycache__
 RUN python setup.py develop
 
 CMD ["son-mano-pluginmanager"]
