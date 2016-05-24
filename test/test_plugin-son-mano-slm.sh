@@ -13,9 +13,10 @@
 #
 
 # setup cleanup mechanism
-trap "docker kill test.broker; docker kill test.mongo; docker kill test.pluginmanager; docker rm test.broker; docker rm test.mongo; docker rm test.pluginmanager; docker rm test.slm" INT TERM EXIT
+trap "set +e; docker kill test.broker; docker kill test.mongo; docker kill test.pluginmanager; docker rm test.broker; docker rm test.mongo; docker rm test.pluginmanager; docker rm test.slm" INT TERM EXIT
 
 # ensure cleanup
+set +e
 docker rm -f test.broker
 docker rm -f test.mongo
 docker rm -f tset.pluginmanager
