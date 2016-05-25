@@ -28,6 +28,6 @@ docker run -d -p 5672:5672 --name test.broker rabbitmq:3
 # wait a bit for broker startup
 sleep 5
 # spin up the son-mano-base test container and execute its unittests
-docker run --link test.broker:broker --name test.sonmanobase registry.sonata-nfv.eu:5000/sonmanobase py.test -v
+docker run --link test.broker:broker -v '/var/run/docker.sock:/var/run/docker.sock' --name test.sonmanobase registry.sonata-nfv.eu:5000/sonmanobase py.test -v
 
 echo "done."
