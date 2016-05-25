@@ -85,16 +85,45 @@ class ManoBaseExecutivePlugin(plugin.ManoBasePlugin):
         LOG.info("Connected to Docker host: %r" % dc.base_url)
         return dc
 
-    def board_ssm(self):
+    def board_ssm(self, ssm_uri):
+        """
+        Process of pulling / importing a SSM given as Docker image.
+
+        SSM can be specified like:
+        - ssm_uri = "registry.sonata-nfv.eu:5000/my-ssm" -> Docker PULL
+        or
+        - ssm_uri = "file://this/is/a/path/my-ssm.tar" -> Docker LOAD
+        :return: ssm_image_name?
+        """
         pass
 
-    def start_ssm(self):
+    def start_ssm(self, ssm_image):
+        """
+        Runs the given SSM container image.
+        The code in the container should connect itself to the message broker
+        given by ENV vars to it (TODO add argument vars for this).
+
+        Method has to return the ID of the running container (ssm_id) as reference.
+
+        :param ssm_image:
+        :return: ssm_id
+        """
         pass
 
-    def stop_ssm(self):
+    def stop_ssm(self, ssm_id):
+        """
+        Corresponds to docker kill <container id>
+        :param ssm_id:
+        :return:
+        """
         pass
 
-    def remove_ssm(self):
+    def remove_ssm(self, ssm_image):
+        """
+        Corresponds to docker rm <image id>
+        :param ssm_id:
+        :return:
+        """
         pass
 
     def on_ssm_register(self):
