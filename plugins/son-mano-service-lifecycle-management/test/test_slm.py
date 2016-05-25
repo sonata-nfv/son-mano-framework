@@ -46,7 +46,10 @@ class testSlmRegistrationAndHeartbeat(unittest.TestCase):
         del self.slm_proc
             
         #Killing the connection with the broker
-        self.manoconn.stop_connection()
+        try:
+            self.manoconn.stop_connection()
+        except Exception as e:
+            LOG.exception()
 
         #Clearing the threading helpers
         del self.wait_for_event  
@@ -243,9 +246,12 @@ class testSlmFunctionality(unittest.TestCase):
 
 
     def tearDown(self):
-        self.manoconn_spy.stop_connection()
-        self.manoconn_gk.stop_connection()
-        self.manoconn_ia.stop_connection()
+        try:
+            self.manoconn_spy.stop_connection()
+            self.manoconn_gk.stop_connection()
+            self.manoconn_ia.stop_connection()
+        except Exception as e:
+            LOG.exception()
 
 ########################
 #GENERAL
