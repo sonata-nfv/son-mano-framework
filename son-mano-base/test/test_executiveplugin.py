@@ -45,6 +45,43 @@ class TestManoBaseExecutivePluginSsmManagement(unittest.TestCase):
         e = ExecutivePluginStub()
         self.assertIsNotNone(e.dc.info().get("ServerVersion"))
 
+    # @unittest.skip("disabled")
+    def test_ssm_board_repository(self):
+        e = ExecutivePluginStub()
+        # ensure that existing test images are removed
+        try:
+            e.dc.remove_image("mpeuster/ssm_empty_container", force=True)
+        except BaseException as ex:
+            pass
+        # try to board a NON existing SSM
+        img = e.board_ssm(ssm_uri="a_not_existing_container/container")
+        self.assertIsNone(img)
+
+        # try to board a existing SSM
+        img = e.board_ssm(ssm_uri="mpeuster/ssm_empty_container")
+        # verify that the image is available after boarding
+        self.assertIsNotNone(img)
+        e.dc.get_image(img)
+
+    # @unittest.skip("disabled")
+    def test_ssm_board_file(self):
+        e = ExecutivePluginStub()
+        # ensure that existing test images are removed
+        try:
+            e.dc.remove_image("ssm_empty_container", force=True)
+        except BaseException as ex:
+            pass
+        # try to board a NON existing SSM
+        img = e.board_ssm(ssm_uri="file://a_not_existing_container/container.tar")
+        self.assertIsNone(img)
+
+        # try to board a existing SSM
+        img = e.board_ssm(ssm_uri="file://son-mano-base/test/misc/ssm_empty_container.tar")
+        # verify that the image is available after boarding
+        self.assertIsNotNone(img)
+        e.dc.get_image(img)
+
+
 
 if __name__ == "__main__":
     unittest.main()
