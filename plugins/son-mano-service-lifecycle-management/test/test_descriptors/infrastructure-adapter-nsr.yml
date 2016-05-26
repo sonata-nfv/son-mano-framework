@@ -21,8 +21,10 @@ vnfrList:
     vendor: "dummy-vendor"
     descriptor_version: "1.0"
     version: "0.2"
-    vdu:
+    virtual_deployment_units:
       - id: "vdu01"
+        vnfc_instance:
+          - vc_id: '49685131-db6e-4e19-ae24-59adcfb0f19f'
     virtual_link:
       - 0:
         id: "mgmt"
@@ -55,7 +57,7 @@ vnfrList:
     deployment_flavour: "dummy-flavour"
     localization: "dummy-localization"
     parent_ns: "dummy-ns"
-    descriptor_reference: "dummy-descriptor"
+    descriptor_reference: "24f89c1a-1259-4a1f-b0fd-c3ae99a4b626"
     vnfm_id: "dummy-vnfm"
     connected_external_virtual_link:
       - 0:
@@ -104,7 +106,7 @@ vnfrList:
     vendor: "dummy-vendor"
     descriptor_version: "1.0"
     version: "0.2"
-    vdu:
+    virtual_deployment_units:
       - id: "vdu01"
     virtual_link:
       - 0:
@@ -138,7 +140,7 @@ vnfrList:
     deployment_flavour: "dummy-flavour"
     localization: "dummy-localization"
     parent_ns: "dummy-ns"
-    descriptor_reference: "dummy-descriptor"
+    descriptor_reference: "38a6b069-f413-4415-8bbe-b00fb8b200e7"
     vnfm_id: "dummy-vnfm"
     connected_external_virtual_link:
       - 0:
@@ -178,7 +180,7 @@ vnfrList:
     vendor: "dummy-vendor"
     descriptor_version: "1.0"
     version: "0.2"
-    vdu:
+    virtual_deployment_units:
       - id: "vdu01"
     virtual_link:
       - 0:
@@ -212,7 +214,7 @@ vnfrList:
     deployment_flavour: "dummy-flavour"
     localization: "dummy-localization"
     parent_ns: "dummy-ns"
-    descriptor_reference: "dummy-descriptor"
+    descriptor_reference: "e290f165-5ac0-422f-9c29-3e595b38f6c8"
     vnfm_id: "dummy-vnfm"
     connected_external_virtual_link:
       - 0:

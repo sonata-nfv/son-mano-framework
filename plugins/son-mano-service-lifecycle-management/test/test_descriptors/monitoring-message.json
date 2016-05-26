@@ -1,42 +1,88 @@
 {
-   "service":{
-      "sonata_srv_id":"005606ed-be7d-4ce3-983c-847039e3a5a2",
+   "service": {
+      "pop_id":null,
+      "host_id":null,
       "name":"sonata-demo",
-      "description":"The network service descriptor for the SONATA demo.",
-      "pop_id": "",
-      "sonata_usr_id": "",
-      "host_id": ""
+      "sonata_srv_id":"005606ed-be7d-4ce3-983c-847039e3a5a2",
+      "description":"\"The network service descriptor for the SONATA demo,\n comprising iperf, a firewall, and tcpdump.\"\n",
+      "sonata_usr_id":null
    },
    "functions":[
       {
-         "sonata_func_id":"24f89c1a-1259-4a1f-b0fd-c3ae99a4b626",
          "name":"firewall-vnf",
-         "description":"A first firewall VNF descriptor.",
-         "pop_id": "",
-         "host_id":[
-            "38c21ae2-7312-4640-b327-35de65e710a3"
-         ],
          "metrics":[
             {
-               "name": "vm_cpu_perc",
-               "interval":20,
-               "units":"Percentage",
-               "cmd": "command1",
-               "description":"CPU percentage metric",
-               "threshold": 10
+               "name":"vm_cpu_perc",
+               "unit":"Percentage",
+               "interval":null,
+               "cmd":null,
+               "threshold":"10",
+               "description": ""
+            },
+            {
+               "name":"vm_mem_perc",
+               "unit":"Percentage",
+               "interval":null,
+               "cmd":null,
+               "threshold":"10",
+               "description": ""
+            },
+            {
+               "name":"vm_net_rx_MB",
+               "unit":"MB",
+               "interval":null,
+               "cmd":null,
+               "threshold":"10",
+               "description": ""
 
+            },
+            {
+               "name":"vm_net_tx_MB",
+               "unit":"Mbps",
+               "interval":null,
+               "cmd":null,
+               "threshold":"10",
+               "description": ""
             }
-         ]
+         ],
+         "host_id":"49685131-db6e-4e19-ae24-59adcfb0f19f",
+         "pop_id": "",
+         "sonata_func_id":"24f89c1a-1259-4a1f-b0fd-c3ae99a4b626",
+         "description":"\"A first firewall VNF descriptor\"\n"
       }
    ],
    "rules":[
       {
-         "name": "mon:rule:vm_cpu_perc",
-         "duration": "10s",
+         "name":"mon:rule:vm_cpu_perc",
          "notification_type":2,
-         "condition": "vdu01:vm_cpu_perc > 10",
-         "summary": "cpu-perc",
-         "description": "if cpu exceeds 10%"
+         "condition":"49685131-db6e-4e19-ae24-59adcfb0f19f:vm_cpu_perc > 10",
+         "description":"Trigger events if CPU load is above 10 percent.",
+         "duration":"10s",
+         "summary":""
+      },
+      {
+         "name":"mon:rule:vm_mem_perc",
+         "notification_type":2,
+         "condition":"49685131-db6e-4e19-ae24-59adcfb0f19f:vm_mem_perc > 10",
+         "description":"Trigger events if memory consumption is above 10 percent.",
+         "duration":"10s",
+         "summary":""
+      },
+      {
+         "name":"mon:rule:rx",
+         "notification_type":2,
+         "condition":"49685131-db6e-4e19-ae24-59adcfb0f19f:vm_net_rx_MB > 10",
+         "description":"",
+         "duration":"10s",
+         "summary":""
+      },
+      {
+         "name":"mon:rule:tx",
+         "notification_type":2,
+         "condition":"49685131-db6e-4e19-ae24-59adcfb0f19f:vm_net_tx_MB > 10",
+         "description":"",
+         "duration":"10s",
+         "summary":""
       }
    ]
 }
