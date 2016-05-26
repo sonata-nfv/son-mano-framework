@@ -14,12 +14,11 @@
  limitations under the License.
 """
 
-from son_mano_pluginmanager import pluginmanager
+from son_mano_test_plugin import testplugin
 
 
 def main():
-    pluginmanager.main()
-
+    testplugin.main()
 
 if __name__ == '__main__':
     main()

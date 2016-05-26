@@ -7,13 +7,16 @@ import logging
 import uuid
 import son_mano_slm.slm_helpers as tools 
 
+from unittest import mock
 from multiprocessing import Process
 from son_mano_slm.slm import ServiceLifecycleManager
 from sonmanobase.messaging import ManoBrokerRequestResponseConnection
 
 logging.basicConfig(level=logging.INFO)
-logging.getLogger('pika').setLevel(logging.ERROR)
+logging.getLogger('pika').setLevel(logging.INFO)
 LOG = logging.getLogger("son-mano-plugins:slm_test")
+logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
+logging.getLogger("son-mano-base:plugin").setLevel(logging.INFO)
 LOG.setLevel(logging.INFO)
 
 
@@ -43,7 +46,10 @@ class testSlmRegistrationAndHeartbeat(unittest.TestCase):
         del self.slm_proc
             
         #Killing the connection with the broker
-        self.manoconn.stop_connection()
+        try:
+            self.manoconn.stop_connection()
+        except Exception as e:
+            LOG.exception()
 
         #Clearing the threading helpers
         del self.wait_for_event  
@@ -154,7 +160,17 @@ class testSlmRegistrationAndHeartbeat(unittest.TestCase):
         #STEP3b: When not receiving the message, the test failed 
         self.waitForEvent(timeout=5,msg="message not received.")
 
+#A mockup function that will be used to mock http POST responses.
+def mocked_post_requests(*args, **kwargs):
+    class MockResponse:
+        def __init__(self, json_data, json_code):
+            self.json_data = json_data
+            self.status_code = status_code
 
+    print('#################################################')
+    print('In the mock')
+    return MockResponse('failed', 422)
+    
 class testSlmFunctionality(unittest.TestCase):
     """
     Tests the tasks that the SLM should perform in the service life cycle of the network services.
@@ -230,9 +246,12 @@ class testSlmFunctionality(unittest.TestCase):
 
 
     def tearDown(self):
-        self.manoconn_spy.stop_connection()
-        self.manoconn_gk.stop_connection()
-        self.manoconn_ia.stop_connection()
+        try:
+            self.manoconn_spy.stop_connection()
+            self.manoconn_gk.stop_connection()
+            self.manoconn_ia.stop_connection()
+        except Exception as e:
+            LOG.exception()
 
 ########################
 #GENERAL
@@ -610,7 +629,7 @@ class testSlmFunctionality(unittest.TestCase):
         """
 
         if properties.app_id == 'son-plugin.ServiceLifecycleManager':
-            reply_message = {'request_status':'failed'}
+            reply_message = {'status':'failed'}
             self.manoconn_ia.notify('infrastructure.service.deploy', yaml.dump(reply_message), correlation_id=properties.correlation_id)
 
     def on_slm_gk_service_deploy_request_failed(self, ch, method, properties, message):
@@ -660,6 +679,126 @@ class testSlmFunctionality(unittest.TestCase):
 ##################################################################################
 #TEST8: Test reaction to negative response from Repositories.
 ##################################################################################
+#TO BE FINISHED!
+    def on_slm_infra_adaptor_vim_list_test8(self, ch, method, properties, message):
+        """
+        This method replies to a request of the SLM to the IA to get the VIM-list.
+        """
+
+        if properties.app_id == 'son-plugin.ServiceLifecycleManager':
+            VIM_list = [uuid.uuid4().hex]
+            self.manoconn_ia.notify('infrastructure.management.compute.list', yaml.dump(VIM_list), correlation_id=properties.correlation_id)
+
+    def on_slm_infra_adaptor_resource_availability_request_test8(self, ch, method, properties, message):
+        """
+        This method fakes a message from the IA that indicates that the resources are available.
+        """
+        if properties.app_id == 'son-plugin.ServiceLifecycleManager':
+            reply_message = {'status':'OK'}
+            self.manoconn_ia.notify('infrastructure.management.compute.resourceAvailability', yaml.dump(reply_message), correlation_id=properties.correlation_id)
+
+    def on_slm_infra_adaptor_service_deploy_request_test8(self, ch, method, properties, message):
+        """
+        This method fakes a message from the IA to the SLM that indicates that the deployment has succeeded.
+        """
+        print('################################################')
+        print('valid reply sent')
+        if properties.app_id == 'son-plugin.ServiceLifecycleManager':
+            reply_message = {}
+            reply_message['status'] = 'normal operation'
+            reply_message['nsr']    = {'dummy1' : 'dummy1'}
+            reply_message['vnfrs']  = [{'dummy2':'dummy2'},{'dummy3':'dummy3'}] 
+
+            self.manoconn_ia.notify('infrastructure.service.deploy', yaml.dump(reply_message), correlation_id=properties.correlation_id)
+
+    def on_slm_gk_repositories_reply_error(self, ch, method, properties, message):
+        """
+        This method checks whether the message from the SLM to the GK to indicate that storing the records in the repositories has failed is correctly formatted.
+        """
+        msg = yaml.load(message)
+        print('#####################################################')
+        print('In the message')
+        print(msg)
+        print(properties)
+        #We don't want to trigger on the first response (the async_call), but only on the second(the notify) and we don't want to trigger on our outgoing message.
+        if properties.app_id == 'son-plugin.ServiceLifecycleManager':        
+            if msg['status'] != 'INSTANTIATING':
+
+#                self.assertTrue(isinstance(msg, dict), msg='message is not a dictionary.')
+#                self.assertEqual(msg['status'], "ERROR", msg='status is not correct.')
+#                self.assertEqual(msg['error']['vnfr'], {'http_code':422, 'message':'failed'}, msg='error message is not correct.')
+#                self.assertTrue(isinstance(msg['timestamp'], float), msg='timestamp is not a float.')
+
+                self.firstEventFinished()
+
+    #For this test, we need to mock a response to a http POST request made by the SLM.
+    @mock.patch('son_mano_slm.slm.requests.post', side_effect=mocked_post_requests)
+    def testReactionToNegativeResponseFromRepository(self, mock_get):
+        """
+        When the SLM receives a response from the repositories, after it requested to store the records, which is negative, the SLM should communicate this to the GK.
+        """
+
+
+
+
+
+
+
+
+
+
+        def on_register_trigger(ch, method, properties, message):
+            return json.dumps({'status':'OK','uuid':self.uuid})
+
+        #Some threading events that can be used during the tests
+        self.wait_for_first_event = threading.Event()
+        self.wait_for_first_event.clear()
+
+        self.wait_for_second_event = threading.Event()
+        self.wait_for_second_event.clear()
+
+        #Deploy SLM and a connection to the broker
+        self.slm_proc = Process(target=ServiceLifecycleManager)
+        self.slm_proc.daemon = True
+        self.manoconn_pm = ManoBrokerRequestResponseConnection('son-plugin.SonPluginManager')
+        self.manoconn_pm.subscribe(on_register_trigger,'platform.management.plugin.register')
+        self.slm_proc.start()
+        #wait until registration process finishes
+        if not self.wait_for_first_event.wait(timeout=5):
+            pass
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        self.wait_for_first_event.clear()
+
+        #STEP1: Spy the topic on which the SLM will contact the infrastructure adaptor
+        self.manoconn_spy.subscribe(self.on_slm_infra_adaptor_vim_list_test8, 'infrastructure.management.compute.list')
+
+        #STEP2: Spy the topic on which the SLM will contact the infrastructure adaptor the first time, to request the resource availability.
+        self.manoconn_ia.subscribe(self.on_slm_infra_adaptor_resource_availability_request_test8, 'infrastructure.management.compute.resourceAvailability')
+
+        #STEP3: Spy the topic on which the SLM will contact the IA the second time, to request the deployment of the service
+        self.manoconn_ia.subscribe(self.on_slm_infra_adaptor_service_deploy_request_test8, 'infrastructure.service.deploy')
+
+        #STEP4: Spy the topic on which the SLM will contact the GK to respond that the deployment has failed.
+        self.manoconn_gk.subscribe(self.on_slm_gk_repositories_reply_error, 'service.instances.create')
+
+        #STEP5: Send a correctly formatted service request message (from the gk) to the SLM
+        self.manoconn_gk.call_async(self.dummy, 'service.instances.create', msg=self.createGkNewServiceRequestMessage(correctlyFormatted=True), content_type='application/yaml', correlation_id=self.corr_id)
+
+        #STEP6: Start waiting for the messages that are triggered by this request
+#        self.waitForFirstEvent(timeout=15, msg='Wait for message from SLM to IA to request deployment timed out.')
 
 
     def testMonitoringMessageGeneration(self):

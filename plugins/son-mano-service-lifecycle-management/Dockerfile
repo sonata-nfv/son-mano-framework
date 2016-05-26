@@ -22,8 +22,6 @@ RUN python setup.py install
 WORKDIR /plugins/${PLUGIN_BASE}
 RUN python setup.py develop
 
-# we need to reset the __pycache__ for correct test discovery
-RUN rm -rf /plugins/${PLUGIN_BASE}test/__pycache__
 
 CMD ["son-mano-service-lifecycle-management"]
 

@@ -1,3 +1,19 @@
+"""
+ Copyright 2015-2017 Paderborn University
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+"""
+
 import unittest
 import time
 
@@ -185,8 +201,12 @@ class TestManoBrokerRequestResponseConnection(unittest.TestCase):
         # send publish to notify endpoint
         self.m.publish("test.interleave2", "my-notification1")
         # ensure that the subcriber still gets the message (and also sees the one from async_call)
-        self.assertEqual(self.wait_for_message(last_message_id=1), "ping-pong")
-        self.assertEqual(self.wait_for_message(last_message_id=1), "my-notification1")
+        result = list()
+        result.append(self.wait_for_message(last_message_id=1))
+        result.append(self.wait_for_message(last_message_id=1))
+        print(result)
+        self.assertIn("my-notification1", result)
+        self.assertIn("ping-pong", result)
 
 if __name__ == "__main__":
     unittest.main()

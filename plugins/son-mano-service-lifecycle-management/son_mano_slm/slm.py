@@ -328,49 +328,32 @@ class ServiceLifecycleManager(ManoBasePlugin):
         msg = yaml.load(message)
         #The message that will be returned to the gk
         message_for_gk = {}
+        message_for_gk['status'] = 'ERROR'
         message_for_gk['error'] = {}
-        # filter result of service request out of the message and add it to the reply
-        request_status = msg['request_status']
-        message_for_gk['status'] = request_status
+        message_for_gk['vnfrs'] = []
 
-        if request_status[:6] == 'normal':
+        if msg['status'][:6] == 'normal':
             nsr = msg['nsr'];
-            if ('id' not in nsr):
-                nsr['id'] = uuid.uuid4().hex
 
             #Retrieve VNFRs from message
-            vnfrs = msg["vnfrs"]
+            #Error handling because API between SLM and IA is not final yet.
+            try:
+                vnfrs = msg["vnfrs"]
+            except:
+                vnfrs = msg["vnfrList"]
             ## Store vnfrs in the repository and add vnfr ids to nsr if it is not already present
-            if ('vnfr' not in nsr):
-                nsr['vnfr'] = []
             for vnfr in vnfrs:
-                if ('vnfr' not in nsr):
-                    nsr['vnfr'].append(vnfr['id'])
                 #Store the message, catch exception when time-out occurs
                 try:
                     vnfr_response = requests.post(VNFR_REPOSITORY_URL + 'vnf-instances', data=yaml.dump(vnfr), headers={'Content-Type':'application/x-yaml'}, timeout=10.0)
-                    #If storage succeeds, add uuids to reply to gk
+                    #If storage succeeds, add vnfr to reply to gk
                     if (vnfr_response.status_code == 200):
-                        if 'vnfr' in message_for_gk.keys():
-                            #The reply should contain an uuid, but just in case
-                            if 'vnfr_uuid' in vnfr_response.json().keys():
-                                message_for_gk['vnfr'].append(vnfr_response.json()['vnfr_uuid'])
-                            else:
-                                message_for_gk['vnfr'].append(vnfr_response.json())
-                        else:
-                            message_for_gk['vnfr'] = []
-                            #The reply should contain an uuid, but just in case
-                            if 'vnfr_uuid' in vnfr_response.json().keys():
-                                message_for_gk['vnfr'].append(vnfr_response.json()['vnfr_uuid'])
-                            else:
-                                message_for_gk['vnfr'].append(vnfr_response.json())
+                        message_for_gk['vnfrs'].append(vnfr)
                     #If storage fails, add error code and message to reply to gk
                     else:
-                        message_for_gk['vnfr'] = []
                         message_for_gk['error']['vnfr'] = {'http_code':vnfr_response.status_code, 'message':vnfr_response.json()}
                         break
                 except:
-                    message_for_gk['vnfr'] = []
                     message_for_gk['error']['vnfr'] = {'http_code':'0', 'message':'Timeout when contacting server'}
                     break
                     
@@ -378,11 +361,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
             try:
                 nsr_response = requests.post(NSR_REPOSITORY_URL + 'ns-instances', data=json.dumps(nsr), headers={'Content-Type':'application/json'}, timeout=10.0)
                 if (nsr_response.status_code == 200):
-                    #The reply should contain an uuid, but just in case
-                    if 'nsr_uuid' in nsr_response.json().keys():
-                        message_for_gk['nsr'] = nsr_response.json()['nsr_uuid']
-                    else:
-                        message_for_gk['nsr'] = nsr_response.json()
 
                     monitoring_message = tools.build_monitoring_message(self.service_requests_being_handled[properties.correlation_id], nsr, vnfrs)
                     monitoring_response = requests.post(MONITORING_REPOSITORY_URL + 'service/new', data=json.dumps(monitoring_message), headers={'Content-Type':'application/json'}, timeout=10.0)
@@ -390,18 +368,17 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     if ('status' not in monitoring_json.keys()) or (monitoring_json['status'] != 'sucess'):
                         message_for_gk['error']['monitoring'] = monitoring_json
 
+                    message_for_gk['nsr'] = nsr
                 else:
                     message_for_gk['error']['nsr'] = {'http_code':nsr_response.status_code, 'message':nsr_response.json()}
             except:
                 message_for_gk['error']['nsr'] = {'http_code':'0', 'message':'Timeout when contacting server'}
             
             if message_for_gk['error'] == {}:
+                message_for_gk['status'] = 'READY'
                 message_for_gk['error'] = None
-                message_for_gk['status'] = 'Deployment completed'
-                
         else:
-            message_for_gk['status'] = 'ERROR'
-            message_for_gk['error'] = 'Deployment result: ' + request_status
+            message_for_gk['error'] = 'Deployment result: ' + msg['status']
 
         message_for_gk['timestamp'] = time.time()
 
