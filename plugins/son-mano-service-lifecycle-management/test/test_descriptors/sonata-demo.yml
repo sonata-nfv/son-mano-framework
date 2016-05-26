@@ -15,7 +15,7 @@ version: "0.2"
 author: "Michael Bredel, NEC Labs Europe"
 description: >
   "The network service descriptor for the SONATA demo,
-   comprising iperf, a firewall, and tcpump."
+   comprising iperf, a firewall, and tcpdump."
 
 ##
 ## The various network functions this service

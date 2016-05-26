@@ -662,6 +662,39 @@ class testSlmFunctionality(unittest.TestCase):
 ##################################################################################
 
 
+    def testMonitoringMessageGeneration(self):
+
+        """
+        SLM should generate a message for the monitoring module in order to start the monitoring process to the deployed network service.
+        This message is generated from the information existing in NSD, VNFDs, NSRs and VNFs. The test checks that, given the sonata-demo
+        network service, SLM correctly generates the expected message for the monitoring module.
+        """
+
+        #STEP1: create NSD and VNFD by reading test descriptors.
+        gk_request = yaml.load(self.createGkNewServiceRequestMessage())
+
+        #STEP2: add ids to NSD and VNFDs (the ones used in the expected message)
+        gk_request['NSD']['id'] = '005606ed-be7d-4ce3-983c-847039e3a5a2'
+        gk_request['VNFD1']['id'] = '24f89c1a-1259-4a1f-b0fd-c3ae99a4b626'
+        gk_request['VNFD2']['id'] = '38a6b069-f413-4415-8bbe-b00fb8b200e7'
+        gk_request['VNFD3']['id'] = 'e290f165-5ac0-422f-9c29-3e595b38f6c8'
+
+        #STEP3: load nsr_file, containing both NSR and the list of VNFRs
+        nsr_file = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_descriptors/infrastructure-adapter-nsr.yml','r'))
+
+        #STEP4: call real method
+        message = tools.build_monitoring_message(gk_request, nsr_file['nsr'], nsr_file['vnfrList'])
+
+        #STEP5: read expected message from descriptor file
+        expected_message = json.load(open('/plugins/son-mano-service-lifecycle-management/test/test_descriptors/monitoring-message.json','r'))
+
+        #STEP6: compare that generated message is equals to the expected one
+        self.assertEqual(message, expected_message, "messages are not equals")
+
+##################################################################################
+#TEST9: Test creation of the message addressed to the Monitoring Repository
+##################################################################################
+
 if __name__ == '__main__':
     unittest.main()
         
