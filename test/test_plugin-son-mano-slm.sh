@@ -19,7 +19,7 @@ trap "set +e; docker kill test.broker; docker kill test.mongo; docker kill test.
 set +e
 docker rm -f test.broker
 docker rm -f test.mongo
-docker rm -f tset.pluginmanager
+docker rm -f test.pluginmanager
 
 #  always abort if an error occurs
 set -e
