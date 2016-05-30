@@ -107,7 +107,7 @@ class ManoBaseExecutivePlugin(plugin.ManoBasePlugin):
                 ssm_image_name = os.path.splitext(os.path.basename(ssm_path))[0]
                 r = self.dc.import_image(src=ssm_path, repository=ssm_image_name)
                 if "error" in r:
-                    raise SsmNotFoundException("Import error.")
+                    raise SsmNotFoundException("Import error: %r" % r)
                 return ssm_image_name
             except SsmNotFoundException as ex:
                 LOG.error("Cannot import SSM from %r" % ssm_uri)
@@ -116,7 +116,7 @@ class ManoBaseExecutivePlugin(plugin.ManoBasePlugin):
             try:
                 r = self.dc.pull(ssm_uri)
                 if "error" in r:
-                    raise SsmNotFoundException()
+                    raise SsmNotFoundException("Pull error: %r" % r)
                 return ssm_uri  # image name and uri are the same
             except SsmNotFoundException as ex:
                 LOG.error("Cannot pull SSM from %r" % ssm_uri)
