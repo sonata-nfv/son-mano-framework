@@ -34,7 +34,7 @@ virtual_deployment_units:
     monitoring_parameters:
       - name: "vm_cpu_perc"
         unit: "Percentage"
-      - name: "vm_mem_pers"
+      - name: "vm_mem_perc"
         unit: "Percentage"
       - name: "vm_net_rx_MB"
         unit: "MB"
@@ -119,5 +119,3 @@ monitoring_rules:
     notification:
       - name: "notification04"
         type: "rabbitmq_message"
-
-

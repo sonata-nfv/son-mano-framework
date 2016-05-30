@@ -39,6 +39,9 @@ INFRA_ADAPTOR_AVAILABLE_VIMS = 'infrastructure.management.compute.list'
 NSR_REPOSITORY_URL = "http://api.int.sonata-nfv.eu:4002/records/nsr/"
 VNFR_REPOSITORY_URL = "http://api.int.sonata-nfv.eu:4002/records/vnfr/";
 
+# Monitoring repository, can be accessed throught a RESTful API
+MONITORING_REPOSITORY_URL = "http://sp.int2.sonata-nfv.eu:8000/api/v1/";
+
 
 class ServiceLifecycleManager(ManoBasePlugin):
     """
@@ -358,6 +361,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
             try:
                 nsr_response = requests.post(NSR_REPOSITORY_URL + 'ns-instances', data=json.dumps(nsr), headers={'Content-Type':'application/json'}, timeout=10.0)
                 if (nsr_response.status_code == 200):
+
+                    monitoring_message = tools.build_monitoring_message(self.service_requests_being_handled[properties.correlation_id], nsr, vnfrs)
+                    monitoring_response = requests.post(MONITORING_REPOSITORY_URL + 'service/new', data=json.dumps(monitoring_message), headers={'Content-Type':'application/json'}, timeout=10.0)
+                    monitoring_json = monitoring_response.json()
+                    if ('status' not in monitoring_json.keys()) or (monitoring_json['status'] != 'sucess'):
+                        message_for_gk['error']['monitoring'] = monitoring_json
+
                     message_for_gk['nsr'] = nsr
                 else:
                     message_for_gk['error']['nsr'] = {'http_code':nsr_response.status_code, 'message':nsr_response.json()}
