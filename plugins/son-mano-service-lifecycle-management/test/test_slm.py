@@ -49,7 +49,7 @@ class testSlmRegistrationAndHeartbeat(unittest.TestCase):
         try:
             self.manoconn.stop_connection()
         except Exception as e:
-            LOG.exception()
+            LOG.exception("Stop connection exception.")
 
         #Clearing the threading helpers
         del self.wait_for_event  
@@ -251,7 +251,7 @@ class testSlmFunctionality(unittest.TestCase):
             self.manoconn_gk.stop_connection()
             self.manoconn_ia.stop_connection()
         except Exception as e:
-            LOG.exception()
+            LOG.exception("Stop connection exception.")
 
 ########################
 #GENERAL

@@ -17,11 +17,16 @@
 import logging
 import docker
 import os
+import json
 from sonmanobase import plugin, messaging
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("son-mano-base:executiveplugin")
 LOG.setLevel(logging.DEBUG)
+
+
+class SsmNotFoundException(BaseException):
+    pass
 
 
 class ManoBaseExecutivePlugin(plugin.ManoBasePlugin):
@@ -90,12 +95,32 @@ class ManoBaseExecutivePlugin(plugin.ManoBasePlugin):
         Process of pulling / importing a SSM given as Docker image.
 
         SSM can be specified like:
-        - ssm_uri = "registry.sonata-nfv.eu:5000/my-ssm" -> Docker PULL
+        - ssm_uri = "registry.sonata-nfv.eu:5000/my-ssm" -> Docker PULL (opt B)
         or
-        - ssm_uri = "file://this/is/a/path/my-ssm.tar" -> Docker LOAD
-        :return: ssm_image_name?
+        - ssm_uri = "file://this/is/a/path/my-ssm.tar" -> Docker LOAD (opt A)
+        :return: ssm_image_name
         """
-        pass
+        if "file://" in ssm_uri:
+            # opt A: file based import
+            try:
+                ssm_path = ssm_uri.replace("file://", "")
+                ssm_image_name = os.path.splitext(os.path.basename(ssm_path))[0]
+                r = self.dc.import_image(ssm_path, repository=ssm_image_name)
+                if "error" in r:
+                    raise SsmNotFoundException("Import error: %r" % r)
+                return ssm_image_name
+            except BaseException as ex:
+                LOG.exception("Cannot import SSM from %r" % ssm_uri)
+        else:
+            # opt B: repository pull
+            try:
+                r = self.dc.pull(ssm_uri)
+                if "error" in r:
+                    raise SsmNotFoundException("Pull error: %r" % r)
+                return ssm_uri  # image name and uri are the same
+            except BaseException as ex:
+                LOG.exception("Cannot pull SSM from %r" % ssm_uri)
+        return None
 
     def start_ssm(self, ssm_image):
         """

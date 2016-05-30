@@ -12,13 +12,13 @@
 #
 
 # setup cleanup mechanism
-trap "set +e; docker kill test.broker; docker kill test.mongo; docker rm test.broker; docker rm test.mongo; docker rm test.pluginmanager" INT TERM EXIT
+trap "set +e; docker rm -fv test.broker; docker rm -fv test.mongo; docker rm -fv test.pluginmanager" INT TERM EXIT
 
 # ensure cleanup
 set +e
-docker rm -f test.broker
-docker rm -f test.mongo
-docker rm -f tset.pluginmanager
+docker rm -fv test.broker
+docker rm -fv test.mongo
+docker rm -fv test.pluginmanager
 
 #  always abort if an error occurs
 set -e
@@ -26,10 +26,17 @@ set -e
 echo "test_son-mano-pluginmanager.sh"
 # spin up container with broker (in daemon mode)
 docker run -d -p 5672:5672 --name test.broker rabbitmq:3
+# wait a bit for broker startup
+while ! nc -z localhost 5672; do
+sleep 1 && echo -n .; # waiting for rabbitmq
+done;
 # spin up container with MongoDB (in daemon mode)
 docker run -d -p 27017:27017 --name test.mongo mongo
-# wait a bit for broker startup
-sleep 5
+# wait a bit for db startup
+while ! nc -z localhost 27017; do
+sleep 1 && echo -n .; # waiting for mongo
+done;
+sleep 3
 # spin up the plugin manager and run tests
 docker run --link test.broker:broker --link test.mongo:mongo --name test.pluginmanager registry.sonata-nfv.eu:5000/pluginmanager py.test -v
 

@@ -39,7 +39,7 @@ class TestManoBrokerConnection(unittest.TestCase):
     def _simple_subscribe_cbf2(self, ch, method, props, body):
         self._last_message[1] = str(body, "utf-8")
 
-    def wait_for_message(self, last_message_id=0, timeout=2):
+    def wait_for_message(self, last_message_id=0, timeout=5):
         """
         Helper to deal with async messaging system.
         Waits until a message is written to self._last_message
