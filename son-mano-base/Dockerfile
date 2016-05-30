@@ -7,6 +7,7 @@ ENV broker_exchange son-kernel
 
 ADD son-mano-base /son-mano-base
 ADD utils/delayedstart.sh /delayedstart.sh
+ADD test/misc /son-mano-base/test/misc
 
 
 WORKDIR /son-mano-base

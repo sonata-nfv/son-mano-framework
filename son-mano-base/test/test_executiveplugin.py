@@ -76,7 +76,7 @@ class TestManoBaseExecutivePluginSsmManagement(unittest.TestCase):
         self.assertIsNone(img)
 
         # try to board a existing SSM
-        img = e.board_ssm(ssm_uri="file://son-mano-base/test/misc/ssm_empty_container.tar")
+        img = e.board_ssm(ssm_uri="file://test/misc/ssm_empty_container.tar")
         # verify that the image is available after boarding
         self.assertIsNotNone(img)
         e.dc.get_image(img)
