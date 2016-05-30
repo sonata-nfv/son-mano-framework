@@ -38,7 +38,7 @@ docker run -d -p 27017:27017 --name test.mongo mongo
 while ! nc -z localhost 27017; do
 sleep 1 && echo -n .; # waiting for mongo
 done;
-sleep 1
+sleep 3
 # spin up the plugin manager
 docker run -d --link test.broker:broker --link test.mongo:mongo --name test.pluginmanager registry.sonata-nfv.eu:5000/pluginmanager
 # wait a bit for manager startup
