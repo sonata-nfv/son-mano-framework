@@ -12,7 +12,7 @@
 #
 
 # setup cleanup mechanism
-trap "set +e; docker rm -fv test.broker; docker rm -fv test.mongo; docker rm -fv test.pluginmanager" INT TERM EXIT
+#trap "set +e; docker rm -fv test.broker; docker rm -fv test.mongo; docker rm -fv test.pluginmanager" INT TERM EXIT
 
 # ensure cleanup
 set +e
