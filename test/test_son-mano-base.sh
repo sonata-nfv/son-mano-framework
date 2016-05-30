@@ -11,13 +11,14 @@
 #
 
 # setup cleanup mechanism
-#trap "set +e; docker rm -fv test.broker; docker rm -fv test.sonmanobase" INT TERM EXIT
+trap "set +e; docker rm -fv test.broker; docker rm -fv test.sonmanobase" INT TERM EXIT
 
 # ensure cleanup
 set +e
 docker rm -fv test.broker
 docker rm -fv test.mongo
 docker rm -fv test.pluginmanager
+docker rm -fv test.sonmanobase
 
 #  always abort if an error occurs
 set -e
@@ -29,7 +30,7 @@ docker run -d -p 5672:5672 --name test.broker rabbitmq:3
 while ! nc -z localhost 5672; do
 sleep 1 && echo -n .; # waiting for rabbitmq
 done;
-
+sleep 5
 # spin up the son-mano-base test container and execute its unittests
 docker run --link test.broker:broker -v '/var/run/docker.sock:/var/run/docker.sock' --name test.sonmanobase registry.sonata-nfv.eu:5000/sonmanobase py.test -v
 

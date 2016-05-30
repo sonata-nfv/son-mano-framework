@@ -183,7 +183,7 @@ class ManoBrokerConnection(object):
         connection_unused.ioloop.stop()
         LOG.error("Could not connect to message broker. Abort.")
         LOG.debug(str(error_message))
-        os._exit(1)
+        #os._exit(1)
 
     def _on_channel_closed(self, channel, reply_code, reply_text):
         LOG.warning("Channel %i was closed: (%s) %s",
