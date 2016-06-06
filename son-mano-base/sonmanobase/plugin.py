@@ -17,6 +17,7 @@
 import logging
 import json
 import time
+import os
 import threading
 
 from sonmanobase import messaging
@@ -155,7 +156,7 @@ class ManoBasePlugin(object):
         """
         LOG.debug("Received lifecycle.stop event.")
         self.deregister()
-        exit(0)
+        os._exit(0)
 
     def on_registration_ok(self):
         """
