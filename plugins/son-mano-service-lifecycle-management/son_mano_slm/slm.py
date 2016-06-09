@@ -9,6 +9,7 @@ import requests
 import uuid
 import threading
 import json
+import os
 
 from sonmanobase.plugin import ManoBasePlugin
 try:
@@ -35,13 +36,20 @@ INFRA_ADAPTOR_RESOURCE_AVAILABILITY_REPLY_TOPIC = "infrastructure.management.com
 # The topic to which available vims are published
 INFRA_ADAPTOR_AVAILABLE_VIMS = 'infrastructure.management.compute.list'
 
-# The NSR Repository can be accessed through a RESTful API
-NSR_REPOSITORY_URL = "http://api.int.sonata-nfv.eu:4002/records/nsr/"
-VNFR_REPOSITORY_URL = "http://api.int.sonata-nfv.eu:4002/records/vnfr/";
+# The NSR Repository can be accessed through a RESTful API. Links are red from ENV variables, with backups if no ENVs are set.
+NSR_REPOSITORY_URL = os.environ.get("url_nsr_repository")
+VNFR_REPOSITORY_URL = os.environ.get("url_vnfr_repository")
 
-# Monitoring repository, can be accessed throught a RESTful API
-MONITORING_REPOSITORY_URL = "http://sp.int2.sonata-nfv.eu:8000/api/v1/";
+if NSR_REPOSITORY_URL is None:
+    NSR_REPOSITORY_URL = "http://api.int.sonata-nfv.eu:4002/records/nsr/"
+if VNFR_REPOSITORY_URL is None:
+    VNFR_REPOSITORY_URL = "http://api.int.sonata-nfv.eu:4002/records/vnfr/";
 
+# Monitoring repository, can be accessed throught a RESTful API. Link is red from ENV variable, with a backup if no ENV is set.
+MONITORING_REPOSITORY_URL = os.environ.get("url_monitoring_server")
+
+if MONITORING_REPOSITORY_URL is None:
+    MONITORING_REPOSITORY_URL = "http://sp.int2.sonata-nfv.eu:8000/api/v1/";
 
 class ServiceLifecycleManager(ManoBasePlugin):
     """
