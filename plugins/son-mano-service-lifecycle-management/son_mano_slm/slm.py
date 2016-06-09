@@ -9,6 +9,7 @@ import requests
 import uuid
 import threading
 import json
+import os
 
 from sonmanobase.plugin import ManoBasePlugin
 try:
@@ -35,12 +36,12 @@ INFRA_ADAPTOR_RESOURCE_AVAILABILITY_REPLY_TOPIC = "infrastructure.management.com
 # The topic to which available vims are published
 INFRA_ADAPTOR_AVAILABLE_VIMS = 'infrastructure.management.compute.list'
 
-# The NSR Repository can be accessed through a RESTful API
-NSR_REPOSITORY_URL = "http://api.int.sonata-nfv.eu:4002/records/nsr/"
-VNFR_REPOSITORY_URL = "http://api.int.sonata-nfv.eu:4002/records/vnfr/";
+# The NSR Repository can be accessed through a RESTful API. Links are red from ENV variables.
+NSR_REPOSITORY_URL = os.environ.get("url_nsr_repository")
+VNFR_REPOSITORY_URL = os.environ.get("url_vnfr_repository")
 
-# Monitoring repository, can be accessed throught a RESTful API
-MONITORING_REPOSITORY_URL = "http://sp.int2.sonata-nfv.eu:8000/api/v1/";
+# Monitoring repository, can be accessed throught a RESTful API. Link is red from ENV variable.
+MONITORING_REPOSITORY_URL = os.environ.get("url_monitoring_server")
 
 
 class ServiceLifecycleManager(ManoBasePlugin):
