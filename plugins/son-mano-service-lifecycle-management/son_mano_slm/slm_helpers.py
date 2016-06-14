@@ -52,6 +52,86 @@ def replace_old_corr_id_by_new(dictionary, old_correlation_id):
     return new_correlation_id, dictionary
     
 
+def build_nsr(gk_request, ia_nsr):
+    """
+    This method builds the whole NSR from the stripped NSR returned by the Infrastructure Adaptor (IA)
+    """
+
+    nsr = {}
+    ## nsr mandatory fields
+    nsr['descriptor_version'] = 'nsr-schema-01'
+    nsr['id'] = ia_nsr['nsr']['uuid']
+    nsr['status'] = ia_nsr['nsr']['status']
+    # same version as NSD for consistency, so we can relate each other
+    nsr['version'] = gk_request['NSD']['version']
+    nsr['descriptor_reference'] = gk_request['NSD']['id']
+
+    ## network functions
+    if 'vnfrs' in ia_nsr.keys():
+        nsr['network_functions'] = []
+        for network_function in ia_nsr['vnfrs']:
+            function = {}
+            function['vnfr_id'] = network_function['uuid']
+            nsr['network_functions'].append(function)
+
+    ## connection points
+    if 'connection_points' in gk_request['NSD']:
+        nsr['connection_points'] = []
+        for connection_point in gk_request['NSD']['connection_points']:
+            cp = {}
+            cp['id'] = connection_point['id']
+            cp['type'] = connection_point['type']
+            nsr['connection_points'].append(cp)
+
+    ## virtual links
+    if 'virtual_links' in gk_request['NSD']:
+        nsr['virtual_links'] = []
+        for virtual_link in gk_request['NSD']['virtual_links']:
+            vlink = {}
+            vlink['id'] = virtual_link['id']
+            vlink['connection_type'] = virtual_link['connectivity_type']
+            vlink['connection_points_reference'] = virtual_link['connection_points_reference']
+            nsr['virtual_links'].append(vlink)
+
+    ## forwarding graphs
+    if 'forwarding_graphs' in gk_request['NSD']:
+        nsr['forwarding_graphs'] = []
+        for forwarding_graph in gk_request['NSD']['forwarding_graphs']:
+            nsr['forwarding_graphs'].append(forwarding_graph)
+
+    ## lifecycle events
+    if 'lifecycle_events' in gk_request['NSD']:
+        nsr['lifecycle_events'] = []
+        for lifecycle_event in gk_request['NSD']['lifecycle_events']:
+            nsr['lifecycle_events'].append(lifecycle_event)
+
+    ## vnf_dependency
+    if 'vnf_dependency' in gk_request['NSD']:
+        nsr['vnf_dependency'] = []
+        for vd in gk_request['NSD']['vnf_dependency']:
+            nsr['vnf_dependency'].append(vd)
+
+    ## services_dependency
+    if 'services_dependency' in gk_request['NSD']:
+        nsr['services_dependency'] = []
+        for sd in gk_request['NSD']['services_dependency']:
+            nsr['services_dependency'].append(sd)
+
+    ## monitoring_parameters
+    if 'monitoring_parameters' in gk_request['NSD']:
+        nsr['monitoring_parameters'] = []
+        for mp in gk_request['NSD']['monitoring_parameters']:
+            nsr['monitoring_parameters'].append(mp)
+
+    ## auto_scale_policy
+    if 'auto_scale_policy' in gk_request['NSD']:
+        nsr['auto_scale_policy'] = []
+        for asp in gk_request['NSD']['auto_scale_policy']:
+            nsr['monitoring_parameters'].append(asp)
+
+    return nsr
+
+
 def build_monitoring_message(gk_request, nsr, vnfrs):
 
     # This method searches inside the VNFRs for the VDU that makes reference to a specific VDU of a VNFD.

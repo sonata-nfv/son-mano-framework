@@ -334,8 +334,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         message_for_gk['vnfrs'] = []
 
         if msg['status'][:6] == 'normal':
-            nsr = msg['nsr'];
-
+            nsr = tools.build_nsr(self.service_requests_being_handled[properties.correlation_id], msg['nsr'])
             #Retrieve VNFRs from message
             #Error handling because API between SLM and IA is not final yet.
             try:

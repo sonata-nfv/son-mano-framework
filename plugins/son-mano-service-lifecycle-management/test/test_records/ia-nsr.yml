@@ -1,0 +1,77 @@
+
+instanceName: "sonata-demo9df6a98f-9e11-4cb7-b3c0-b1375e7c0000"
+instanceVimUuid: "2ed00d31-afee-4d58-ba20-b74fef3f67f1"
+nsr:
+  uuid: "9df6a98f-9e11-4cb7-b3c0-b1375e7cb0b0"
+  status: "offline"
+  instance_uuid: "9df6a98f-9e11-4cb7-b3c0-b1375e7c0000"
+vnfrs:
+- uuid: "645db4fa-a714-4cba-9617-4001477d1281"
+  status: "offline"
+  descriptor_version: "vnfr-schema-01"
+  instance_uuid: "645db4fa-a714-4cba-9617-4001477d0000"
+  descriptor_reference_vendor: "eu.sonata-nfv"
+  descriptor_reference_name: "iperf-vnf"
+  descriptor_reference_version: "0.2"
+  virtual_deployment_units:
+  - id: "7a781b79-9513-499b-9794-a529f32cfc74"
+    vm_image: "sonata_firewall_VM"
+    vdu_reference: "iperf-vnf:vdu01"
+    number_of_instances: 1
+    vnfc_instance:
+    - id: "b04f"
+      vim_id: "798014b5-e864-4678-a313-485523c04543"
+      vc_id: "768fdd67-d6fe-4053-bf5e-ff2291ece261"
+      connection_points:
+      - id: "vdu01:cp01"
+        type: "interface"
+      - id: "vdu01:cp02"
+        type: "interface"
+      - id: "vdu01:cp03"
+        type: "interface"
+- uuid: "6a15313f-cb0a-4540-baa2-77cc6b3f5b68"
+  status: "offline"
+  descriptor_version: "vnfr-schema-01"
+  instance_uuid: "6a15313f-cb0a-4540-baa2-77cc6b3f0000"
+  descriptor_reference_vendor: "eu.sonata-nfv"
+  descriptor_reference_name: "firewall-vnf"
+  descriptor_reference_version: "0.2"
+  virtual_deployment_units:
+  - id: "06325809-aec7-4aa7-8b20-4758c706af8d"
+    vm_image: "sonata_firewall_VM"
+    vdu_reference: "firewall-vnf:vdu01"
+    number_of_instances: 1
+    vnfc_instance:
+    - id: "c3c9"
+      vim_id: "798014b5-e864-4678-a313-485523c04543"
+      vc_id: "fc643554-bfd7-4b55-9c26-c78a16abb9b8"
+      connection_points:
+      - id: "vdu01:cp01"
+        type: "interface"
+      - id: "vdu01:cp02"
+        type: "interface"
+      - id: "vdu01:cp03"
+        type: "interface"
+- uuid: "8a0aa837-ec1c-44e5-9907-898f6401c3ae"
+  status: "offline"
+  descriptor_version: "vnfr-schema-01"
+  instance_uuid: "8a0aa837-ec1c-44e5-9907-898f64010000"
+  descriptor_reference_vendor: "eu.sonata-nfv"
+  descriptor_reference_name: "tcpdump-vnf"
+  descriptor_reference_version: "0.2"
+  virtual_deployment_units:
+  - id: "87d7d350-7c23-4e66-ab46-5060dcfb5b6c"
+    vm_image: "sonata_firewall_VM"
+    vdu_reference: "tcpdump-vnf:vdu01"
+    number_of_instances: 1
+    vnfc_instance:
+    - id: "6ca3"
+      vim_id: "798014b5-e864-4678-a313-485523c04543"
+      vc_id: "dce7d2c8-e149-48ca-a839-c0807e90524f"
+      connection_points:
+      - id: "vdu01:cp01"
+        type: "interface"
+      - id: "vdu01:cp02"
+        type: "interface"
+      - id: "vdu01:cp03"
+        type: "interface"
