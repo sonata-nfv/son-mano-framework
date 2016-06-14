@@ -1,0 +1,82 @@
+---
+id: 9df6a98f-9e11-4cb7-b3c0-b1375e7cb0b0
+descriptor_reference: 005606ed-be7d-4ce3-983c-847039e3a5a2
+descriptor_version: nsr-schema-01
+status: offline
+version: "0.2"
+
+network_functions:
+  - vnfr_id: 645db4fa-a714-4cba-9617-4001477d1281
+  - vnfr_id: 6a15313f-cb0a-4540-baa2-77cc6b3f5b68
+  - vnfr_id: 8a0aa837-ec1c-44e5-9907-898f6401c3ae
+connection_points:
+  - id: "ns:mgmt"
+    type: interface
+  - id: "ns:input"
+    type: interface
+  - id: "ns:output"
+    type: interface
+
+forwarding_graphs:
+  - constituent_virtual_links:
+      - mgmt
+      - input-2-iperf
+      - iperf-2-firewall
+      - firewall-2-tcpdump
+      - tcpdump-2-output
+    constituent_vnfs:
+      - vnf_iperf
+      - vnf_firewall
+      - vnf_tcpdump
+    fg_id: "ns:fg01"
+    network_forwarding_paths:
+      - connection_points:
+          - connection_point_ref: "ns:input"
+            position: 1
+          - connection_point_ref: "vnf_iperf:input"
+            position: 2
+          - connection_point_ref: "vnf_iperf:output"
+            position: 3
+          - connection_point_ref: "vnf_firewall:input"
+            position: 4
+          - connection_point_ref: "vnf_firewall:output"
+            position: 5
+          - connection_point_ref: "vnf_tcpdump:input"
+            position: 6
+          - connection_point_ref: "vnf_tcpdump:output"
+            position: 7
+          - connection_point_ref: "ns:output"
+            position: 8
+        fp_id: "ns:fg01:fp01"
+        policy: none
+    number_of_endpoints: 2
+    number_of_virtual_links: 4
+
+virtual_links:
+  - connection_points_reference:
+      - "vnf_iperf:mgmt"
+      - "vnf_firewall:mgmt"
+      - "vnf_tcpdump:mgmt"
+      - "ns:mgmt"
+    connection_type: E-LAN
+    id: mgmt
+  - connection_points_reference:
+      - "ns:input"
+      - "vnf_iperf:input"
+    connection_type: E-Line
+    id: input-2-iperf
+  - connection_points_reference:
+      - "vnf_iperf:output"
+      - "vnf_firewall:input"
+    connection_type: E-Line
+    id: iperf-2-firewall
+  - connection_points_reference:
+      - "vnf_firewall:output"
+      - "vnf_tcpdump:input"
+    connection_type: E-Line
+    id: firewall-2-tcpdump
+  - connection_points_reference:
+      - "vnf_firewall:output"
+      - "ns:output"
+    connection_type: E-Line
+    id: tcpdump-2-output

@@ -834,6 +834,35 @@ class testSlmFunctionality(unittest.TestCase):
 #TEST9: Test creation of the message addressed to the Monitoring Repository
 ##################################################################################
 
+
+    def testNsrCreation(self):
+
+        """
+        Once the Infrastructure Adapter has deployed the network service, it would build the entire NSR from the information
+        provided by the Infrastructure Adapter. This test checks that, given the sonata-demo network service, the IA is able
+        to build the correct NSR.
+        """
+
+        #STEP1: create NSD and VNFD by reading test descriptors.
+        gk_request = yaml.load(self.createGkNewServiceRequestMessage())
+
+        #STEP2: add ids to NSD and VNFDs (the ones used in the expected message)
+        gk_request['NSD']['id'] = '005606ed-be7d-4ce3-983c-847039e3a5a2'
+        gk_request['VNFD1']['id'] = '24f89c1a-1259-4a1f-b0fd-c3ae99a4b626'
+        gk_request['VNFD2']['id'] = '38a6b069-f413-4415-8bbe-b00fb8b200e7'
+        gk_request['VNFD3']['id'] = 'e290f165-5ac0-422f-9c29-3e595b38f6c8'
+
+        #STEP3: read IA response and the expected NSR
+        ia_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml','r'))
+        expected_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-nsr.yml','r'))
+
+        #STEP4: call real method
+        message = tools.build_nsr(gk_request, ia_nsr)
+
+        #STEP5: comprare the generated message is equals to the expected one
+        self.assertEqual(message, expected_nsr, "Built NSR is not equal to the expected one")
+
+
 if __name__ == '__main__':
     unittest.main()
         
