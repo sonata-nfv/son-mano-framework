@@ -204,9 +204,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
         t.daemon = True
         t.start()
 
-        return yaml.dump({'status'    : 'INSTANTIATING',        #INSTANTIATING or ERROR
+        response_for_gk = {'status'    : 'INSTANTIATING',        #INSTANTIATING or ERROR
                           'error'     : None,         #NULL or a string describing the ERROR
-                          'timestamp' : time.time()})  #time() returns the number of seconds since the epoch in UTC as a float      
+                          'timestamp' : time.time()}  #time() returns the number of seconds since the epoch in UTC as a float      
+
+        LOG.info(response_for_gk)
+        return yaml.dump(response_for_gk)
 
     def start_new_service_deployment(self, ch, method, properties, message):
         """
