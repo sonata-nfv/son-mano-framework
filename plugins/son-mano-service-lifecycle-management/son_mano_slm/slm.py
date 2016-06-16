@@ -308,7 +308,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method informs the gk that no vim has the resources neede to deploy this service.
         """
 
-        LOG.info("Inform GK of Error for service with instance uuid " + self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'])
+        LOG.info("Inform GK of Error for service with instance uuid " + self.service_requests_being_handled[correlation_id]['NSD']['instance_uuid'])
         response_message = {'status':'ERROR', 'error': error_msg, 'timestamp':time.time()}
         self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(response_message), correlation_id = self.service_requests_being_handled[correlation_id]['original_corr_id'])
 
