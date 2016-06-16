@@ -132,6 +132,103 @@ def build_nsr(gk_request, ia_nsr):
     return nsr
 
 
+def build_vnfrs(gk_request, ia_vnfrs):
+    """
+    This method builds the different VNFRS a NSR consists of. VNFRS are built from the stripped VNFRs returned by the Infrastructure Adaptor (IA), combining it with the
+    provided VNFD.
+    """
+    vnfrs = []
+    for ia_vnfr in ia_vnfrs:
+        vnfd = get_vnfd_by_trio(gk_request, ia_vnfr['descriptor_reference_name'], ia_vnfr['descriptor_reference_vendor'], ia_vnfr['descriptor_reference_version'])
+
+        vnfr = {}
+        ## vnfd base fields
+        vnfr['descriptor_version'] = ia_vnfr['descriptor_version']
+        vnfr['id'] = ia_vnfr['uuid']
+        vnfr['version'] = vnfd['version']
+        vnfr['status'] = ia_vnfr['status']
+        vnfr['descriptor_reference'] = vnfd['id']
+
+
+        ## deployment flavour
+        if 'deployment_flavour' in ia_vnfr:
+            vnfr['deployment_flavour'] = ia_vnfr['deployment_flavour']
+
+        ## virtual_deployment_units
+        vnfr['virtual_deployment_units'] = []
+        for ia_vdu in ia_vnfr['virtual_deployment_units']:
+            vnfd_vdu = get_vnfd_vdu_by_reference(vnfd, ia_vdu['vdu_reference'])
+
+            vdu = {}
+            ## vdu info returned by IA
+            ## mandatofy info
+            vdu['id'] = ia_vdu['id']
+            vdu['resource_requirements'] = vnfd_vdu['resource_requirements']
+
+            ## vdu optional info
+            if 'vm_image' in ia_vdu:
+                vdu['vm_image'] = ia_vdu['vm_image']
+            if 'vdu_reference' in ia_vdu:
+                vdu['vdu_reference'] = ia_vdu['vdu_reference']
+            if 'number_of_instances' in ia_vdu:
+                vdu['number_of_instances'] = ia_vdu['number_of_instances']
+            ## vdu vnfc-instances (optional)
+            vdu['vnfc_instance'] = []
+            if 'vnfc_instance' in ia_vdu:
+                for ia_vnfc in ia_vdu['vnfc_instance']:
+                    vnfc = {}
+                    vnfc['id'] = ia_vnfc['id']
+                    vnfc['vim_id'] = ia_vnfc['vim_id']
+                    vnfc['vc_id'] = ia_vnfc['vc_id']
+                    vnfc['connection_points'] = ia_vnfc['connection_points']
+                    vdu['vnfc_instance'].append(vnfc)
+
+            ## vdu monitoring-parameters (optional)
+
+            if vnfd_vdu is not None and 'monitoring_parameters' in vnfd_vdu:
+                vdu['monitoring_parameters'] = vnfd_vdu['monitoring_parameters']
+
+
+
+            vnfr['virtual_deployment_units'].append(vdu)
+
+        ## connection points && virtual links (optional)
+        if 'connection_points' in vnfd:
+            vnfr['connection_points'] = vnfd['connection_points']
+        if 'virtual_links' in vnfd:
+            vnfr['virtual_links'] = vnfd['virtual_links']
+
+        ## TODO vnf_address ???
+
+        ## lifecycle_events (optional)
+        if 'lifecycle_events' in vnfd:
+            vnfr['lifecycle_events'] = vnfd['lifecycle_events']
+
+        vnfrs.append(vnfr)
+
+    return vnfrs
+
+
+def get_vnfd_vdu_by_reference(vnfd, vdu_reference):
+    ## TODO can we do it with functional programming?
+    if 'virtual_deployment_units' in vnfd:
+        for vnfd_vdu in vnfd['virtual_deployment_units']:
+            if vnfd_vdu['id'] in vdu_reference:
+                return vnfd_vdu
+    return None
+
+
+
+def get_vnfd_by_trio(gk_request, vnfd_name, vnfd_vendor, vnfd_version):
+
+    for key in gk_request.keys():
+        if key[:4] == 'VNFD':
+            vnfd = gk_request[key]
+            if vnfd['name'] == vnfd_name and vnfd['vendor'] == vnfd_vendor and vnfd['version'] == vnfd_version:
+                return vnfd
+
+    return None
+
 def build_monitoring_message(gk_request, nsr, vnfrs):
 
     # This method searches inside the VNFRs for the VDU that makes reference to a specific VDU of a VNFD.

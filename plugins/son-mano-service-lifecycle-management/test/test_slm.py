@@ -863,6 +863,34 @@ class testSlmFunctionality(unittest.TestCase):
         self.assertEqual(message, expected_nsr, "Built NSR is not equal to the expected one")
 
 
+##################################################################################
+#TEST10: Test creation of the NSR
+##################################################################################
+
+
+    def testVnfrsCreation(self):
+        #STEP1: create NSD and VNFD by reading test descriptors.
+        gk_request = yaml.load(self.createGkNewServiceRequestMessage())
+
+        #STEP2: add ids to NSD and VNFDs (the ones used in the expected message)
+        gk_request['NSD']['id'] = '005606ed-be7d-4ce3-983c-847039e3a5a2'
+        gk_request['VNFD1']['id'] = '24f89c1a-1259-4a1f-b0fd-c3ae99a4b626'
+        gk_request['VNFD2']['id'] = '38a6b069-f413-4415-8bbe-b00fb8b200e7'
+        gk_request['VNFD3']['id'] = 'e290f165-5ac0-422f-9c29-3e595b38f6c8'
+
+        #STEP3: read IA response and the expected NSR
+        ia_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml','r'))
+        expected_vnfrs = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-vnfrs.yml','r'))
+
+        message = tools.build_vnfrs(gk_request, ia_nsr['vnfrs'])
+
+        self.assertEqual(message, expected_vnfrs, "Built VNFRs are not equals to the expected ones")
+
+
+##################################################################################
+#TEST11: Test creation of the NSR
+##################################################################################
+
 if __name__ == '__main__':
     unittest.main()
         
