@@ -393,7 +393,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     monitoring_message = tools.build_monitoring_message(self.service_requests_being_handled[properties.correlation_id], nsr, vnfrs)
                     monitoring_response = requests.post(MONITORING_REPOSITORY_URL + 'service/new', data=json.dumps(monitoring_message), headers={'Content-Type':'application/json'}, timeout=10.0)
                     monitoring_json = monitoring_response.json()
-                    if ('status' not in monitoring_json.keys()) or (monitoring_json['status'] != 'sucess'):
+                    if ('status' not in monitoring_json.keys()) or (monitoring_json['status'] != 'success'):
                         message_for_gk['error']['monitoring'] = monitoring_json
 
                     message_for_gk['nsr'] = nsr

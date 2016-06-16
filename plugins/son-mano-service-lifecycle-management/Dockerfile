@@ -9,7 +9,7 @@ ENV broker_exchange son-kernel
 
 ENV url_nsr_repository http://api.int.sonata-nfv.eu:4002/records/nsr/
 ENV url_vnfr_repository http://api.int.sonata-nfv.eu:4002/records/vnfr/
-ENV url_monitoring_server http://sp.int2.sonata-nfv.eu:8000/api/v1/
+ENV url_monitoring_server http://sp.int3.sonata-nfv.eu:8000/api/v1/
 
 # add generic project files
 ADD son-mano-base /son-mano-base
