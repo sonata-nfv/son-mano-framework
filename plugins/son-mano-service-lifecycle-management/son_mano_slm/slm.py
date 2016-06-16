@@ -181,8 +181,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'] = uuid.uuid4().hex
         LOG.info("instance uuid for service generated: " + self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'])
 
+        LOG.info(self.service_requests_being_handled[properties.correlation_id])
+        LOG.info(service_request_from_gk.keys())
         for key in service_request_from_gk.keys():
             if key[:4] == 'VNFD':
+                LOG.info(key)
                 self.service_requests_being_handled[properties.correlation_id][key]['instance_uuid'] = uuid.uuid4().hex
 
         #We make sure that all required SSMs are deployed.
