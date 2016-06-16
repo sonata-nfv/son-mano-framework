@@ -204,6 +204,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
 #        t.daemon = True
 #        t.start()
 
+        LOG.info('GOT HERE')
+
         response_for_gk = {'status'    : 'INSTANTIATING',        #INSTANTIATING or ERROR
                           'error'     : None,         #NULL or a string describing the ERROR
                           'timestamp' : time.time()}  #time() returns the number of seconds since the epoch in UTC as a float      
