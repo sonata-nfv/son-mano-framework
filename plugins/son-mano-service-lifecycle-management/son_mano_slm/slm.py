@@ -181,6 +181,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'] = uuid.uuid4().hex
         LOG.info("instance uuid for service generated: " + self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'])
 
+        LOG.info('MESSAGE FROM GK ########################################')
+        LOG.info(service_request_from_gk)
         LOG.info(self.service_requests_being_handled[properties.correlation_id])
         LOG.info(service_request_from_gk.keys())
         for key in service_request_from_gk.keys():
