@@ -170,6 +170,16 @@ class ServiceLifecycleManager(ManoBasePlugin):
                               'error'     : 'Number of VNFDs doesn\'t match number of vnfs',
                               'timestamp' : time.time()})
 
+        #Check whether a vnfd is none.
+        for key in service_request_from_gk.keys():
+            if key[:4] == 'VNFD':
+                if service_request_from_gk[key] == None:
+                    return yaml.dump({'status'    : 'ERROR',        
+                                      'error'     : 'VNFDs are not allowed to be empty',
+                                      'timestamp' : time.time()})
+
+        
+
         #If all checks on the received message pass, an uuid is created for the service, and we add it to the dict of services that are being deployed. 
         #Each VNF also gets an uuid. This is added to the VNFD dictionary.
         #The correlation_id is used as key for this dict, since it should be available in all the callback functions.
@@ -205,11 +215,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
     
 
         #After the received request has been processed, we can start handling it in a different thread.
-#        t = threading.Thread(target=self.start_new_service_deployment, args=(ch, method, properties, message))
-#        t.daemon = True
-#        t.start()
+        LOG.info('### Prepare for Threading ###')
+        t = threading.Thread(target=self.start_new_service_deployment, args=(ch, method, properties, message))
+        t.daemon = True
+        t.start()
 
-        LOG.info('GOT HERE')
+        LOG.info('### Post first threading ###.')
 
         response_for_gk = {'status'    : 'INSTANTIATING',        #INSTANTIATING or ERROR
                           'error'     : None,         #NULL or a string describing the ERROR
