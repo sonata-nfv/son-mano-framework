@@ -200,9 +200,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
     
 
         #After the received request has been processed, we can start handling it in a different thread.
-        t = threading.Thread(target=self.start_new_service_deployment, args=(ch, method, properties, message))
-        t.daemon = True
-        t.start()
+#        t = threading.Thread(target=self.start_new_service_deployment, args=(ch, method, properties, message))
+#        t.daemon = True
+#        t.start()
 
         response_for_gk = {'status'    : 'INSTANTIATING',        #INSTANTIATING or ERROR
                           'error'     : None,         #NULL or a string describing the ERROR
@@ -418,8 +418,8 @@ def main():
     :return:
     """
     # reduce messaging log level to have a nicer output for this plugin
-    logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
-    logging.getLogger("son-mano-base:plugin").setLevel(logging.INFO)
+    logging.getLogger("son-mano-base:messaging").setLevel(logging.DEBUG)
+    logging.getLogger("son-mano-base:plugin").setLevel(logging.DEBUG)
 #    logging.getLogger("pika").setLevel(logging.DEBUG)
     # create our service lifecycle manager
     ServiceLifecycleManager()
