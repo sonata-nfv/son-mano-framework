@@ -23,7 +23,7 @@ communication.
 
 # TODO: Add RMQ ack mechanism (cf: http://pika.readthedocs.org/en/latest/examples/asynchronous_publisher_example.html)
 
-import pika
+from amqpstorm import UriConnection
 import logging
 import threading
 import time
@@ -50,159 +50,35 @@ class ManoBrokerConnection(object):
 
     def __init__(self, app_id, blocking=False):
         self.app_id = app_id
-
-        # do configuration
-        self._configs = {}
-        self._configs["broker"] = self._load_broker_configuration()
-        self.rabbitmq_url = self._configs["broker"]["broker_url"]
-        self.rabbitmq_exchange = self._configs["broker"]["exchange"]
+        # fetch configuration
+        self.rabbitmq_url = os.environ.get("broker_host", RABBITMQ_URL_FALLBACK)
+        self.rabbitmq_exchange = os.environ.get("broker_exchange", RABBITMQ_EXCHANGE_FALLBACK)
         self.rabbitmq_exchange_type = "topic"
 
         # create additional members
         self._connection = None
-        self._channel = None
-        self.base_queue = "%s.%s" % (self.rabbitmq_exchange, self.app_id)
-        self._connected = False
-        self._closing = False
-        self._queue_setup_lock = threading.Event()
+
         # trigger connection setup (without blocking)
         self.setup_connection()
 
-    def _load_broker_configuration(self):
+    def setup_connection(self):
         """
-        Tries to get broker configuration from ENV variables.
-        Uses fallback values if nothing is found.
-        :return: dictionary
+        Connect to rabbit mq using self.rabbitmq_url.
         """
-        broker_host = os.environ.get("broker_host")
-        broker_exchange = os.environ.get("broker_exchange")
-        if broker_host is None:
-            broker_host = RABBITMQ_URL_FALLBACK
-        if broker_exchange is None:
-            broker_exchange = RABBITMQ_EXCHANGE_FALLBACK
-        bc = dict(broker_url=broker_host, exchange=broker_exchange)
-        LOG.info("Broker config: %r" % bc)
-        return bc
-
-    def setup_connection(self, blocking=False):
-        """
-        Setup RabbitMQ connection, channel, exchange etc.
-        :param blocking: do not run IO loop in separated thread
-        :return: connection
-        """
-        # setup RabbitMQ connection
-        self._connection = self._connect()
-
-        def connection_thread():
-            # run connection IO loop
-            try:
-                self._connection.ioloop.start()
-            except Exception as e:
-                LOG.exception("Connection lost.")
-
-        if blocking:
-            connection_thread()
-            return self._connection
-
-        t = threading.Thread(target=connection_thread, args=())
-        t.daemon = True
-        t.start()
-
-        # FIXME: quick-hack! Basic connection setup should behave synchronous.
-        while not self._connected:
-            time.sleep(0.001)
+        self._connection = UriConnection(self.rabbitmq_url)
         return self._connection
 
     def stop_connection(self):
-        self._closing = True
+
         try:
             self._connection.close()
         except pika.exceptions.ConnectionClosed:
-            pass  # get rid of send_frame error on connection close
+            LOG.exception("Stop connection error")
 
-    def _connect(self):
-        # connect to RabbitMQ
-        LOG.info("Connecting to RabbitMQ on %r...", self.rabbitmq_url)
-        return pika.SelectConnection(parameters=pika.URLParameters(self.rabbitmq_url),
-                                     on_open_callback=self._on_connection_open,
-                                     on_close_callback=self._on_connection_closed,
-                                     on_open_error_callback=self._on_connection_error,
-                                     stop_ioloop_on_close=False)
 
-    def _reconnect(self):
-        if self._connection is not None:
-            self._connection.ioloop.stop()
-        if not self._closing:
-            self.setup_connection()
-
-    def _setup_channel(self):
-        LOG.info("Creating a new channel...")
-        self._connection.channel(on_open_callback=self._on_channel_open)
-
-    def _setup_exchange(self):
-        LOG.info("Declaring exchange %r...", self.rabbitmq_exchange)
-        self._channel.exchange_declare(self._on_exchange_declared,
-                                       self.rabbitmq_exchange,
-                                       self.rabbitmq_exchange_type)
-
-    def _setup_queue(self, queue, topic):
-        LOG.debug("Declaring queue %r...", queue)
-        self._channel.queue_declare(self._on_queue_declared, queue)
-        LOG.debug("Binding queue %r to topic %r..." % (queue, topic))
-        self._channel.queue_bind(
-            self._on_queue_bound,
-            exchange=self.rabbitmq_exchange,
-            queue=queue,
-            routing_key=topic)
-        # FIXME: quick-hack! we have to wait for our queue to be bound here!
-        self._queue_setup_lock.clear()
-        if not self._queue_setup_lock.wait(0.5):
-            LOG.warning("Timeout on queue bind for topic: %r" % topic)
-
-    def _on_connection_open(self, connection):
-        LOG.debug("Connected: %r" % connection)
-        self._setup_channel()
-
-    def _on_channel_open(self, channel):
-        LOG.debug("Channel created: %r" % channel)
-        self._channel = channel
-        self._channel.add_on_close_callback(self._on_channel_closed)
-        self._setup_exchange()
-
-    def _on_connection_closed(self, connection, reply_code, reply_text):
-        self._channel = None
-        self._connected = False
-        if self._closing:
-            self._connection.ioloop.stop()
-        else:
-            LOG.warning("Connection closed, reopening in 5 seconds: (%s) %s",
-                            reply_code, reply_text)
-            self._connection.add_timeout(5, self._reconnect)
-
-    def _on_connection_error(self, connection_unused, error_message=None):
-        connection_unused.ioloop.stop()
-        LOG.error("Could not connect to message broker. Abort.")
-        LOG.debug(str(error_message))
-        raise BaseException("Broker connection failed!")
-
-    def _on_channel_closed(self, channel, reply_code, reply_text):
-        LOG.warning("Channel %i was closed: (%s) %s",
-                        channel, reply_code, reply_text)
-        self._connection.close()
-
-    def _on_exchange_declared(self, f):
-        LOG.debug("Exchange declared: %r" % f)
-        # self._setup_queue(self.base_queue)
-        self._connected = True
-
-    def _on_queue_declared(self, f):
-        LOG.debug("Queue declared: %r" % f)
-
-    def _on_queue_bound(self, f):
-        LOG.debug("Queue bound: %r" % f)
-        self._queue_setup_lock.set()
-
-    def publish(self, topic, message,
+    def publish(self,
+                topic,
+                message,
                 content_type="application/json",
                 correlation_id=None,
                 reply_to=None,
@@ -219,20 +95,38 @@ class ManoBrokerConnection(object):
         :param properties: pika.BasicProperties will overwrite other property arguments.
         :return:
         """
-        if properties is None:
-            properties = pika.BasicProperties(
-                app_id=self.app_id,
-                content_type=content_type,
-                correlation_id=correlation_id,
-                reply_to=reply_to,
-                headers=headers
-            )
+        with self._connection.channel() as channel:
+            channel.exchange.declare(self.rabbitmq_exchange, exchange_type=self.rabbitmq_exchange_type)
 
-        self._channel.basic_publish(
-            exchange=self.rabbitmq_exchange,
-            routing_key=topic,
-            body=message,
-            properties=properties)
+            # Declare the Queue, 'simple_queue'.
+            #channel.queue.declare(topic)
+
+            # Message Properties.
+            if properties is None:
+                properties = {
+                    "app_id": self.app_id,
+                    "content_type": content_type,
+                    "correlation_id": correlation_id,
+                    "reply_to": reply_to,
+                    "headers": headers
+                }
+
+            # Publish the message to a queue called, 'simple_queue'.
+            channel.basic.publish(body=message,
+                                  routing_key=topic,
+                                  exchange=self.rabbitmq_exchange,
+                                  properties=properties)
+
+
+        #self._channel.basic_publish(
+        #    exchange=self.rabbitmq_exchange,
+        #    routing_key=topic,
+        #    body=message,
+        #    properties=properties)
+
+        #self._channel.queue.declare(topic)
+
+
         LOG.debug("PUBLISHED to %r: %r", topic, message)
 
     def subscribe(self, cbf, topic):
@@ -245,14 +139,76 @@ class ManoBrokerConnection(object):
         # ATTENTION: Queues are identified by base_queue_name, topic, and a uuid for this
         # particular subscription. Ensures that we have exactly one queue per subscription.
         topic_receive_queue = "%s.%s.%s" % (self.base_queue, topic, str(uuid.uuid1()))
-        self._setup_queue(topic_receive_queue, topic)
+        #self._setup_queue(topic_receive_queue, topic)
         # define a callback function to be called whenever a message arrives in our queue
-        bc = self._channel.basic_consume(
-                cbf,
-                queue=topic_receive_queue,
-                no_ack=True)
+        #bc = self._channel.basic_consume(
+        #        cbf,
+        #        queue=topic_receive_queue,
+        #        no_ack=True)
+        consumer_tag = str(uuid.uuid4())
+
+        def wrapper_cbf(msg):
+            # do translation to lagacy cbf format
+            #  ch, method, props, body
+            ch = msg.channel
+            method_dict = msg.method
+            properties_dict = msg.properties
+            body = msg.body
+
+            LOG.debug("ch: %r" % ch)
+            LOG.debug("method: %r" % method_dict)
+            LOG.debug("properties: %r" % properties_dict)
+
+            method = type('method', (object,), method_dict)
+            properties = type('properties', (object,), properties_dict)
+
+            LOG.debug("method o: %r" % method)
+            LOG.debug("properties o: %r" % properties)
+
+
+            cbf(ch, method, properties, body)
+
+
+        def connection_thread():
+            with self._connection.channel() as channel:
+
+                channel.exchange.declare(exchange=self.rabbitmq_exchange, exchange_type=self.rabbitmq_exchange_type)
+                # def declare(self, exchange='', exchange_type='direct', passive=False,
+                #durable=False, auto_delete=False, arguments=None):
+
+                # Declare the Queue, 'simple_queue'.
+                q = channel.queue
+                q.declare(topic_receive_queue)
+                q.bind(queue=topic_receive_queue, routing_key=topic, exchange=self.rabbitmq_exchange)
+                #bind(self, queue='', exchange='', routing_key='', arguments=None):
+
+                # Set QoS to 100.
+                # This will limit the consumer to only prefetch a 100 messages.
+
+                # This is a recommended setting, as it prevents the
+                # consumer from keeping all of the messages in a queue to itself.
+                channel.basic.qos(100)
+
+                # Start consuming the queue 'simple_queue' using the callback
+                # 'on_message' and last require the message to be acknowledged.
+                channel.basic.consume(wrapper_cbf, topic_receive_queue, consumer_tag=consumer_tag, no_ack=True)
+
+                try:
+                    # Start consuming messages.
+                    # to_tuple equal to False means that messages consumed
+                    # are returned as a Message object, rather than a tuple.
+                    channel.start_consuming(to_tuple=False)
+                except BaseException:
+                    LOG.exception("Error in subscription thread")
+                    channel.close()
+
+
+        t = threading.Thread(target=connection_thread, args=())
+        t.daemon = True
+        t.start()
+
         LOG.debug("SUBSCRIBED to %r", topic)
-        return bc
+        return consumer_tag
 
 
 class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
