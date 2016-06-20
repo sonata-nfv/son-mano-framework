@@ -170,6 +170,16 @@ class ServiceLifecycleManager(ManoBasePlugin):
                               'error'     : 'Number of VNFDs doesn\'t match number of vnfs',
                               'timestamp' : time.time()})
 
+        #Check whether a vnfd is none.
+        for key in service_request_from_gk.keys():
+            if key[:4] == 'VNFD':
+                if service_request_from_gk[key] == None:
+                    return yaml.dump({'status'    : 'ERROR',        
+                                      'error'     : 'VNFDs are not allowed to be empty',
+                                      'timestamp' : time.time()})
+
+        
+
         #If all checks on the received message pass, an uuid is created for the service, and we add it to the dict of services that are being deployed. 
         #Each VNF also gets an uuid. This is added to the VNFD dictionary.
         #The correlation_id is used as key for this dict, since it should be available in all the callback functions.
@@ -181,8 +191,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'] = uuid.uuid4().hex
         LOG.info("instance uuid for service generated: " + self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'])
 
+        LOG.info('MESSAGE FROM GK ########################################')
+        LOG.info(service_request_from_gk)
+        LOG.info(self.service_requests_being_handled[properties.correlation_id])
+        LOG.info(service_request_from_gk.keys())
         for key in service_request_from_gk.keys():
             if key[:4] == 'VNFD':
+                LOG.info(key)
                 self.service_requests_being_handled[properties.correlation_id][key]['instance_uuid'] = uuid.uuid4().hex
 
         #We make sure that all required SSMs are deployed.
@@ -200,9 +215,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
     
 
         #After the received request has been processed, we can start handling it in a different thread.
+        LOG.info('### Prepare for Threading ###')
         t = threading.Thread(target=self.start_new_service_deployment, args=(ch, method, properties, message))
         t.daemon = True
         t.start()
+
+        LOG.info('### Post first threading ###.')
 
         response_for_gk = {'status'    : 'INSTANTIATING',        #INSTANTIATING or ERROR
                           'error'     : None,         #NULL or a string describing the ERROR
@@ -374,7 +392,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     monitoring_message = tools.build_monitoring_message(self.service_requests_being_handled[properties.correlation_id], nsr, vnfrs)
                     monitoring_response = requests.post(MONITORING_REPOSITORY_URL + 'service/new', data=json.dumps(monitoring_message), headers={'Content-Type':'application/json'}, timeout=10.0)
                     monitoring_json = monitoring_response.json()
-                    if ('status' not in monitoring_json.keys()) or (monitoring_json['status'] != 'sucess'):
+                    if ('status' not in monitoring_json.keys()) or (monitoring_json['status'] != 'success'):
                         message_for_gk['error']['monitoring'] = monitoring_json
 
                     message_for_gk['nsr'] = nsr
@@ -417,8 +435,8 @@ def main():
     :return:
     """
     # reduce messaging log level to have a nicer output for this plugin
-    logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
-    logging.getLogger("son-mano-base:plugin").setLevel(logging.INFO)
+    logging.getLogger("son-mano-base:messaging").setLevel(logging.DEBUG)
+    logging.getLogger("son-mano-base:plugin").setLevel(logging.DEBUG)
 #    logging.getLogger("pika").setLevel(logging.DEBUG)
     # create our service lifecycle manager
     ServiceLifecycleManager()
