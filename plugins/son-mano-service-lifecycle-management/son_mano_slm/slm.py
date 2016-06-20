@@ -167,8 +167,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         if len(service_request_from_gk['NSD']['network_functions']) != number_of_vnfds:
             LOG.info("service request with corr_id " + properties.correlation_id + "rejected: number of vnfds does not match nsd.")
-            LOG.info("number of vnfds :" + number_of_vnfds)
-            LOG.info("length of service requests network functions :" + len(service_request_from_gk['NSD']['network_functions']))
+            LOG.info("number of vnfds :" + str(number_of_vnfds))
+            LOG.info("length of service requests network functions :" + str(len(service_request_from_gk['NSD']['network_functions'])))
             return yaml.dump({'status'    : 'ERROR',        
                               'error'     : 'Number of VNFDs doesn\'t match number of vnfs',
                               'timestamp' : time.time()})
