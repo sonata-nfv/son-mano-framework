@@ -143,7 +143,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #...
 
         service_request_from_gk = yaml.load(message)
-        log.info(service_request_from_gk)
+        LOG.info(service_request_from_gk)
 
         #The service request in the yaml file should be a dictionary
         if not isinstance(service_request_from_gk, dict):
