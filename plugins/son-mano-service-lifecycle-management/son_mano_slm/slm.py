@@ -127,7 +127,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         :return:
         """
 
-        LOG.info("Message received on service.instance.start. corr_id: " + str(properties.correlation_id))
+        LOG.info("Message received on service.instances.create corr_id: " + str(properties.correlation_id))
 
         #The request data is in the message as a yaml file, and should be constructed like:
         #---
@@ -143,6 +143,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #...
 
         service_request_from_gk = yaml.load(message)
+        LOG.info(service_request_from_gk)
 
         #The service request in the yaml file should be a dictionary
         if not isinstance(service_request_from_gk, dict):
@@ -166,6 +167,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         if len(service_request_from_gk['NSD']['network_functions']) != number_of_vnfds:
             LOG.info("service request with corr_id " + properties.correlation_id + "rejected: number of vnfds does not match nsd.")
+            LOG.info("number of vnfds :" + number_of_vnfds)
+            LOG.info("length of service requests network functions :" + len(service_request_from_gk['NSD']['network_functions']))
             return yaml.dump({'status'    : 'ERROR',        
                               'error'     : 'Number of VNFDs doesn\'t match number of vnfs',
                               'timestamp' : time.time()})
