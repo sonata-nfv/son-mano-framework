@@ -27,19 +27,24 @@ class TestManoBrokerConnection(unittest.TestCase):
     """
 
     def setUp(self):
-        self._last_message = [None, None, None , None]
-        self.m = ManoBrokerConnection("test")
+        self._message_buffer = list()
+        self._message_buffer.append(list())
+        self._message_buffer.append(list())
+        self.m = ManoBrokerConnection("test-app")
 
     def tearDown(self):
         del self.m
 
-    def _simple_subscribe_cbf(self, ch, method, props, body):
-        self._last_message[0] = body
+    def _simple_subscribe_cbf1(self, ch, method, props, body):
+        self.waiting = 0
+        self._message_buffer[0].append(body)
 
     def _simple_subscribe_cbf2(self, ch, method, props, body):
-        self._last_message[1] = body
+        self.waiting = 0
+        self._message_buffer[1].append(body)
 
-    def wait_for_message(self, last_message_id=0, timeout=5):
+
+    def wait_for_messages(self, buffer=0, n_messages=1, timeout=5):
         """
         Helper to deal with async messaging system.
         Waits until a message is written to self._last_message
@@ -47,15 +52,13 @@ class TestManoBrokerConnection(unittest.TestCase):
         :param timeout: seconds to wait
         :return:
         """
-        waiting = 0
-        while self._last_message[last_message_id] is None and waiting < timeout:
+        self.waiting = 0
+        while len(self._message_buffer[buffer]) < n_messages and self.waiting < timeout:
             time.sleep(0.01)
-            waiting += 0.01
-        if not waiting < timeout:
-            raise Exception("Message lost. Subscription timeout reached.")
-        m = self._last_message[last_message_id]
-        self._last_message[last_message_id] = None
-        return m
+            self.waiting += 0.01
+        if not self.waiting < timeout:
+            raise Exception("Message lost. Subscription timeout reached. Buffer: %r" % self._message_buffer[buffer])
+        return self._message_buffer[buffer]
 
     def test_broker_connection(self):
         """
@@ -67,10 +70,34 @@ class TestManoBrokerConnection(unittest.TestCase):
         """
         Test publish / subscribe messaging.
         """
-        self.m.subscribe(self._simple_subscribe_cbf, "test.topic")
-        time.sleep(0.5)  # give broker some time to register subscriptions
-        self.m.publish("test.topic", "testmessage")
-        self.assertEqual(self.wait_for_message(), "testmessage")
+        self.m.subscribe(self._simple_subscribe_cbf1, "test.topic")
+        time.sleep(1)
+        self.m.publish("test.topic", "testmsg")
+        self.assertEqual(self.wait_for_messages()[0], "testmsg")
+
+    #@unittest.skip("disabled")
+    def test_broker_multi_publish(self):
+        """
+        Test publish / subscribe messaging.
+        """
+        self.m.subscribe(self._simple_subscribe_cbf1, "test.topic")
+        time.sleep(1)
+        for i in range(0, 100):
+            self.m.publish("test.topic", "%d" % i)
+        self.assertEqual(self.wait_for_messages(n_messages=100)[99], "99")
+
+    # @unittest.skip("disabled")
+    def test_broker_doulbe_subscription(self):
+        """
+        Test publish / subscribe messaging.
+        """
+        self.m.subscribe(self._simple_subscribe_cbf1, "test.topic")
+        self.m.subscribe(self._simple_subscribe_cbf2, "test.topic")
+        time.sleep(1)
+        for i in range(0, 100):
+            self.m.publish("test.topic", "%d" % i)
+        self.assertEqual(self.wait_for_messages(buffer=0, n_messages=100)[99], "99")
+        self.assertEqual(self.wait_for_messages(buffer=1, n_messages=100)[99], "99")
 
 
 class TestManoBrokerRequestResponseConnection(unittest.TestCase):
@@ -120,6 +147,7 @@ class TestManoBrokerRequestResponseConnection(unittest.TestCase):
         self._last_message[last_message_id] = None
         return m
 
+    @unittest.skip("disabled")
     def test_broker_connection(self):
         """
         Test broker connection.

@@ -13,27 +13,17 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 """
-"""
-Created by Manuel Peuster <manuel@peuster.de>
-
-This module encapsulates RabbitMQ messaging functionality and
-provides a set of sync. and async. methods for topic-based
-communication.
-"""
-
-# TODO: Add RMQ ack mechanism (cf: http://pika.readthedocs.org/en/latest/examples/asynchronous_publisher_example.html)
 
 from amqpstorm import UriConnection
 import logging
 import threading
-import time
 import uuid
 import os
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger('pika').setLevel(logging.ERROR)
 LOG = logging.getLogger("son-mano-base:messaging")
-LOG.setLevel(logging.DEBUG)
+LOG.setLevel(logging.INFO)
 
 # if we don't find a broker configuration in our ENV, we use this URL as default
 RABBITMQ_URL_FALLBACK = "amqp://guest:guest@localhost:5672/%2F"
@@ -45,19 +35,21 @@ class ManoBrokerConnection(object):
     """
     This class encapsulates a bare RabbitMQ connection setup.
     It provides helper methods to easily publish/subscribe to a given topic.
-    It uses the asynchronous adapter implementation of the pika library.
+    It uses the asynchronous adapter implementation of the amqpstorm library.
     """
 
-    def __init__(self, app_id, blocking=False):
+    def __init__(self, app_id):
+        """
+        Initialize broker connection.
+        :param app_id: string that identifies application
+        """
         self.app_id = app_id
         # fetch configuration
         self.rabbitmq_url = os.environ.get("broker_host", RABBITMQ_URL_FALLBACK)
         self.rabbitmq_exchange = os.environ.get("broker_exchange", RABBITMQ_EXCHANGE_FALLBACK)
         self.rabbitmq_exchange_type = "topic"
-
         # create additional members
         self._connection = None
-
         # trigger connection setup (without blocking)
         self.setup_connection()
 
@@ -69,146 +61,104 @@ class ManoBrokerConnection(object):
         return self._connection
 
     def stop_connection(self):
-
-        try:
-            self._connection.close()
-        except pika.exceptions.ConnectionClosed:
-            LOG.exception("Stop connection error")
-
-
-    def publish(self,
-                topic,
-                message,
-                content_type="application/json",
-                correlation_id=None,
-                reply_to=None,
-                headers={},
-                properties=None
-                ):
         """
-        Publishes the given message to the given topic.
-        :param topic: topic to which the message is published
-        :param message: message contents
-        :param content_type: type of message
-        :param correlation_id: ID to identify messages
-        :param headers: header dict
-        :param properties: pika.BasicProperties will overwrite other property arguments.
+        Close the connection
         :return:
         """
+        self._connection.close()
+
+    def publish(self, topic, message, properties=None):
+        """
+        This method profides basic topic-based message publishing.
+
+        :param topic: topic the message is published to
+        :param message: the message (JSON/YAML/STRING)
+        :param properties: custom properties for the message
+        :return:
+        """
+        # create a new channel
         with self._connection.channel() as channel:
+            # declare the exchange to be used
             channel.exchange.declare(self.rabbitmq_exchange, exchange_type=self.rabbitmq_exchange_type)
-
-            # Declare the Queue, 'simple_queue'.
-            #channel.queue.declare(topic)
-
-            # Message Properties.
+            # update the default properties with custom ones from the properties argument
             if properties is None:
-                properties = {
-                    "app_id": self.app_id,
-                    "content_type": content_type,
-                    "correlation_id": correlation_id,
-                    "reply_to": reply_to,
-                    "headers": headers
-                }
-
-            # Publish the message to a queue called, 'simple_queue'.
+                properties = dict()
+            default_properties = {
+                "app_id": self.app_id,
+                "content_type": "application/json",
+                "correlation_id": None,
+                "reply_to": None,
+                "headers": dict()
+            }
+            default_properties.update(properties)
+            # publish the message
             channel.basic.publish(body=message,
                                   routing_key=topic,
                                   exchange=self.rabbitmq_exchange,
-                                  properties=properties)
-
-
-        #self._channel.basic_publish(
-        #    exchange=self.rabbitmq_exchange,
-        #    routing_key=topic,
-        #    body=message,
-        #    properties=properties)
-
-        #self._channel.queue.declare(topic)
-
-
-        LOG.debug("PUBLISHED to %r: %r", topic, message)
+                                  properties=default_properties)
+            LOG.debug("PUBLISHED to %r: %r", topic, message)
 
     def subscribe(self, cbf, topic):
         """
-        Basic publish/subscribe API.
-        Subscribes to the given topic and calls callback whenever a
-        message is received.
-        :return: consumer tag
+        Implements basic subscribe functionality.
+        Starts a new thread for each subscription in which messages are consumed and the callback functions
+        are called.
+
+        :param cbf: callback function cbf(channel, method, properties, body)
+        :param topic: topic to subscribe to
+        :return:
         """
-        # ATTENTION: Queues are identified by base_queue_name, topic, and a uuid for this
-        # particular subscription. Ensures that we have exactly one queue per subscription.
-        topic_receive_queue = "%s.%s.%s" % (self.base_queue, topic, str(uuid.uuid1()))
-        #self._setup_queue(topic_receive_queue, topic)
-        # define a callback function to be called whenever a message arrives in our queue
-        #bc = self._channel.basic_consume(
-        #        cbf,
-        #        queue=topic_receive_queue,
-        #        no_ack=True)
-        consumer_tag = str(uuid.uuid4())
 
-        def wrapper_cbf(msg):
-            # do translation to lagacy cbf format
-            #  ch, method, props, body
+        def _wrapper_cbf(msg):
+            """
+            This internal cbf translates amqpstorm message arguments
+            to pika's legacy cbf argument format.
+            :param msg: amqp message
+            :return:
+            """
+            # translate msg properties
             ch = msg.channel
-            method_dict = msg.method
-            properties_dict = msg.properties
             body = msg.body
-
-            LOG.debug("ch: %r" % ch)
-            LOG.debug("method: %r" % method_dict)
-            LOG.debug("properties: %r" % properties_dict)
-
-            method = type('method', (object,), method_dict)
-            properties = type('properties', (object,), properties_dict)
-
-            LOG.debug("method o: %r" % method)
-            LOG.debug("properties o: %r" % properties)
-
-
+            method = type('method', (object,), msg.method)
+            properties = type('properties', (object,), msg.properties)
+            # call cbf of subscription
             cbf(ch, method, properties, body)
-
+            # ack the message to let broker know that message was delivered
+            msg.ack()
 
         def connection_thread():
+            """
+            Each subscription consumes messages in its own thread.
+            :return:
+            """
             with self._connection.channel() as channel:
-
+                # declare exchange for this channes
                 channel.exchange.declare(exchange=self.rabbitmq_exchange, exchange_type=self.rabbitmq_exchange_type)
-                # def declare(self, exchange='', exchange_type='direct', passive=False,
-                #durable=False, auto_delete=False, arguments=None):
-
-                # Declare the Queue, 'simple_queue'.
+                # create queue for subscription
                 q = channel.queue
-                q.declare(topic_receive_queue)
-                q.bind(queue=topic_receive_queue, routing_key=topic, exchange=self.rabbitmq_exchange)
-                #bind(self, queue='', exchange='', routing_key='', arguments=None):
-
-                # Set QoS to 100.
-                # This will limit the consumer to only prefetch a 100 messages.
-
-                # This is a recommended setting, as it prevents the
-                # consumer from keeping all of the messages in a queue to itself.
+                q.declare(subscription_queue)
+                # bind queue to given topic
+                q.bind(queue=subscription_queue, routing_key=topic, exchange=self.rabbitmq_exchange)
+                # recommended qos setting
                 channel.basic.qos(100)
-
-                # Start consuming the queue 'simple_queue' using the callback
-                # 'on_message' and last require the message to be acknowledged.
-                channel.basic.consume(wrapper_cbf, topic_receive_queue, consumer_tag=consumer_tag, no_ack=True)
-
+                # setup consumer (use queue name as tag)
+                channel.basic.consume(_wrapper_cbf, subscription_queue, consumer_tag=subscription_queue, no_ack=False)
                 try:
-                    # Start consuming messages.
-                    # to_tuple equal to False means that messages consumed
-                    # are returned as a Message object, rather than a tuple.
+                    # start consuming messages.
                     channel.start_consuming(to_tuple=False)
                 except BaseException:
-                    LOG.exception("Error in subscription thread")
+                    LOG.exception("Error in subscription thread:")
                     channel.close()
 
-
+        # Attention: We crate an individual queue for each subscription to allow multiple subscriptions
+        # to the same topic.
+        subscription_queue = "%s.%s.%s" % ("q", topic, str(uuid.uuid1()))
+        # each subscriber is an own thread
         t = threading.Thread(target=connection_thread, args=())
         t.daemon = True
         t.start()
-
         LOG.debug("SUBSCRIBED to %r", topic)
-        return consumer_tag
+        return subscription_queue
 
 
 class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
@@ -225,13 +175,13 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
       each request in an independent thread.
     """
 
-    def __init__(self, app_id, blocking=False):
+    def __init__(self, app_id):
         self._async_calls_pending = {}
         self._async_calls_endpoints = {}
         self._async_calls_request_topics = []
         self._async_calls_response_topics = []
         # call superclass to setup the connection
-        super(self.__class__, self).__init__(app_id, blocking=blocking)
+        super(self.__class__, self).__init__(app_id)
 
     def _execute_async(self, cbf, func, ch, method, props, body):
         """
