@@ -120,6 +120,9 @@ class ManoBrokerConnection(object):
             ch = msg.channel
             body = msg.body
             method = type('method', (object,), msg.method)
+            # make emtpy strings to None to be compatible
+            for k, v in msg.properties.items():
+                msg.properties[k] = None if v == "" else v
             properties = type('properties', (object,), msg.properties)
             # call cbf of subscription
             cbf(ch, method, properties, body)
