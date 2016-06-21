@@ -21,10 +21,8 @@ from sonmanobase.messaging import ManoBrokerConnection, ManoBrokerRequestRespons
 
 # TODO the active waiting for messages should be replaced by threading.Event() functionality
 
-class TestManoBrokerConnection(unittest.TestCase):
-    """
-    Test basic broker interactions.
-    """
+
+class BaseTestCase(unittest.TestCase):
 
     def setUp(self):
         self._message_buffer = list()
@@ -36,13 +34,22 @@ class TestManoBrokerConnection(unittest.TestCase):
         del self.m
 
     def _simple_subscribe_cbf1(self, ch, method, props, body):
+        self.assertIsNotNone(props.app_id)
+        self.assertIsNotNone(props.reply_to)
+        self.assertIsNotNone(props.correlation_id)
+        self.assertIsNotNone(props.headers)
+        self.assertIsNotNone(props.content_type)
         self.waiting = 0
         self._message_buffer[0].append(body)
 
     def _simple_subscribe_cbf2(self, ch, method, props, body):
+        self.assertIsNotNone(props.app_id)
+        self.assertIsNotNone(props.reply_to)
+        self.assertIsNotNone(props.correlation_id)
+        self.assertIsNotNone(props.headers)
+        self.assertIsNotNone(props.content_type)
         self.waiting = 0
         self._message_buffer[1].append(body)
-
 
     def wait_for_messages(self, buffer=0, n_messages=1, timeout=5):
         """
@@ -59,6 +66,11 @@ class TestManoBrokerConnection(unittest.TestCase):
         if not self.waiting < timeout:
             raise Exception("Message lost. Subscription timeout reached. Buffer: %r" % self._message_buffer[buffer])
         return self._message_buffer[buffer]
+
+class TestManoBrokerConnection(BaseTestCase):
+    """
+    Test basic broker interactions.
+    """
 
     def test_broker_connection(self):
         """
