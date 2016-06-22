@@ -185,8 +185,6 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
 
     def __init__(self, app_id):
         self._async_calls_pending = {}
-        self._async_calls_endpoints = {}
-        self._async_calls_request_topics = []
         self._async_calls_response_topics = []
         # call superclass to setup the connection
         super(self.__class__, self).__init__(app_id)
@@ -299,8 +297,11 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
             return
         if props.correlation_id in self._async_calls_pending:
             LOG.debug("Async response received. Matches to corr_id: %r" % props.correlation_id)
-            # call callback
-            self._async_calls_pending[props.correlation_id](ch, method, props, body)
+            # call callback (in new thread)
+            self._execute_async(None,
+                                self._async_calls_pending[props.correlation_id],
+                                ch, method, props, body
+                                )
             # remove from pending calls
             del self._async_calls_pending[props.correlation_id]
         else:
@@ -327,7 +328,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
             self.subscribe(self._on_call_async_response_received, topic)
             # keep track of request
             self._async_calls_response_topics.append(topic)
-            self._async_calls_pending[correlation_id] = cbf
+        self._async_calls_pending[correlation_id] = cbf
 
         # build headers
         if headers is None:
@@ -357,11 +358,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         :param topic: topic for requests and responses
         :return: None
         """
-        if topic not in self._async_calls_request_topics:
-            self._async_calls_request_topics.append(topic)
-            self.subscribe(self._generate_cbf_call_async_rquest_received(cbf), topic)
-        else:
-            raise Exception("Already subscribed to this topic")
+        self.subscribe(self._generate_cbf_call_async_rquest_received(cbf), topic)
         LOG.debug("Registered async endpoint: topic: %r cbf: %r" % (topic, cbf))
 
     def notify(self, topic, msg=None, key="default",
@@ -370,14 +367,14 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
                headers={},
                reply_to=None):
         """
-        Wrapper for the call_async method that does not have a callback function since
-        it sends notifications instead of requests.
+        Sends a simple one-way notification that does not expect a reply.
         :param topic: topic for communication (callee has to be described to it)
         :param key: optional identifier for endpoints (enables more than 1 endpoint per topic)
         :param msg: actual message
         :param content_type: type of message
         :param correlation_id: allow to set individual correlation ids
         :param headers: header dict
+        :param reply_to: (normally not used)
         :return: None
         """
         if msg is None:
@@ -420,7 +417,6 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
                       content_type="application/json",
                       correlation_id=None,
                       headers={},
-                      response_topic_postfix="",
                       timeout=20):  # a sync. request has a timeout
         """
         Client method to sync. call an endpoint registered and bound to the given topic by any
@@ -472,15 +468,4 @@ def callback_print(self, ch, method, properties, msg):
             properties.app_id, method.routing_key, str(msg)))
 
 
-class AsyncEndpoint(object):
-    """
-    Class that represents a async. messaging endpoint.
-    """
-
-    def __init__(self, cbf, bc, topic, key, is_notification=False):
-        self.cbf = cbf
-        self.bc = bc  # basic consumer (created by subscribe method)
-        self.topic = topic
-        self.key = key
-        self.is_notification = is_notification
 
