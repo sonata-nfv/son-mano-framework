@@ -203,6 +203,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
                         pass
                 self.serice_requests_being_handled[properties.correlation_id]['ssms_to_handle'] = service_request_from_gk['NSD']['SSMs']
 
+            #Add new VIM to IA
+            vim_message = json.dumps({'tenant':'iMinds', 'wr_type' : 'compute', 'vim_type': 'Mock', 'vim_address' : 'http://localhost:9999', 'username' : 'Eve', 'pass':'Operator'})
+
+            self.manoconn.notify('infrastructure.management.compute.add', vim_message, reply_to='infrastructure.management.compute.add')
+
             t = threading.Thread(target=self.start_new_service_deployment, args=(ch, method, properties, message))
             t.daemon = True
             t.start()
