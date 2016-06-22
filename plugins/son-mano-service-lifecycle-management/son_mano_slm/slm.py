@@ -206,7 +206,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             #Add new VIM to IA
             vim_message = json.dumps({'tenant':'iMinds', 'wr_type' : 'compute', 'vim_type': 'Mock', 'vim_address' : 'http://localhost:9999', 'username' : 'Eve', 'pass':'Operator'})
 
-            self.manoconn.notify('infrastructure.management.compute.add', vim_message, reply_to='infrastructure.management.compute.add')
+            self.manoconn.publish('infrastructure.management.compute.add', vim_message, reply_to='infrastructure.management.compute.add', correlation_id=str(uuid.uuid4().hex))
 
             t = threading.Thread(target=self.start_new_service_deployment, args=(ch, method, properties, message))
             t.daemon = True
