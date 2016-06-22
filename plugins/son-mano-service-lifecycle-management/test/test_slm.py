@@ -819,10 +819,11 @@ class testSlmFunctionality(unittest.TestCase):
         gk_request['VNFD3']['id'] = 'e290f165-5ac0-422f-9c29-3e595b38f6c8'
 
         #STEP3: load nsr_file, containing both NSR and the list of VNFRs
-        nsr_file = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_descriptors/infrastructure-adapter-nsr.yml','r'))
+        nsr_file = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-nsr.yml','r'))
+        vnfrs_file = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-vnfrs.yml','r'))
 
         #STEP4: call real method
-        message = tools.build_monitoring_message(gk_request, nsr_file['nsr'], nsr_file['vnfrList'])
+        message = tools.build_monitoring_message(gk_request, nsr_file, vnfrs_file)
 
         #STEP5: read expected message from descriptor file
         expected_message = json.load(open('/plugins/son-mano-service-lifecycle-management/test/test_descriptors/monitoring-message.json','r'))

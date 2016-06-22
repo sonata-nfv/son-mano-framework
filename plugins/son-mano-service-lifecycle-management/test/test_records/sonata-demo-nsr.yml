@@ -4,7 +4,7 @@ descriptor_reference: 005606ed-be7d-4ce3-983c-847039e3a5a2
 descriptor_version: nsr-schema-01
 status: offline
 version: "0.2"
-
+instanceVimUuid: "2ed00d31-afee-4d58-ba20-b74fef3f67f1"
 network_functions:
   - vnfr_id: 645db4fa-a714-4cba-9617-4001477d1281
   - vnfr_id: 6a15313f-cb0a-4540-baa2-77cc6b3f5b68
