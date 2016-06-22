@@ -169,6 +169,44 @@ class ServiceLifecycleManager(ManoBasePlugin):
             LOG.info("service request with corr_id " + properties.correlation_id + "rejected: number of vnfds does not match nsd.")
             LOG.info("number of vnfds :" + str(number_of_vnfds))
             LOG.info("length of service requests network functions :" + str(len(service_request_from_gk['NSD']['network_functions'])))
+
+            LOG.info('### Start process anyways with dummy request to test integratiosn further down the chain.###')
+#Remove later from here
+            service_request_from_gk = self.createGkNewServiceRequestMessage()
+            self.service_requests_being_handled[properties.correlation_id] = service_request_from_gk
+
+            #Since the key will change when new async calls are being made (each new call needs a unique corr_id), we need to keep track of the original one to reply to the GK at a later stage.
+            self.service_requests_being_handled[properties.correlation_id]['original_corr_id'] = properties.correlation_id 
+
+            self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'] = uuid.uuid4().hex
+            LOG.info("instance uuid for service generated: " + self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'])
+
+            LOG.info('MESSAGE FROM GK ########################################')
+            LOG.info(service_request_from_gk)
+            LOG.info(self.service_requests_being_handled[properties.correlation_id])
+            LOG.info(service_request_from_gk.keys())
+            for key in service_request_from_gk.keys():
+                if key[:4] == 'VNFD':
+                    LOG.info(key)
+                    self.service_requests_being_handled[properties.correlation_id][key]['instance_uuid'] = uuid.uuid4().hex
+
+            #We make sure that all required SSMs are deployed.
+            #The order of the required ssms is the order in which they are to be called. To garantuee that we call
+            #all of them, we add them to the service_requests_being_handled dictionary.
+            #Each SSM should be able to handle the same input format, and return the same output format. 
+            self.service_requests_being_handled[properties.correlation_id]['ssms_to_handle'] = []
+            if 'SSMs' in service_request_from_gk['NSD'].keys():
+                #Check whether each SSM is already deployed by previous service requests. If not, deploy them.
+                for ssm in service_request_from_gk['NSD']['SSMs']:
+                    if ssm['name'] not in self.deployed_ssms.keys():
+                        #TODO: deploy the SSM
+                        pass
+                self.serice_requests_being_handled[properties.correlation_id]['ssms_to_handle'] = service_request_from_gk['NSD']['SSMs']
+
+            t = threading.Thread(target=self.start_new_service_deployment, args=(ch, method, properties, message))
+            t.daemon = True
+            t.start()
+#Remove later up until here
             return yaml.dump({'status'    : 'ERROR',        
                               'error'     : 'Number of VNFDs doesn\'t match number of vnfs',
                               'timestamp' : time.time()})
@@ -432,6 +470,24 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         #The SLM needs to register on the topic on which the SSM will broadcast service graph updates. This can not be done with an async_call, since other plugins (monitoring) can trigger the SSM to do this.
         self.manoconn.register_notification_endpoint(self.on_new_service_graph_received,'ssm.scaling.' + msg['ssm_uuid'] + '.done')
+
+    def createGkNewServiceRequestMessage(self):
+        """
+        TODO: DELETE THIS!        
+        """
+        
+        files = os.listdir(os.curdir)
+        print(files)
+        path_descriptors = 'son_mano_slm/test_descriptors/'
+    	#import the nsd and vnfds that form the service	
+        nsd_descriptor   = open(path_descriptors + 'sonata-demo.yml','r')
+        vnfd1_descriptor = open(path_descriptors + 'firewall-vnfd.yml','r')
+        vnfd2_descriptor = open(path_descriptors + 'iperf-vnfd.yml','r')
+        vnfd3_descriptor = open(path_descriptors + 'tcpdump-vnfd.yml','r')
+
+        service_request = {'NSD': yaml.load(nsd_descriptor), 'VNFD1': yaml.load(vnfd1_descriptor), 'VNFD2': yaml.load(vnfd2_descriptor), 'VNFD3': yaml.load(vnfd3_descriptor)}
+
+        return service_request
 
 def main():
     """
