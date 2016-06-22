@@ -23,7 +23,7 @@ import os
 logging.basicConfig(level=logging.INFO)
 logging.getLogger('pika').setLevel(logging.ERROR)
 LOG = logging.getLogger("son-mano-base:messaging")
-LOG.setLevel(logging.INFO)
+LOG.setLevel(logging.DEBUG)
 
 # if we don't find a broker configuration in our ENV, we use this URL as default
 RABBITMQ_URL_FALLBACK = "amqp://guest:guest@localhost:5672/%2F"
@@ -91,6 +91,11 @@ class ManoBrokerConnection(object):
                 "headers": dict()
             }
             default_properties.update(properties)
+            # fix properties (amqpstorm does not like None values):
+            for k, v in default_properties.items():
+                default_properties[k] = "" if v is None else v
+            for k, v in default_properties["headers"].items():
+                default_properties["headers"][k] = "" if v is None else v
             # publish the message
             channel.basic.publish(body=message,
                                   routing_key=topic,
@@ -186,11 +191,11 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         # call superclass to setup the connection
         super(self.__class__, self).__init__(app_id)
 
-    def _execute_async(self, cbf, func, ch, method, props, body):
+    def _execute_async(self, async_finish_cbf, func, ch, method, props, body):
         """
         Run the given function in an independent thread and call
         cbf when it returns.
-        :param cbf: callback function
+        :param async_finish_cbf: callback function
         :param func: function to execute
         :param ch: channel of message
         :param method: rabbit mq method
@@ -204,7 +209,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
             if cbf is not None:
                 cbf(ch, method, props, result)
 
-        t = threading.Thread(target=run, args=(cbf, func, ch, method, props, body))
+        t = threading.Thread(target=run, args=(async_finish_cbf, func, ch, method, props, body))
         t.daemon = True
         t.start()
         LOG.debug("Async execution started: %r." % str(func))
@@ -226,37 +231,56 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         # we cannot send None
         result = "" if result is None else result
         assert(isinstance(result, str))
-        # return its result
-        self.publish(props.reply_to, result,
-                     correlation_id=props.correlation_id,
-                     headers={"key": None, "type": "reply"})
 
-    def _on_call_async_request_received(self, ch, method, props, body):
-        """
-        Event method that is called on callee side when an request for an async. call was received.
-        Will trigger the local execution of the registered function.
-        :param ch: broker channel
-        :param method: broker method
-        :param props: broker properties
-        :param body: message body
-        :return: None
-        """
-        LOG.debug(
-            "Async request on topic %r received." % method.routing_key)
-        if method.consumer_tag in self._async_calls_endpoints:
-            ep = self._async_calls_endpoints.get(method.consumer_tag)
-            # check if we really have a request (or a notification), not a response
-            if props.reply_to is None and not ep.is_notification:
-                LOG.debug("Non-request message dropped at request endpoint.")
+        # build header
+        reply_headers = {
+            "key": None,
+            "type": "reply"
+        }
+        props.headers.update(reply_headers)
+
+        # build properties
+        properties = {
+            "content_type": props.content_type,
+            "reply_to": None,
+            "correlation_id": props.correlation_id,
+            "headers": props.headers
+        }
+
+        # return its result
+        self.publish(props.reply_to, result, properties=properties)
+
+    def _generate_cbf_call_async_rquest_received(self, cbf):
+
+        def _on_call_async_request_received(ch, method, props, body):
+            # verify that the message is a request (reply_to != None)
+            if props.reply_to is None:
+                LOG.debug("Async request cbf: reply_to is None. Drop!")
                 return
-            # call the remote procedure asynchronously
+            LOG.debug("Async request on topic %r received." % method.routing_key)
+            # call the user defined callback function (in a new thread to be async.
             self._execute_async(
-                # set a finish method if we want to send a response
-                self._on_execute_async_finished if not ep.is_notification else None,
-                ep.cbf, ch, method, props, body)
-        else:
-            LOG.error(
-                "Endpoint not implemented: %r " % method.consumer_tag)
+                self._on_execute_async_finished,  # function called after execution of cbf
+                cbf,  # function to be executed
+                ch, method, props, body)
+
+        return _on_call_async_request_received
+
+    def _generate_cbf_notification_received(self, cbf):
+
+        def _on_notification_received(ch, method, props, body):
+            # verify that the message is a notification (reply_to == None)
+            if props.reply_to is not None:
+                LOG.debug("Notification cbf: reply_to is not None. Drop!")
+                return
+            LOG.debug("Notification on topic %r received." % method.routing_key)
+            # call the user defined callback function (in a new thread to be async.
+            self._execute_async(
+                None,
+                cbf,  # function to be executed
+                ch, method, props, body)
+
+        return _on_notification_received
 
     def _on_call_async_response_received(self, ch, method, props, body):
         """
@@ -271,7 +295,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         """
         # check if we really have a response, not a request
         if props.reply_to is not None:
-            LOG.debug("Non-response message dropped at response endpoint.")
+            #LOG.debug("Non-response message dropped at response endpoint.")
             return
         if props.correlation_id in self._async_calls_pending:
             LOG.debug("Async response received. Matches to corr_id: %r" % props.correlation_id)
@@ -285,52 +309,119 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
     def call_async(self, cbf, topic, msg=None, key="default",
                    content_type="application/json",
                    correlation_id=None,
-                   headers={},
-                   response_topic_postfix=""):
+                   headers=None):
         """
-        Client method to async. call an endpoint registered and bound to the given topic by any
-        other component connected to the broker.
-        :param cbf: call back function to receive response
-        :param topic: topic for communication (callee has to be described to it)
-        :param msg: actual message
-        :param key: optional identifier for endpoints (enables more than 1 endpoint per topic)
-        :param content_type: type of message
-        :param correlation_id: allow to set individual correlation ids
-        :param headers: header dict
-        :param response_topic_postfix: postfix of response topic
-        :return: None
+        TODO
         """
         if msg is None:
             msg = "{}"
         assert(isinstance(msg, str))
+        if cbf is None:
+            raise BaseException(
+                "No callback function (cbf) given to call_async. Use notify if you want one-way communication.")
         # generate uuid to match requests and responses
-        corr_id = str(uuid.uuid4()) if correlation_id is None else correlation_id
-        # define response topic
-        response_topic = "%s%s" % (topic, response_topic_postfix)
+        correlation_id = str(uuid.uuid4()) if correlation_id is None else correlation_id
+
         # initialize response subscription if a callback function was defined
-        if cbf is not None:
-            # create subscription for responses
-            if topic not in self._async_calls_response_topics:
-                self.subscribe(self._on_call_async_response_received, response_topic)
+        if topic not in self._async_calls_response_topics:
+            self.subscribe(self._on_call_async_response_received, topic)
             # keep track of request
             self._async_calls_response_topics.append(topic)
-            self._async_calls_pending[corr_id] = cbf
-        # ensure that optional key is included into header
-        headers["key"] = key
-        headers["type"] = "request"
+            self._async_calls_pending[correlation_id] = cbf
+
+        # build headers
+        if headers is None:
+            headers = dict()
+        default_headers = {
+            "key": key,
+            "type": "request"
+        }
+        default_headers.update(headers)
+
+        # build properties
+        properties = {
+            "content_type": content_type,
+            "reply_to": topic,
+            "correlation_id": correlation_id,
+            "headers": default_headers
+        }
+
         # publish request message
-        self.publish(topic, msg,
-                     content_type=content_type,
-                     reply_to=response_topic if cbf is not None else None,
-                     correlation_id=corr_id,
-                     headers=headers)
+        self.publish(topic, msg, properties=properties)
+
+    def register_async_endpoint(self, cbf, topic):
+        """
+        Executed by callees that want to expose the functionality implemented in cbf
+        to callers that are connected to the broker.
+        :param cbf: function to be called when requests with the given topic and key are received
+        :param topic: topic for requests and responses
+        :return: None
+        """
+        if topic not in self._async_calls_request_topics:
+            self._async_calls_request_topics.append(topic)
+            self.subscribe(self._generate_cbf_call_async_rquest_received(cbf), topic)
+        else:
+            raise Exception("Already subscribed to this topic")
+        LOG.debug("Registered async endpoint: topic: %r cbf: %r" % (topic, cbf))
+
+    def notify(self, topic, msg=None, key="default",
+               content_type="application/json",
+               correlation_id=None,
+               headers={},
+               reply_to=None):
+        """
+        Wrapper for the call_async method that does not have a callback function since
+        it sends notifications instead of requests.
+        :param topic: topic for communication (callee has to be described to it)
+        :param key: optional identifier for endpoints (enables more than 1 endpoint per topic)
+        :param msg: actual message
+        :param content_type: type of message
+        :param correlation_id: allow to set individual correlation ids
+        :param headers: header dict
+        :return: None
+        """
+        if msg is None:
+            msg = "{}"
+        assert (isinstance(msg, str))
+
+        # build headers
+        if headers is None:
+            headers = dict()
+        default_headers = {
+            "key": key,
+            "type": "request"
+        }
+        default_headers.update(headers)
+
+        # build properties
+        properties = {
+            "content_type": content_type,
+            "reply_to": reply_to,
+            "correlation_id": correlation_id,
+            "headers": default_headers
+        }
+
+        # publish request message
+        self.publish(topic, msg, properties=properties)
+
+    def register_notification_endpoint(self, cbf, topic, key="default"):
+        """
+        Wrapper for register_async_endpoint that allows to register
+        notification endpoints that to not send responses after executing
+        the callback function.
+        :param cbf: function to be called when requests with the given topic and key are received
+        :param topic: topic for requests and responses
+        :param key:  optional identifier for endpoints (enables more than 1 endpoint per topic)
+        :return: None
+        """
+        return self.subscribe(self._generate_cbf_notification_received(cbf), topic)
 
     def call_sync(self, topic, msg=None, key="default",
-                  content_type="application/json",
-                  correlation_id=None,
-                  headers={},
-                  response_topic_postfix="",
-                  timeout=20):  # a sync. request has a timeout
+                      content_type="application/json",
+                      correlation_id=None,
+                      headers={},
+                      response_topic_postfix="",
+                      timeout=20):  # a sync. request has a timeout
         """
         Client method to sync. call an endpoint registered and bound to the given topic by any
         other component connected to the broker. The method waits for a response and returns it
@@ -350,6 +441,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         lock = threading.Event()
         result = None
 
+
         def result_cbf(ch, method, props, body):
             """
             define a local callback method which receives the response
@@ -359,12 +451,12 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
             # release lock
             lock.set()
 
+
         # do a normal async call
         self.call_async(result_cbf, topic=topic, msg=msg, key=key,
                         content_type=content_type,
                         correlation_id=correlation_id,
-                        headers=headers,
-                        response_topic_postfix=response_topic_postfix)
+                        headers=headers)
         # block until we get our result
         lock.clear()
         lock.wait(timeout)
@@ -372,58 +464,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         return result
 
 
-    def register_async_endpoint(self, cbf, topic, key="default", is_notification=False):
-        """
-        Executed by callees that want to expose the functionality implemented in cbf
-        to callers that are connected to the broker.
-        :param cbf: function to be called when requests with the given topic and key are received
-        :param topic: topic for requests and responses
-        :param key:  optional identifier for endpoints (enables more than 1 endpoint per topic)
-        :param is_notification: define endpoint as notification so that it will not send a response
-        :return: None
-        """
-        if topic not in self._async_calls_request_topics:
-            self._async_calls_request_topics.append(topic)
-            bc = self.subscribe(self._on_call_async_request_received, topic)
-            # we have to match this subscription to our callback method.
-            # we use the consumer tag returned by self.subscribe for this.
-            # (using topics instead would break wildcard symbol support)
-            self._async_calls_endpoints[str(bc)] = AsyncEndpoint(
-                cbf, bc, topic, key, is_notification)
-        else:
-            raise Exception("Already subscribed to this topic")
-
-    def notify(self, topic, msg=None, key="default",
-               content_type="application/json",
-               correlation_id=None,
-               headers={}):
-        """
-        Wrapper for the call_async method that does not have a callback function since
-        it sends notifications instead of requests.
-        :param topic: topic for communication (callee has to be described to it)
-        :param key: optional identifier for endpoints (enables more than 1 endpoint per topic)
-        :param msg: actual message
-        :param content_type: type of message
-        :param correlation_id: allow to set individual correlation ids
-        :param headers: header dict
-        :return: None
-        """
-        self.call_async(None, topic, msg, key=key,
-                        content_type=content_type, correlation_id=correlation_id, headers=headers)
-
-    def register_notification_endpoint(self, cbf, topic, key="default"):
-        """
-        Wrapper for register_async_endpoint that allows to register
-        notification endpoints that to not send responses after executing
-        the callback function.
-        :param cbf: function to be called when requests with the given topic and key are received
-        :param topic: topic for requests and responses
-        :param key:  optional identifier for endpoints (enables more than 1 endpoint per topic)
-        :return: None
-        """
-        return self.register_async_endpoint(cbf, topic, key=key, is_notification=True)
-
-    def callback_print(self, ch, method, properties, msg):
+def callback_print(self, ch, method, properties, msg):
         """
         Helper callback that prints the received message.
         """

@@ -39,6 +39,7 @@ class BaseTestCase(unittest.TestCase):
         self.assertIsNotNone(props.content_type)
         self.waiting = 0
         self._message_buffer[0].append(body)
+        print("SUBSCRIBE CBF1")
 
     def _simple_subscribe_cbf2(self, ch, method, props, body):
         self.assertIsNotNone(props.app_id)
@@ -46,6 +47,7 @@ class BaseTestCase(unittest.TestCase):
         self.assertIsNotNone(props.content_type)
         self.waiting = 0
         self._message_buffer[1].append(body)
+        print("SUBSCRIBE CBF2")
 
     def _simple_request_echo_cbf(self, ch, method, props, message):
         self.assertIsNotNone(props.app_id)
@@ -53,6 +55,7 @@ class BaseTestCase(unittest.TestCase):
         self.assertIsNotNone(props.correlation_id)
         self.assertIsNotNone(props.headers)
         self.assertIsNotNone(props.content_type)
+        print("REQUEST ECHO CBF")
         return message
 
     def wait_for_messages(self, buffer=0, n_messages=1, timeout=5):
@@ -80,12 +83,14 @@ class TestManoBrokerConnection(BaseTestCase):
         super().setUp()
         self.m = ManoBrokerConnection("test-basic-broker-connection")
 
+    #@unittest.skip("disabled")
     def test_broker_connection(self):
         """
         Test broker connection.
         """
         self.m.publish("test.topic", "testmessage")
 
+    #@unittest.skip("disabled")
     def test_broker_bare_publishsubscribe(self):
         """
         Test publish / subscribe messaging.
@@ -106,7 +111,7 @@ class TestManoBrokerConnection(BaseTestCase):
             self.m.publish("test.topic", "%d" % i)
         self.assertEqual(self.wait_for_messages(n_messages=100)[99], "99")
 
-    # @unittest.skip("disabled")
+    #@unittest.skip("disabled")
     def test_broker_doulbe_subscription(self):
         """
         Test publish / subscribe messaging.
@@ -129,24 +134,24 @@ class TestManoBrokerRequestResponseConnection(BaseTestCase):
         super().setUp()
         self.m = ManoBrokerRequestResponseConnection("test-request-response-broker-connection")
 
-    @unittest.skip("disabled")
+    #@unittest.skip("disabled")
     def test_broker_connection(self):
         """
         Test broker connection.
         """
-        self.m.notify("test.topic", "simplemessage")
+        self.m.notify("test.topic2", "simplemessage")
 
-    @unittest.skip("disabled")
+    #@unittest.skip("disabled")
     def test_request_response(self):
         """
         Test request/response messaging pattern.
         """
         self.m.register_async_endpoint(self._simple_request_echo_cbf, "test.request")
         time.sleep(0.5)  # give broker some time to register subscriptions
-        self.m.call_async(self._simple_message_cbf, "test.request", "ping-pong")
-        self.assertEqual(self.wait_for_message(), "ping-pong")
+        self.m.call_async(self._simple_subscribe_cbf1, "test.request", "ping-pong")
+        self.assertEqual(self.wait_for_messages()[0], "ping-pong")
 
-    @unittest.skip("disabled")
+    #@unittest.skip("disabled")
     def test_request_response_sync(self):
         """
         Test request/response messaging pattern (synchronous).
@@ -155,71 +160,74 @@ class TestManoBrokerRequestResponseConnection(BaseTestCase):
         time.sleep(0.5)  # give broker some time to register subscriptions
         result = self.m.call_sync("test.request.sync", "ping-pong")
         self.assertTrue(len(result) == 4)
-        self.assertEqual(str(result[3], "utf-8"), "ping-pong")
+        self.assertEqual(str(result[3]), "ping-pong")
 
-    @unittest.skip("disabled")
+    #@unittest.skip("disabled")
     def test_notification(self):
         """
         Test notification messaging pattern.
         """
-        self.m.register_notification_endpoint(self._simple_message_cbf, "test.notification")
+        self.m.register_notification_endpoint(self._simple_subscribe_cbf1, "test.notification")
         time.sleep(0.5)  # give broker some time to register subscriptions
         self.m.notify("test.notification", "my-notification")
-        self.assertEqual(self.wait_for_message(), "my-notification")
+        self.assertEqual(self.wait_for_messages()[0], "my-notification")
 
-    @unittest.skip("disabled")
+    #@unittest.skip("disabled")
     def test_notification_pub_sub_mix(self):
         """
         Test notification messaging pattern mixed with basic pub/sub calls.
         """
-        self.m.register_notification_endpoint(self._simple_message_cbf, "test.notification1")
-        self.m.subscribe(self._simple_message_cbf, "test.notification2")
+        self.m.register_notification_endpoint(self._simple_subscribe_cbf1, "test.notification1")
+        self.m.subscribe(self._simple_subscribe_cbf1, "test.notification2")
         time.sleep(0.5)  # give broker some time to register subscriptions
         # send publish to notify endpoint
         self.m.publish("test.notification1", "my-notification1")
-        self.assertEqual(self.wait_for_message(), "my-notification1")
+        self.assertEqual(self.wait_for_messages()[0], "my-notification1")
         # send notify to subscribe endpoint
         self.m.notify("test.notification2", "my-notification2")
-        self.assertEqual(self.wait_for_message(), "my-notification2")
+        self.assertIn("my-notification1", self.wait_for_messages())
+        self.assertIn("my-notification2", self.wait_for_messages())
 
-    @unittest.skip("disabled")
+    #@unittest.skip("disabled")
     def test_double_subscriptions(self):
         """
         Ensure that messages are delivered to all subscriptions of a topic.
         (e.g. identifies queue setup problems)
         :return:
         """
-        self.m.subscribe(self._simple_message_cbf, "test.interleave")
-        self.m.subscribe(self._simple_message_cbf2, "test.interleave")
+        self.m.subscribe(self._simple_subscribe_cbf1, "test.interleave")
+        self.m.subscribe(self._simple_subscribe_cbf2, "test.interleave")
         time.sleep(0.5)
         # send publish to notify endpoint
         self.m.publish("test.interleave", "my-notification1")
         # enusre that it is received by each subscription
-        self.assertEqual(self.wait_for_message(), "my-notification1")
-        self.assertEqual(self.wait_for_message(last_message_id=1), "my-notification1")
+        self.assertEqual(self.wait_for_messages(buffer=0)[0], "my-notification1")
+        self.assertEqual(self.wait_for_messages(buffer=1)[0], "my-notification1")
 
-    @unittest.skip("disabled")
+    #@unittest.skip("disabled")
     def test_interleaved_subscriptions(self):
         """
         Ensure that interleaved subscriptions to the same topic do not lead to problems.
         :return:
         """
-        self.m.subscribe(self._simple_message_cbf2, "test.interleave2")
+        self.m.subscribe(self._simple_subscribe_cbf2, "test.interleave2")
         time.sleep(0.5)
         # do a async call on the same topic
         self.m.register_async_endpoint(self._simple_request_echo_cbf, "test.interleave2")
         time.sleep(0.5)  # give broker some time to register subscriptions
-        self.m.call_async(self._simple_message_cbf, "test.interleave2", "ping-pong")
-        self.assertEqual(self.wait_for_message(), "ping-pong")
+        self.m.call_async(self._simple_subscribe_cbf1, "test.interleave2", "ping-pong")
+        self.assertEqual(self.wait_for_messages()[0], "ping-pong")
         # send publish to notify endpoint
         self.m.publish("test.interleave2", "my-notification1")
         # ensure that the subcriber still gets the message (and also sees the one from async_call)
-        result = list()
-        result.append(self.wait_for_message(last_message_id=1))
-        result.append(self.wait_for_message(last_message_id=1))
-        print(result)
-        self.assertIn("my-notification1", result)
-        self.assertIn("ping-pong", result)
+        self.assertIn("my-notification1", self.wait_for_messages(buffer=1))
+        self.assertIn("ping-pong", self.wait_for_messages(buffer=1))
 
 if __name__ == "__main__":
-    unittest.main()
+    #unittest.main()
+    t = TestManoBrokerRequestResponseConnection()
+    t.setUp()
+    t.test_request_response()
+    t.tearDown()
+
+
