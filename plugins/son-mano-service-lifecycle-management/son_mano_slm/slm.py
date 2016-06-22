@@ -127,7 +127,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         :return:
         """
 
-        LOG.info("GK service.instance.start event")
+        LOG.info("Message received on service.instances.create corr_id: " + str(properties.correlation_id))
 
         #The request data is in the message as a yaml file, and should be constructed like:
         #---
@@ -143,15 +143,18 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #...
 
         service_request_from_gk = yaml.load(message)
+        LOG.info(service_request_from_gk)
 
         #The service request in the yaml file should be a dictionary
         if not isinstance(service_request_from_gk, dict):
+            LOG.info("service request with corr_id " + properties.correlation_id + "rejected: Message is not a dictionary.")
             return yaml.dump({'status'    : 'ERROR',        
                               'error'     : 'Message is not a dictionary',
                               'timestamp' : time.time()})
 
         #The dictionary should contain a 'NSD' key
         if 'NSD' not in service_request_from_gk.keys():
+            LOG.info("service request with corr_id " + properties.correlation_id + "rejected: NSD is not a dictionary.")
             return yaml.dump({'status'    : 'ERROR',        
                               'error'     : 'No NSD field in dictionary',
                               'timestamp' : time.time()})
@@ -163,9 +166,22 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 number_of_vnfds = number_of_vnfds + 1
 
         if len(service_request_from_gk['NSD']['network_functions']) != number_of_vnfds:
+            LOG.info("service request with corr_id " + properties.correlation_id + "rejected: number of vnfds does not match nsd.")
+            LOG.info("number of vnfds :" + str(number_of_vnfds))
+            LOG.info("length of service requests network functions :" + str(len(service_request_from_gk['NSD']['network_functions'])))
             return yaml.dump({'status'    : 'ERROR',        
                               'error'     : 'Number of VNFDs doesn\'t match number of vnfs',
                               'timestamp' : time.time()})
+
+        #Check whether a vnfd is none.
+        for key in service_request_from_gk.keys():
+            if key[:4] == 'VNFD':
+                if service_request_from_gk[key] == None:
+                    return yaml.dump({'status'    : 'ERROR',        
+                                      'error'     : 'VNFDs are not allowed to be empty',
+                                      'timestamp' : time.time()})
+
+        
 
         #If all checks on the received message pass, an uuid is created for the service, and we add it to the dict of services that are being deployed. 
         #Each VNF also gets an uuid. This is added to the VNFD dictionary.
@@ -176,8 +192,15 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.service_requests_being_handled[properties.correlation_id]['original_corr_id'] = properties.correlation_id 
 
         self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'] = uuid.uuid4().hex
+        LOG.info("instance uuid for service generated: " + self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'])
+
+        LOG.info('MESSAGE FROM GK ########################################')
+        LOG.info(service_request_from_gk)
+        LOG.info(self.service_requests_being_handled[properties.correlation_id])
+        LOG.info(service_request_from_gk.keys())
         for key in service_request_from_gk.keys():
             if key[:4] == 'VNFD':
+                LOG.info(key)
                 self.service_requests_being_handled[properties.correlation_id][key]['instance_uuid'] = uuid.uuid4().hex
 
         #We make sure that all required SSMs are deployed.
@@ -195,13 +218,19 @@ class ServiceLifecycleManager(ManoBasePlugin):
     
 
         #After the received request has been processed, we can start handling it in a different thread.
+        LOG.info('### Prepare for Threading ###')
         t = threading.Thread(target=self.start_new_service_deployment, args=(ch, method, properties, message))
         t.daemon = True
         t.start()
 
-        return yaml.dump({'status'    : 'INSTANTIATING',        #INSTANTIATING or ERROR
+        LOG.info('### Post first threading ###.')
+
+        response_for_gk = {'status'    : 'INSTANTIATING',        #INSTANTIATING or ERROR
                           'error'     : None,         #NULL or a string describing the ERROR
-                          'timestamp' : time.time()})  #time() returns the number of seconds since the epoch in UTC as a float      
+                          'timestamp' : time.time()}  #time() returns the number of seconds since the epoch in UTC as a float      
+
+        LOG.info(response_for_gk)
+        return yaml.dump(response_for_gk)
 
     def start_new_service_deployment(self, ch, method, properties, message):
         """
@@ -222,8 +251,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         #If the list of SSMs to handle is empty, it means we can continu with the deployment phase, by requesting the IA which are the available vims and if they have enough available resources.
         else:               
-            LOG.info("SSM Deployment done.")
-            LOG.info("Requesting VIM list.")
+#            LOG.info("SSM Deployment done.")
+            LOG.info("VIM list requested from IA, to facilitate service with uuid " + self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'])
             #Once the SSMs are deployed, we continu with the deployment stages. First, we need to request a list of the available vims, in order to choose one to place the service on.
             #This is done by sending a message with an empty body on the infrastructure.management.resource.list topic.
             new_corr_id, self.service_requests_being_handled = tools.replace_old_corr_id_by_new(self.service_requests_being_handled, properties.correlation_id)  
@@ -236,7 +265,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #For now, we will go through the vims in the list and check if they have enough resources for the service. Once we find such a vim, we stick with this one.
         #TODO: Outsource this process to an SSM if there is one available.
 
-        LOG.info("Received VIM list")
+        LOG.info("VIM list received.")
 
         msg = yaml.load(message)
         if not isinstance(msg, list):
@@ -267,6 +296,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         msg = yaml.load(message)
         if isinstance(msg, dict):
             if msg['status'] == 'OK':
+                LOG.info("VIM selected: " + self.service_requests_being_handled[properties.correlation_id]['vim_under_review'] + ". Contacting IA for deployment of service.")
+
                 self.service_requests_being_handled[properties.correlation_id]['vim'] = self.service_requests_being_handled[properties.correlation_id]['vim_under_review'] 
                 del self.service_requests_being_handled[properties.correlation_id]['vims']
                 del self.service_requests_being_handled[properties.correlation_id]['vim_under_review']
@@ -298,7 +329,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method informs the gk that no vim has the resources neede to deploy this service.
         """
 
-        LOG.info("Inform GK of Error.")
+        LOG.info("Inform GK of Error for service with instance uuid " + self.service_requests_being_handled[correlation_id]['NSD']['instance_uuid'])
         response_message = {'status':'ERROR', 'error': error_msg, 'timestamp':time.time()}
         self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(response_message), correlation_id = self.service_requests_being_handled[correlation_id]['original_corr_id'])
 
@@ -308,7 +339,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method is triggered once a vim is selected to place the service on.
         """
 
-        LOG.info("Starting service deployment.")
         request = tools.build_message_for_IA(self.service_requests_being_handled[correlation_id])
         #In the service_requests_being_handled dictionary, we replace the old corr_id with the new one, to be able to keep track of the request
         new_corr_id, self.service_requests_being_handled = tools.replace_old_corr_id_by_new(self.service_requests_being_handled, correlation_id)
@@ -324,7 +354,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         The GK should be notified of the result of the service request.
         """
 
-        LOG.info("Handling deployment info")
+        LOG.info("Deployment reply received from IA for instance uuid " + self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'])
 
         msg = yaml.load(message)
         #The message that will be returned to the gk
@@ -361,7 +391,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     monitoring_message = tools.build_monitoring_message(self.service_requests_being_handled[properties.correlation_id], nsr, vnfrs)
                     monitoring_response = requests.post(MONITORING_REPOSITORY_URL + 'service/new', data=json.dumps(monitoring_message), headers={'Content-Type':'application/json'}, timeout=10.0)
                     monitoring_json = monitoring_response.json()
-                    if ('status' not in monitoring_json.keys()) or (monitoring_json['status'] != 'sucess'):
+                    if ('status' not in monitoring_json.keys()) or (monitoring_json['status'] != 'success'):
                         message_for_gk['error']['monitoring'] = monitoring_json
 
                     message_for_gk['nsr'] = nsr
@@ -379,6 +409,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         message_for_gk['timestamp'] = time.time()
 
         #Inform the gk of the result.
+        LOG.info("inform gk of result of deployment for service with uuid " + self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'])
+        LOG.info(message_for_gk)        
         self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(message_for_gk), correlation_id=self.service_requests_being_handled[properties.correlation_id]['original_corr_id'])
         #Delete service request from handling dictionary, as handling is completed.
         self.service_requests_being_handled.pop(properties.correlation_id, None)
@@ -402,8 +434,8 @@ def main():
     :return:
     """
     # reduce messaging log level to have a nicer output for this plugin
-    logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
-    logging.getLogger("son-mano-base:plugin").setLevel(logging.INFO)
+    logging.getLogger("son-mano-base:messaging").setLevel(logging.DEBUG)
+    logging.getLogger("son-mano-base:plugin").setLevel(logging.DEBUG)
 #    logging.getLogger("pika").setLevel(logging.DEBUG)
     # create our service lifecycle manager
     ServiceLifecycleManager()
