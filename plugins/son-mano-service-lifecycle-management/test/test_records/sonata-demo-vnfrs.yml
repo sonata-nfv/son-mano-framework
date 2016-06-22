@@ -1,0 +1,161 @@
+- descriptor_version: vnfr-schema-01
+  id: 645db4fa-a714-4cba-9617-4001477d1281
+  version: '0.2'
+  status: offline
+  descriptor_reference: 38a6b069-f413-4415-8bbe-b00fb8b200e7
+  virtual_deployment_units:
+  - id: 7a781b79-9513-499b-9794-a529f32cfc74
+    number_of_instances: 1
+    resource_requirements:
+      cpu:
+        vcpus: 1
+      memory:
+        size: 2
+        size_unit: GB
+      storage:
+        size: 10
+        size_unit: GB
+    vdu_reference: iperf-vnf:vdu01
+    vm_image: sonata_firewall_VM
+    vnfc_instance:
+    - connection_points:
+      - id: 'vdu01:cp01'
+        type: interface
+      - id: 'vdu01:cp02'
+        type: interface
+      - id: 'vdu01:cp03'
+        type: interface
+      id: b04f
+      vc_id: 768fdd67-d6fe-4053-bf5e-ff2291ece261
+      vim_id: 798014b5-e864-4678-a313-485523c04543
+  connection_points:
+  - id: mgmt
+    type: interface
+  - id: input
+    type: interface
+  - id: output
+    type: interface
+  virtual_links:
+  - id: mgmt
+    connectivity_type: E-LAN
+    connection_points_reference:
+      - 'vdu01:cp01'
+      - mgmt
+  - id: input
+    connectivity_type: E-Line
+    connection_points_reference:
+      - 'vdu01:cp02'
+      - input
+  - id: output
+    connectivity_type: E-Line
+    connection_points_reference:
+      - 'vdu01:cp03'
+      - output
+- descriptor_version: vnfr-schema-01
+  id: 6a15313f-cb0a-4540-baa2-77cc6b3f5b68
+  version: '0.2'
+  status: offline
+  descriptor_reference: 24f89c1a-1259-4a1f-b0fd-c3ae99a4b626
+  virtual_deployment_units:
+  - id: 06325809-aec7-4aa7-8b20-4758c706af8d
+    monitoring_parameters:
+    - name: vm_cpu_perc
+      unit: Percentage
+    - name: vm_mem_perc
+      unit: Percentage
+    - name: vm_net_rx_MB
+      unit: MB
+    - name: vm_net_tx_MB
+      unit: Mbps
+    number_of_instances: 1
+    resource_requirements:
+      cpu:
+        vcpus: 1
+      memory:
+        size: 2
+        size_unit: GB
+      storage:
+        size: 10
+        size_unit: GB
+    vdu_reference: firewall-vnf:vdu01
+    vm_image: sonata_firewall_VM
+    vnfc_instance:
+    - connection_points:
+      - id: 'vdu01:cp01'
+        type: interface
+      - id: 'vdu01:cp02'
+        type: interface
+      - id: 'vdu01:cp03'
+        type: interface
+      id: c3c9
+      vc_id: fc643554-bfd7-4b55-9c26-c78a16abb9b8
+      vim_id: 798014b5-e864-4678-a313-485523c04543
+  virtual_links:
+  - id: mgmt
+    connectivity_type: E-LAN
+    dhcp: true
+    connection_points_reference:
+      - 'vdu01:eth0'
+      - mgmt
+  - id: input
+    connectivity_type: E-Line
+    dhcp: true
+    connection_points_reference: ['vdu01:eth1', input]
+  - id: output
+    connectivity_type: E-Line
+    dhcp: true
+    connection_points_reference: ['vdu01:eth2', output]
+  connection_points:
+  - id: mgmt
+    type: interface
+  - id: input
+    type: interface
+  - id: output
+    type: interface
+- descriptor_version: vnfr-schema-01
+  id: 8a0aa837-ec1c-44e5-9907-898f6401c3ae
+  version: '0.2'
+  status: offline
+  descriptor_reference: e290f165-5ac0-422f-9c29-3e595b38f6c8
+  connection_points:
+  - id: mgmt
+    type: interface
+  - id: input
+    type: interface
+  - id: output
+    type: interface
+  virtual_deployment_units:
+  - id: 87d7d350-7c23-4e66-ab46-5060dcfb5b6c
+    number_of_instances: 1
+    resource_requirements:
+      cpu:
+        vcpus: 1
+      memory:
+        size: 2
+        size_unit: GB
+      storage:
+        size: 10
+        size_unit: GB
+    vdu_reference: tcpdump-vnf:vdu01
+    vm_image: sonata_firewall_VM
+    vnfc_instance:
+    - connection_points:
+      - id: 'vdu01:cp01'
+        type: interface
+      - id: 'vdu01:cp02'
+        type: interface
+      - id: 'vdu01:cp03'
+        type: interface
+      id: 6ca3
+      vc_id: dce7d2c8-e149-48ca-a839-c0807e90524f
+      vim_id: 798014b5-e864-4678-a313-485523c04543
+  virtual_links:
+  - id: mgmt
+    connectivity_type: E-LAN
+    connection_points_reference: ['vdu01:cp01', mgmt]
+  - id: input
+    connectivity_type: E-Line
+    connection_points_reference: ['vdu01:cp02', input]
+  - id: output
+    connectivity_type: E-Line
+    connection_points_reference: ['vdu01:cp03', output]

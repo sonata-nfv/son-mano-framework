@@ -1,88 +1,101 @@
 {
-   "service": {
-      "pop_id":null,
-      "host_id":null,
-      "name":"sonata-demo",
-      "sonata_srv_id":"005606ed-be7d-4ce3-983c-847039e3a5a2",
+   "service":{
+      "sonata_usr_id":null,
       "description":"\"The network service descriptor for the SONATA demo,\n comprising iperf, a firewall, and tcpdump.\"\n",
-      "sonata_usr_id":null
+      "host_id":"2ed00d31-afee-4d58-ba20-b74fef3f67f1",
+      "sonata_srv_id":"005606ed-be7d-4ce3-983c-847039e3a5a2",
+      "name":"sonata-demo",
+      "pop_id":null
    },
    "functions":[
       {
+         "sonata_func_id":"38a6b069-f413-4415-8bbe-b00fb8b200e7",
+         "host_id":"768fdd67-d6fe-4053-bf5e-ff2291ece261",
+         "pop_id":"",
+         "name":"iperf-vnf",
+         "description":"\"A first iperf VNF descriptor. The iperf VNF\n acts as a traffic source.\"\n"
+      },
+      {
+         "description":"\"A first firewall VNF descriptor\"\n",
+         "host_id":"fc643554-bfd7-4b55-9c26-c78a16abb9b8",
          "name":"firewall-vnf",
+         "sonata_func_id":"24f89c1a-1259-4a1f-b0fd-c3ae99a4b626",
          "metrics":[
             {
+               "cmd":null,
+               "description":"",
+               "interval":null,
                "name":"vm_cpu_perc",
                "unit":"Percentage",
-               "interval":null,
-               "cmd":null,
-               "threshold":"10",
-               "description": ""
+               "threshold":"10"
             },
             {
+               "cmd":null,
+               "description":"",
+               "interval":null,
                "name":"vm_mem_perc",
                "unit":"Percentage",
-               "interval":null,
-               "cmd":null,
-               "threshold":"10",
-               "description": ""
+               "threshold":"10"
             },
             {
+               "cmd":null,
+               "description":"",
+               "interval":null,
                "name":"vm_net_rx_MB",
                "unit":"MB",
-               "interval":null,
-               "cmd":null,
-               "threshold":"10",
-               "description": ""
-
+               "threshold":"10"
             },
             {
+               "cmd":null,
+               "description":"",
+               "interval":null,
                "name":"vm_net_tx_MB",
                "unit":"Mbps",
-               "interval":null,
-               "cmd":null,
-               "threshold":"10",
-               "description": ""
+               "threshold":"10"
             }
          ],
-         "host_id":"49685131-db6e-4e19-ae24-59adcfb0f19f",
-         "pop_id": "",
-         "sonata_func_id":"24f89c1a-1259-4a1f-b0fd-c3ae99a4b626",
-         "description":"\"A first firewall VNF descriptor\"\n"
+         "pop_id":""
+      },
+      {
+         "sonata_func_id":"e290f165-5ac0-422f-9c29-3e595b38f6c8",
+         "host_id":"dce7d2c8-e149-48ca-a839-c0807e90524f",
+         "pop_id":"",
+         "name":"tcpdump-vnf",
+         "description":"\"A first tcpdump VNF descriptor. The tcpdump\n VNF acts as a traffic sink.\"\n"
       }
    ],
    "rules":[
       {
-         "name":"mon:rule:vm_cpu_perc",
-         "notification_type":2,
-         "condition":"49685131-db6e-4e19-ae24-59adcfb0f19f:vm_cpu_perc > 10",
          "description":"Trigger events if CPU load is above 10 percent.",
+         "notification_type":2,
+         "summary":"",
+         "name":"mon:rule:vm_cpu_perc",
          "duration":"10s",
-         "summary":""
+         "condition":"fc643554-bfd7-4b55-9c26-c78a16abb9b8:vm_cpu_perc > 10"
       },
       {
-         "name":"mon:rule:vm_mem_perc",
-         "notification_type":2,
-         "condition":"49685131-db6e-4e19-ae24-59adcfb0f19f:vm_mem_perc > 10",
          "description":"Trigger events if memory consumption is above 10 percent.",
+         "notification_type":2,
+         "summary":"",
+         "name":"mon:rule:vm_mem_perc",
          "duration":"10s",
-         "summary":""
+         "condition":"fc643554-bfd7-4b55-9c26-c78a16abb9b8:vm_mem_perc > 10"
       },
       {
+         "description":"",
+         "notification_type":2,
+         "summary":"",
          "name":"mon:rule:rx",
-         "notification_type":2,
-         "condition":"49685131-db6e-4e19-ae24-59adcfb0f19f:vm_net_rx_MB > 10",
-         "description":"",
          "duration":"10s",
-         "summary":""
+         "condition":"fc643554-bfd7-4b55-9c26-c78a16abb9b8:vm_net_rx_MB > 10"
       },
       {
-         "name":"mon:rule:tx",
-         "notification_type":2,
-         "condition":"49685131-db6e-4e19-ae24-59adcfb0f19f:vm_net_tx_MB > 10",
          "description":"",
+         "notification_type":2,
+         "summary":"",
+         "name":"mon:rule:tx",
          "duration":"10s",
-         "summary":""
+         "condition":"fc643554-bfd7-4b55-9c26-c78a16abb9b8:vm_net_tx_MB > 10"
       }
    ]
 }
