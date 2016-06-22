@@ -270,19 +270,19 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         LOG.info("VIM list received.")
 
-        msg = yaml.load(message)
-        if not isinstance(msg, list):
+        vimList = yaml.load(message)
+        if not isinstance(vimList, list):
             self.inform_gk_with_error(properties.correlation_id, error_msg='No VIM.')
             return
-        if len(msg) == 0:
+        if len(vimList) == 0:
             self.inform_gk_with_error(properties.correlation_id, error_msg='No VIM.')
             return
-
-        self.service_requests_being_handled[properties.correlation_id]['vims'] = msg
 
         #TODO: If an SSM needs to select the vim, this is where to trigger it. Currently, an internal method is handling the decision.
-        self.select_first_vim_with_enough_resources(ch, method, properties, message)
-
+        #For now, we take the first one in the list
+        self.service_requests_being_handled[properties.correlation_id]['vim'] = vimList[0]
+        self.request_deployment_from_IA(properties.correlation_id)
+        
     def select_first_vim_with_enough_resources(self, ch, method, properties, message):
         """
         This method selects a vim based on the first vim it comes across with enough resources to deploy the service.
