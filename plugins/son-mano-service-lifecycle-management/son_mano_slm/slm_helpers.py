@@ -64,7 +64,7 @@ def build_nsr(gk_request, ia_payload):
     nsr['status'] = ia_payload['nsr']['status']
     # same version as NSD for consistency, so we can relate each other
     nsr['version'] = gk_request['NSD']['version']
-    nsr['descriptor_reference'] = gk_request['NSD']['id']
+    nsr['descriptor_reference'] = gk_request['NSD']['uuid']
 
     if 'instanceVimUuid' in ia_payload:
         nsr['instanceVimUuid'] = ia_payload['instanceVimUuid']
