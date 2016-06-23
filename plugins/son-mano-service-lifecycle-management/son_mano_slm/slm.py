@@ -367,7 +367,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         message_for_gk['vnfrs'] = []
 
         if msg['request_status'][:6] == 'normal':
-            nsr = tools.build_nsr(self.service_requests_being_handled[properties.correlation_id], msg['nsr'])
+            nsr = tools.build_nsr(self.service_requests_being_handled[properties.correlation_id], msg)
             #Retrieve VNFRs from message and translate
             vnfrs = tools.build_vnfrs(self.service_requests_being_handled[properties.correlation_id], msg['vnfrs'])
             ## Store vnfrs in the repository and add vnfr ids to nsr if it is not already present

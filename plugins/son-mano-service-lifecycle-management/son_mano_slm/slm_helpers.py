@@ -52,26 +52,26 @@ def replace_old_corr_id_by_new(dictionary, old_correlation_id):
     return new_correlation_id, dictionary
     
 
-def build_nsr(gk_request, ia_nsr):
+def build_nsr(gk_request, ia_payload):
     """
-    This method builds the whole NSR from the stripped NSR returned by the Infrastructure Adaptor (IA)
+    This method builds the whole NSR from the payload (stripped nsr and vnfrs) returned by the Infrastructure Adaptor (IA)
     """
 
     nsr = {}
     ## nsr mandatory fields
     nsr['descriptor_version'] = 'nsr-schema-01'
-    nsr['id'] = ia_nsr['nsr']['uuid']
-    nsr['status'] = ia_nsr['nsr']['status']
+    nsr['id'] = ia_payload['nsr']['uuid']
+    nsr['status'] = ia_payload['nsr']['status']
     # same version as NSD for consistency, so we can relate each other
     nsr['version'] = gk_request['NSD']['version']
     nsr['descriptor_reference'] = gk_request['NSD']['id']
 
-    if 'instanceVimUuid' in ia_nsr:
-        nsr['instanceVimUuid'] = ia_nsr['instanceVimUuid']
+    if 'instanceVimUuid' in ia_payload:
+        nsr['instanceVimUuid'] = ia_payload['instanceVimUuid']
     ## network functions
-    if 'vnfrs' in ia_nsr.keys():
+    if 'vnfrs' in ia_payload.keys():
         nsr['network_functions'] = []
-        for network_function in ia_nsr['vnfrs']:
+        for network_function in ia_payload['vnfrs']:
             function = {}
             function['vnfr_id'] = network_function['uuid']
             nsr['network_functions'].append(function)
