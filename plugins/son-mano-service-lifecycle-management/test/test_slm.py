@@ -391,7 +391,7 @@ class testSlmFunctionality(unittest.TestCase):
         """
 
         if properties.app_id == 'son-plugin.ServiceLifecycleManager':
-            VIM_list = [uuid.uuid4().hex, uuid.uuid4().hex, uuid.uuid4().hex]
+            VIM_list = [{'vim_uuid':uuid.uuid4().hex},{'vim_uuid':uuid.uuid4().hex},{'vim_uuid':uuid.uuid4().hex}]
             self.manoconn_ia.notify('infrastructure.management.compute.list', yaml.dump(VIM_list), correlation_id=properties.correlation_id)
 
     def on_slm_infra_adaptor_service_deploy_request_test3(self, ch, method, properties, message):
@@ -490,7 +490,7 @@ class testSlmFunctionality(unittest.TestCase):
         """
 
         if properties.app_id == 'son-plugin.ServiceLifecycleManager':
-            VIM_list = [uuid.uuid4().hex]
+            VIM_list = [{'vim_uuid':uuid.uuid4().hex}]
             self.manoconn_ia.notify('infrastructure.management.compute.list', yaml.dump(VIM_list), correlation_id=properties.correlation_id)
 
     def on_slm_infra_adaptor_service_deploy_request_test7(self, ch, method, properties, message):
@@ -553,7 +553,7 @@ class testSlmFunctionality(unittest.TestCase):
         """
 
         if properties.app_id == 'son-plugin.ServiceLifecycleManager':
-            VIM_list = [uuid.uuid4().hex]
+            VIM_list = [{'vim_uuid':uuid.uuid4().hex}]
             self.manoconn_ia.notify('infrastructure.management.compute.list', yaml.dump(VIM_list), correlation_id=properties.correlation_id)
 
     def on_slm_infra_adaptor_service_deploy_request_test8(self, ch, method, properties, message):
