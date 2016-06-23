@@ -366,7 +366,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         message_for_gk['error'] = {}
         message_for_gk['vnfrs'] = []
 
-        if msg['status'][:6] == 'normal':
+        if msg['request_status'][:6] == 'normal':
             nsr = tools.build_nsr(self.service_requests_being_handled[properties.correlation_id], msg['nsr'])
             #Retrieve VNFRs from message and translate
             vnfrs = tools.build_vnfrs(self.service_requests_being_handled[properties.correlation_id], msg['vnfrs'])
@@ -407,7 +407,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 message_for_gk['status'] = 'READY'
                 message_for_gk['error'] = None
         else:
-            message_for_gk['error'] = 'Deployment result: ' + msg['status']
+            message_for_gk['error'] = 'Deployment result: ' + msg['request_status']
 
         message_for_gk['timestamp'] = time.time()
 

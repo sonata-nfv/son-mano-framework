@@ -499,7 +499,7 @@ class testSlmFunctionality(unittest.TestCase):
         """
 
         if properties.app_id == 'son-plugin.ServiceLifecycleManager':
-            reply_message = {'status':'failed'}
+            reply_message = {'request_status':'failed'}
             self.manoconn_ia.notify('infrastructure.service.deploy', yaml.dump(reply_message), correlation_id=properties.correlation_id)
 
     def on_slm_gk_service_deploy_request_failed(self, ch, method, properties, message):
