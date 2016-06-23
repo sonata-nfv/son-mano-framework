@@ -149,7 +149,7 @@ def build_vnfrs(gk_request, ia_vnfrs):
         vnfr['id'] = ia_vnfr['uuid']
         vnfr['version'] = vnfd['version']
         vnfr['status'] = ia_vnfr['status']
-        vnfr['descriptor_reference'] = vnfd['id']
+        vnfr['descriptor_reference'] = vnfd['uuid']
 
 
         ## deployment flavour
