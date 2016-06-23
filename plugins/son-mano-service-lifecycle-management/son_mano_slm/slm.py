@@ -279,8 +279,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
             return
 
         #TODO: If an SSM needs to select the vim, this is where to trigger it. Currently, an internal method is handling the decision.
-        #For now, we take the first one in the list
-        self.service_requests_being_handled[properties.correlation_id]['vim'] = vimList[0]
+        #For now, we take the first one in the list, and just store the vim_uuid
+        self.service_requests_being_handled[properties.correlation_id]['vim'] = vimList[0]['vim_uuid']
         self.request_deployment_from_IA(properties.correlation_id)
         
     def select_first_vim_with_enough_resources(self, ch, method, properties, message):
