@@ -1,14 +1,14 @@
 ---
-id: 9df6a98f-9e11-4cb7-b3c0-b1375e7cb0b0
+id: 9df6a98f-9e11-4cb7-b3c0-b1375e7c0000
 descriptor_reference: 005606ed-be7d-4ce3-983c-847039e3a5a2
 descriptor_version: nsr-schema-01
 status: offline
 version: "0.2"
 instanceVimUuid: "2ed00d31-afee-4d58-ba20-b74fef3f67f1"
 network_functions:
-  - vnfr_id: 645db4fa-a714-4cba-9617-4001477d1281
-  - vnfr_id: 6a15313f-cb0a-4540-baa2-77cc6b3f5b68
-  - vnfr_id: 8a0aa837-ec1c-44e5-9907-898f6401c3ae
+  - vnfr_id: 645db4fa-a714-4cba-9617-4001477d0000
+  - vnfr_id: 6a15313f-cb0a-4540-baa2-77cc6b3f0000
+  - vnfr_id: 8a0aa837-ec1c-44e5-9907-898f64010000
 connection_points:
   - id: "ns:mgmt"
     type: interface
