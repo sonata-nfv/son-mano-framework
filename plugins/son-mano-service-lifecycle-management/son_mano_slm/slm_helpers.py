@@ -60,7 +60,7 @@ def build_nsr(gk_request, ia_payload):
     nsr = {}
     ## nsr mandatory fields
     nsr['descriptor_version'] = 'nsr-schema-01'
-    nsr['id'] = ia_payload['nsr']['uuid']
+    nsr['id'] = ia_payload['nsr']['instance_uuid']
     nsr['status'] = ia_payload['nsr']['status']
     # same version as NSD for consistency, so we can relate each other
     nsr['version'] = gk_request['NSD']['version']
@@ -73,7 +73,7 @@ def build_nsr(gk_request, ia_payload):
         nsr['network_functions'] = []
         for network_function in ia_payload['vnfrs']:
             function = {}
-            function['vnfr_id'] = network_function['uuid']
+            function['vnfr_id'] = network_function['instance_uuid']
             nsr['network_functions'].append(function)
 
     ## connection points
@@ -146,7 +146,7 @@ def build_vnfrs(gk_request, ia_vnfrs):
         vnfr = {}
         ## vnfd base fields
         vnfr['descriptor_version'] = ia_vnfr['descriptor_version']
-        vnfr['id'] = ia_vnfr['uuid']
+        vnfr['id'] = ia_vnfr['instance_uuid']
         vnfr['version'] = vnfd['version']
         vnfr['status'] = ia_vnfr['status']
         vnfr['descriptor_reference'] = vnfd['uuid']
