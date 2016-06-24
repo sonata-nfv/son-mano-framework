@@ -283,49 +283,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.service_requests_being_handled[properties.correlation_id]['vim'] = vimList[0]['vim_uuid']
         self.request_deployment_from_IA(properties.correlation_id)
         
-    def select_first_vim_with_enough_resources(self, ch, method, properties, message):
-        """
-        This method selects a vim based on the first vim it comes across with enough resources to deploy the service.
-        """
-
-        def contacting_infa_adaptor_for_service_deploy(cbf, topic, message, correlation_id):
-            """
-            Dummy call_async intermediate, to explicitly run it in different thread
-            """            
-            self.manoconn.call_async(cbf, topic, message, correlation_id=correlation_id)
-
-        
-        LOG.info("Started VIM selection.")
-        msg = yaml.load(message)
-        if isinstance(msg, dict):
-            if msg['status'] == 'OK':
-                LOG.info("VIM selected: " + self.service_requests_being_handled[properties.correlation_id]['vim_under_review'] + ". Contacting IA for deployment of service.")
-
-                self.service_requests_being_handled[properties.correlation_id]['vim'] = self.service_requests_being_handled[properties.correlation_id]['vim_under_review'] 
-                del self.service_requests_being_handled[properties.correlation_id]['vims']
-                del self.service_requests_being_handled[properties.correlation_id]['vim_under_review']
-                self.request_deployment_from_IA(properties.correlation_id)
-                return
-
-        #If the list is longer than 0, there are still vims to consider
-        if len(self.service_requests_being_handled[properties.correlation_id]['vims']) > 0:
-            new_vim_to_consider = self.service_requests_being_handled[properties.correlation_id]['vims'].pop(0)
-            self.service_requests_being_handled[properties.correlation_id]['vim_under_review'] = new_vim_to_consider
-            #check if the vim has enough resources
-            resource_request = tools.build_resource_request(self.service_requests_being_handled[properties.correlation_id], new_vim_to_consider)
-            new_corr_id, self.service_requests_being_handled = tools.replace_old_corr_id_by_new(self.service_requests_being_handled, properties.correlation_id)      
-
-            t = threading.Thread(target=contacting_infa_adaptor_for_service_deploy, args=(self.select_first_vim_with_enough_resources,
-                                                                                          INFRA_ADAPTOR_RESOURCE_AVAILABILITY_REPLY_TOPIC,
-                                                                                          yaml.dump(resource_request),
-                                                                                          new_corr_id))
-
-            t.daemon = True
-            t.start()
-
-        #If the list is empty, none of the vims had enough resources
-        else:
-            self.inform_gk_with_error(properties.correlation_id, error_msg='No VIM with enough resources.')
 
     def inform_gk_with_error(self, correlation_id, error_msg=None):
         """
@@ -381,17 +338,22 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     if (vnfr_response.status_code == 200):
                         message_for_gk['vnfrs'].append(vnfr)
                     #If storage fails, add error code and message to reply to gk
+                        LOG.info('repo response for vnfr: ' + str(vnfr_response))
                     else:
                         message_for_gk['error']['vnfr'] = {'http_code':vnfr_response.status_code, 'message':vnfr_response.json()}
+                        LOG.info('vnfr to repo failed: ' + str(vnfr_response))                    
                         break
                 except:
                     message_for_gk['error']['vnfr'] = {'http_code':'0', 'message':'Timeout when contacting server'}
+                    LOG.info('time-out on vnfr to repo')
+
                     break
                     
             #Store nsr in the repository, catch exception when time-out occurs
             try:
                 nsr_response = requests.post(NSR_REPOSITORY_URL + 'ns-instances', data=json.dumps(nsr), headers={'Content-Type':'application/json'}, timeout=10.0)
                 if (nsr_response.status_code == 200):
+                    LOG.info('repo response for nsr: ' + str(nsr_response))
 
                     monitoring_message = tools.build_monitoring_message(self.service_requests_being_handled[properties.correlation_id], nsr, vnfrs)
                     monitoring_response = requests.post(MONITORING_REPOSITORY_URL + 'service/new', data=json.dumps(monitoring_message), headers={'Content-Type':'application/json'}, timeout=10.0)
