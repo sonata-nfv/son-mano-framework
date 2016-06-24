@@ -127,7 +127,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         :return:
         """
 
-        LOG.info("Message received on service.instance.start. corr_id: " + str(properties.correlation_id))
+        LOG.info("Message received on service.instances.create corr_id: " + str(properties.correlation_id))
 
         #The request data is in the message as a yaml file, and should be constructed like:
         #---
@@ -143,6 +143,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #...
 
         service_request_from_gk = yaml.load(message)
+        LOG.info(service_request_from_gk)
 
         #The service request in the yaml file should be a dictionary
         if not isinstance(service_request_from_gk, dict):
@@ -166,9 +167,24 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         if len(service_request_from_gk['NSD']['network_functions']) != number_of_vnfds:
             LOG.info("service request with corr_id " + properties.correlation_id + "rejected: number of vnfds does not match nsd.")
+            LOG.info("number of vnfds :" + str(number_of_vnfds))
+            LOG.info("length of service requests network functions :" + str(len(service_request_from_gk['NSD']['network_functions'])))
+
+            LOG.info('### Start process anyways with dummy request to test integratiosn further down the chain.###')
+
             return yaml.dump({'status'    : 'ERROR',        
                               'error'     : 'Number of VNFDs doesn\'t match number of vnfs',
                               'timestamp' : time.time()})
+
+        #Check whether a vnfd is none.
+        for key in service_request_from_gk.keys():
+            if key[:4] == 'VNFD':
+                if service_request_from_gk[key] == None:
+                    return yaml.dump({'status'    : 'ERROR',        
+                                      'error'     : 'VNFDs are not allowed to be empty',
+                                      'timestamp' : time.time()})
+
+        
 
         #If all checks on the received message pass, an uuid is created for the service, and we add it to the dict of services that are being deployed. 
         #Each VNF also gets an uuid. This is added to the VNFD dictionary.
@@ -181,8 +197,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'] = uuid.uuid4().hex
         LOG.info("instance uuid for service generated: " + self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'])
 
+        LOG.info('MESSAGE FROM GK ########################################')
+        LOG.info(service_request_from_gk)
+        LOG.info(self.service_requests_being_handled[properties.correlation_id])
+        LOG.info(service_request_from_gk.keys())
         for key in service_request_from_gk.keys():
             if key[:4] == 'VNFD':
+                LOG.info(key)
                 self.service_requests_being_handled[properties.correlation_id][key]['instance_uuid'] = uuid.uuid4().hex
 
         #We make sure that all required SSMs are deployed.
@@ -200,9 +221,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
     
 
         #After the received request has been processed, we can start handling it in a different thread.
+        LOG.info('### Prepare for Threading ###')
         t = threading.Thread(target=self.start_new_service_deployment, args=(ch, method, properties, message))
         t.daemon = True
         t.start()
+
+        LOG.info('### Post first threading ###.')
 
         response_for_gk = {'status'    : 'INSTANTIATING',        #INSTANTIATING or ERROR
                           'error'     : None,         #NULL or a string describing the ERROR
@@ -246,19 +270,19 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         LOG.info("VIM list received.")
 
-        msg = yaml.load(message)
-        if not isinstance(msg, list):
+        vimList = yaml.load(message)
+        if not isinstance(vimList, list):
             self.inform_gk_with_error(properties.correlation_id, error_msg='No VIM.')
             return
-        if len(msg) == 0:
+        if len(vimList) == 0:
             self.inform_gk_with_error(properties.correlation_id, error_msg='No VIM.')
             return
-
-        self.service_requests_being_handled[properties.correlation_id]['vims'] = msg
 
         #TODO: If an SSM needs to select the vim, this is where to trigger it. Currently, an internal method is handling the decision.
-        self.select_first_vim_with_enough_resources(ch, method, properties, message)
-
+        #For now, we take the first one in the list, and just store the vim_uuid
+        self.service_requests_being_handled[properties.correlation_id]['vim'] = vimList[0]['vim_uuid']
+        self.request_deployment_from_IA(properties.correlation_id)
+        
     def select_first_vim_with_enough_resources(self, ch, method, properties, message):
         """
         This method selects a vim based on the first vim it comes across with enough resources to deploy the service.
@@ -342,14 +366,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
         message_for_gk['error'] = {}
         message_for_gk['vnfrs'] = []
 
-        if msg['status'][:6] == 'normal':
-            nsr = tools.build_nsr(self.service_requests_being_handled[properties.correlation_id], msg['nsr'])
-            #Retrieve VNFRs from message
-            #Error handling because API between SLM and IA is not final yet.
-            try:
-                vnfrs = msg["vnfrs"]
-            except:
-                vnfrs = msg["vnfrList"]
+        if msg['request_status'][:6] == 'normal':
+            nsr = tools.build_nsr(self.service_requests_being_handled[properties.correlation_id], msg)
+            #Retrieve VNFRs from message and translate
+            vnfrs = tools.build_vnfrs(self.service_requests_being_handled[properties.correlation_id], msg['vnfrs'])
             ## Store vnfrs in the repository and add vnfr ids to nsr if it is not already present
             for vnfr in vnfrs:
                 #Store the message, catch exception when time-out occurs
@@ -374,7 +394,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     monitoring_message = tools.build_monitoring_message(self.service_requests_being_handled[properties.correlation_id], nsr, vnfrs)
                     monitoring_response = requests.post(MONITORING_REPOSITORY_URL + 'service/new', data=json.dumps(monitoring_message), headers={'Content-Type':'application/json'}, timeout=10.0)
                     monitoring_json = monitoring_response.json()
-                    if ('status' not in monitoring_json.keys()) or (monitoring_json['status'] != 'sucess'):
+                    if ('status' not in monitoring_json.keys()) or (monitoring_json['status'] != 'success'):
                         message_for_gk['error']['monitoring'] = monitoring_json
 
                     message_for_gk['nsr'] = nsr
@@ -387,7 +407,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 message_for_gk['status'] = 'READY'
                 message_for_gk['error'] = None
         else:
-            message_for_gk['error'] = 'Deployment result: ' + msg['status']
+            message_for_gk['error'] = 'Deployment result: ' + msg['request_status']
 
         message_for_gk['timestamp'] = time.time()
 
@@ -411,14 +431,15 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #The SLM needs to register on the topic on which the SSM will broadcast service graph updates. This can not be done with an async_call, since other plugins (monitoring) can trigger the SSM to do this.
         self.manoconn.register_notification_endpoint(self.on_new_service_graph_received,'ssm.scaling.' + msg['ssm_uuid'] + '.done')
 
+
 def main():
     """
     Entry point to start plugin.
     :return:
     """
     # reduce messaging log level to have a nicer output for this plugin
-    logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
-    logging.getLogger("son-mano-base:plugin").setLevel(logging.INFO)
+    logging.getLogger("son-mano-base:messaging").setLevel(logging.DEBUG)
+    logging.getLogger("son-mano-base:plugin").setLevel(logging.DEBUG)
 #    logging.getLogger("pika").setLevel(logging.DEBUG)
     # create our service lifecycle manager
     ServiceLifecycleManager()

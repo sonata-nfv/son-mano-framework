@@ -391,23 +391,24 @@ class testSlmFunctionality(unittest.TestCase):
         """
 
         if properties.app_id == 'son-plugin.ServiceLifecycleManager':
-            VIM_list = [uuid.uuid4().hex, uuid.uuid4().hex, uuid.uuid4().hex]
+            VIM_list = [{'vim_uuid':uuid.uuid4().hex},{'vim_uuid':uuid.uuid4().hex},{'vim_uuid':uuid.uuid4().hex}]
             self.manoconn_ia.notify('infrastructure.management.compute.list', yaml.dump(VIM_list), correlation_id=properties.correlation_id)
 
-    def on_slm_infra_adaptor_resource_availability_request_test3(self, ch, method, properties, message):
+    def on_slm_infra_adaptor_service_deploy_request_test3(self, ch, method, properties, message):
         """
-        This method checks what the SLM sends towards the IA when it receives a valid request from the gk.
+        This method checks whether the request from the SLM to the IA to deploy a service is correctly formatted.
         """
 
-        #The message should contain a dictionary with the following keys: 'vim_uuid', 'cpu', 'memory', 'memory_unit', 'storage' and 'storage_unit'
         msg = yaml.load(message)
-        self.assertTrue(isinstance(msg, dict), msg='message sent on .resourceAvailability does not contain a dictionary.')
-        self.assertIn('vim_uuid', msg.keys(), msg='vim_uuid not a key in dictionary.')
-        self.assertIn('cpu', msg.keys(), msg='cpu not a key in dictionary.')
-        self.assertIn('memory', msg.keys(), msg='memory not a key in dictionary.')
-        self.assertIn('memory_unit', msg.keys(), msg='memory_unit not a key in dictionary.')
-        self.assertIn('storage', msg.keys(), msg='storage not a key in dictionary.')
-        self.assertIn('storage_unit', msg.keys(), msg='storage_unit not a key in dictionary.')
+
+        self.assertTrue(isinstance(msg, dict), msg="message is not a dictionary.")
+        self.assertIn('vim_uuid', msg.keys(), msg="vim_uuid is not a key in the dictionary.")
+        self.assertIn('nsd', msg.keys(), msg="nsd is not a key in the dictionary.")
+        self.assertIn('vnfds', msg.keys(), msg="vnfds is not a key in the dictionary.")
+        self.assertIn('instance_uuid', msg['nsd'].keys(), msg="instance_uuid is not a key in the dictionary.")
+        
+        for vnfd in msg['vnfds']:
+            self.assertIn('instance_uuid', vnfd.keys(), msg='intance_uuid is not a key in the dictionary.')
 
         self.firstEventFinished()
     
@@ -423,7 +424,7 @@ class testSlmFunctionality(unittest.TestCase):
         self.manoconn_spy.subscribe(self.on_slm_infra_adaptor_vim_list_test3, 'infrastructure.management.compute.list')
 
         #STEP2: Spy the topic on which the SLM will contact the infrastructure adaptor the first time, to request the resource availability.
-        self.manoconn_spy.subscribe(self.on_slm_infra_adaptor_resource_availability_request_test3, 'infrastructure.management.compute.resourceAvailability')
+        self.manoconn_spy.subscribe(self.on_slm_infra_adaptor_service_deploy_request_test3, 'infrastructure.service.deploy')
 
         #STEP3: Send a correctly formatted service request message (from the gk) to the SLM
         self.manoconn_gk.call_async(self.dummy, 'service.instances.create', msg=self.createGkNewServiceRequestMessage(correctlyFormatted=True), content_type='application/yaml', correlation_id=self.corr_id)
@@ -479,129 +480,6 @@ class testSlmFunctionality(unittest.TestCase):
         #STEP4: Start waiting for the messages that are triggered by this request
         self.waitForFirstEvent(timeout=10, msg='Wait for message from SLM to IA to request resources timed out.')
 
-####################################################################################
-#TEST5: Test reaction to positive reply on resource availability request.
-####################################################################################
-    def on_slm_infra_adaptor_vim_list_test5(self, ch, method, properties, message):
-        """
-        This method replies to a request of the SLM to the IA to get the VIM-list.
-        """
-
-        if properties.app_id == 'son-plugin.ServiceLifecycleManager':
-            VIM_list = [uuid.uuid4().hex]
-            self.manoconn_ia.notify('infrastructure.management.compute.list', yaml.dump(VIM_list), correlation_id=properties.correlation_id)
-
-    def on_slm_infra_adaptor_resource_availability_request_test5(self, ch, method, properties, message):
-        """
-        This method fakes a message from the IA that indicates that the resources are available.
-        """
-
-        if properties.app_id == 'son-plugin.ServiceLifecycleManager':
-            reply_message = {'status':'OK'}
-            self.manoconn_ia.notify('infrastructure.management.compute.resourceAvailability', yaml.dump(reply_message), correlation_id=properties.correlation_id)
-
-    def on_slm_infra_adaptor_service_deploy_request_test5(self, ch, method, properties, message):
-        """
-        This method checks whether the request from the SLM to the IA to deploy a service is correctly formatted.
-        """
-
-        msg = yaml.load(message)
-
-        self.assertTrue(isinstance(msg, dict), msg="message is not a dictionary.")
-        self.assertIn('vim_uuid', msg.keys(), msg="vim_uuid is not a key in the dictionary.")
-        self.assertIn('nsd', msg.keys(), msg="nsd is not a key in the dictionary.")
-        self.assertIn('vnfds', msg.keys(), msg="vnfds is not a key in the dictionary.")
-        self.assertIn('instance_uuid', msg['nsd'].keys(), msg="instance_uuid is not a key in the dictionary.")
-        
-        for vnfd in msg['vnfds']:
-            self.assertIn('instance_uuid', vnfd.keys(), msg='intance_uuid is not a key in the dictionary.')
-
-        self.firstEventFinished()
-                
-    def testReactionToPositiveResourceAvailabilityeReply(self):
-        """
-        When the SLM contacts the IA to request whether enough resources are available, it gets a response from the IA.
-        If this response indicates that the resources are available, the SLM should requestthe deployment of the service 
-        to the IA.
-        """
-
-        self.wait_for_first_event.clear()
-
-        #STEP1: Spy the topic on which the SLM will contact the infrastructure adaptor
-        self.manoconn_spy.subscribe(self.on_slm_infra_adaptor_vim_list_test5, 'infrastructure.management.compute.list')
-
-        #STEP2: Spy the topic on which the SLM will contact the infrastructure adaptor the first time, to request the resource availability.
-        self.manoconn_spy.subscribe(self.on_slm_infra_adaptor_resource_availability_request_test5, 'infrastructure.management.compute.resourceAvailability')
-
-        #STEP3: Spy the topic on which the SLM will contact the IA the second time, to request the deployment of the service
-        self.manoconn_spy.subscribe(self.on_slm_infra_adaptor_service_deploy_request_test5, 'infrastructure.service.deploy')
-
-        #STEP4: Send a correctly formatted service request message (from the gk) to the SLM
-        self.manoconn_gk.call_async(self.dummy, 'service.instances.create', msg=self.createGkNewServiceRequestMessage(correctlyFormatted=True), content_type='application/yaml', correlation_id=self.corr_id)
-
-        #STEP5: Start waiting for the messages that are triggered by this request
-        self.waitForFirstEvent(timeout=15, msg='Wait for message from SLM to IA to request deployment timed out.')
-
-##################################################################################
-#TEST6: Test reaction to negative reply on resource availability request.
-##################################################################################
-    def on_slm_infra_adaptor_vim_list_test6(self, ch, method, properties, message):
-        """
-        This method replies to a request of the SLM to the IA to get the VIM-list.
-        """
-
-        if properties.app_id == 'son-plugin.ServiceLifecycleManager':
-            VIM_list = [uuid.uuid4().hex]
-            self.manoconn_ia.notify('infrastructure.management.compute.list', yaml.dump(VIM_list), correlation_id=properties.correlation_id)
-
-    def on_slm_infra_adaptor_resource_availability_request_test6(self, ch, method, properties, message):
-        """
-        This method fakes a message from the IA that indicates that the resources are available.
-        """
-
-        if properties.app_id == 'son-plugin.ServiceLifecycleManager':
-            reply_message = {'status':'No VIM with enough resources.'}
-            self.manoconn_ia.notify('infrastructure.management.compute.resourceAvailability', yaml.dump(reply_message), correlation_id=properties.correlation_id)
-
-    def on_slm_infra_adaptor_resources_availability_response(self, ch, method, properties, message):
-        """
-        This method checks the content of the message send from SLM to the GK to indicate that the resources are not available.
-        """        
-        msg = yaml.load(message)
-        #We don't want to trigger on the first response (the async_call), but only on the second(the notify) and we don't want to trigger on our outgoing message.
-        if properties.app_id == 'son-plugin.ServiceLifecycleManager':        
-            if msg['status'] != 'INSTANTIATING':
-
-                self.assertTrue(isinstance(msg, dict), msg='message is not a dictionary.')
-                self.assertEqual(msg['status'], 'ERROR', msg='status is not correct.')
-                self.assertEqual(msg['error'], 'No VIM with enough resources.', msg='error message is not correct.')
-                self.assertTrue(isinstance(msg['timestamp'], float), msg='timestamp is not a float.')
-
-                self.firstEventFinished()
-
-    def testReactionToNegativeResourceAvailabilityeReply(self):
-        """
-        When the SLM contacts the IA to request whether enough resources are available, it gets a response from the IA.
-        If this response indicates that the resources are not available, the SLM should request the deployment of the 
-        service to the IA.
-        """
-
-        self.wait_for_first_event.clear()
-
-        #STEP1: Spy the topic on which the SLM will contact the infrastructure adaptor
-        self.manoconn_spy.subscribe(self.on_slm_infra_adaptor_vim_list_test6, 'infrastructure.management.compute.list')
-
-        #STEP2: Spy the topic on which the SLM will contact the infrastructure adaptor the first time, to request the resource availability.
-        self.manoconn_spy.subscribe(self.on_slm_infra_adaptor_resource_availability_request_test6, 'infrastructure.management.compute.resourceAvailability')
-
-        #STEP3: Spy the topic on which the SLM will contact the GK, to indicate that the deployment is stopped due to lack of resources.
-        self.manoconn_spy.subscribe(self.on_slm_infra_adaptor_resources_availability_response, 'service.instances.create')
-
-        #STEP4: Send a correctly formatted service request message (from the gk) to the SLM
-        self.manoconn_gk.call_async(self.dummy, 'service.instances.create', msg=self.createGkNewServiceRequestMessage(correctlyFormatted=True), content_type='application/yaml', correlation_id=self.corr_id)
-
-        #STEP5: Start waiting for the messages that are triggered by this request
-        self.waitForFirstEvent(timeout=15, msg='Wait for message from SLM to IA to request deployment timed out.')
 
 ##################################################################################
 #TEST7: Test reaction to negative response on deployment message to/from IA
@@ -612,16 +490,8 @@ class testSlmFunctionality(unittest.TestCase):
         """
 
         if properties.app_id == 'son-plugin.ServiceLifecycleManager':
-            VIM_list = [uuid.uuid4().hex]
+            VIM_list = [{'vim_uuid':uuid.uuid4().hex}]
             self.manoconn_ia.notify('infrastructure.management.compute.list', yaml.dump(VIM_list), correlation_id=properties.correlation_id)
-
-    def on_slm_infra_adaptor_resource_availability_request_test7(self, ch, method, properties, message):
-        """
-        This method fakes a message from the IA that indicates that the resources are available.
-        """
-        if properties.app_id == 'son-plugin.ServiceLifecycleManager':
-            reply_message = {'status':'OK'}
-            self.manoconn_ia.notify('infrastructure.management.compute.resourceAvailability', yaml.dump(reply_message), correlation_id=properties.correlation_id)
 
     def on_slm_infra_adaptor_service_deploy_request_test7(self, ch, method, properties, message):
         """
@@ -629,7 +499,7 @@ class testSlmFunctionality(unittest.TestCase):
         """
 
         if properties.app_id == 'son-plugin.ServiceLifecycleManager':
-            reply_message = {'status':'failed'}
+            reply_message = {'request_status':'failed'}
             self.manoconn_ia.notify('infrastructure.service.deploy', yaml.dump(reply_message), correlation_id=properties.correlation_id)
 
     def on_slm_gk_service_deploy_request_failed(self, ch, method, properties, message):
@@ -661,19 +531,16 @@ class testSlmFunctionality(unittest.TestCase):
         #STEP1: Spy the topic on which the SLM will contact the infrastructure adaptor
         self.manoconn_spy.subscribe(self.on_slm_infra_adaptor_vim_list_test7, 'infrastructure.management.compute.list')
 
-        #STEP2: Spy the topic on which the SLM will contact the infrastructure adaptor the first time, to request the resource availability.
-        self.manoconn_ia.subscribe(self.on_slm_infra_adaptor_resource_availability_request_test7, 'infrastructure.management.compute.resourceAvailability')
-
-        #STEP3: Spy the topic on which the SLM will contact the IA the second time, to request the deployment of the service
+        #STEP2: Spy the topic on which the SLM will contact the IA the second time, to request the deployment of the service
         self.manoconn_ia.subscribe(self.on_slm_infra_adaptor_service_deploy_request_test7, 'infrastructure.service.deploy')
 
-        #STEP4: Spy the topic on which the SLM will contact the GK to respond that the deployment has failed.
+        #STEP3: Spy the topic on which the SLM will contact the GK to respond that the deployment has failed.
         self.manoconn_gk.subscribe(self.on_slm_gk_service_deploy_request_failed, 'service.instances.create')
 
-        #STEP5: Send a correctly formatted service request message (from the gk) to the SLM
+        #STEP4: Send a correctly formatted service request message (from the gk) to the SLM
         self.manoconn_gk.call_async(self.dummy, 'service.instances.create', msg=self.createGkNewServiceRequestMessage(correctlyFormatted=True), content_type='application/yaml', correlation_id=self.corr_id)
 
-        #STEP6: Start waiting for the messages that are triggered by this request
+        #STEP5: Start waiting for the messages that are triggered by this request
         self.waitForFirstEvent(timeout=15, msg='Wait for message from SLM to IA to request deployment timed out.')
 
 ##################################################################################
@@ -686,16 +553,8 @@ class testSlmFunctionality(unittest.TestCase):
         """
 
         if properties.app_id == 'son-plugin.ServiceLifecycleManager':
-            VIM_list = [uuid.uuid4().hex]
+            VIM_list = [{'vim_uuid':uuid.uuid4().hex}]
             self.manoconn_ia.notify('infrastructure.management.compute.list', yaml.dump(VIM_list), correlation_id=properties.correlation_id)
-
-    def on_slm_infra_adaptor_resource_availability_request_test8(self, ch, method, properties, message):
-        """
-        This method fakes a message from the IA that indicates that the resources are available.
-        """
-        if properties.app_id == 'son-plugin.ServiceLifecycleManager':
-            reply_message = {'status':'OK'}
-            self.manoconn_ia.notify('infrastructure.management.compute.resourceAvailability', yaml.dump(reply_message), correlation_id=properties.correlation_id)
 
     def on_slm_infra_adaptor_service_deploy_request_test8(self, ch, method, properties, message):
         """
@@ -785,19 +644,16 @@ class testSlmFunctionality(unittest.TestCase):
         #STEP1: Spy the topic on which the SLM will contact the infrastructure adaptor
         self.manoconn_spy.subscribe(self.on_slm_infra_adaptor_vim_list_test8, 'infrastructure.management.compute.list')
 
-        #STEP2: Spy the topic on which the SLM will contact the infrastructure adaptor the first time, to request the resource availability.
-        self.manoconn_ia.subscribe(self.on_slm_infra_adaptor_resource_availability_request_test8, 'infrastructure.management.compute.resourceAvailability')
-
-        #STEP3: Spy the topic on which the SLM will contact the IA the second time, to request the deployment of the service
+        #STEP2: Spy the topic on which the SLM will contact the IA the second time, to request the deployment of the service
         self.manoconn_ia.subscribe(self.on_slm_infra_adaptor_service_deploy_request_test8, 'infrastructure.service.deploy')
 
-        #STEP4: Spy the topic on which the SLM will contact the GK to respond that the deployment has failed.
+        #STEP3: Spy the topic on which the SLM will contact the GK to respond that the deployment has failed.
         self.manoconn_gk.subscribe(self.on_slm_gk_repositories_reply_error, 'service.instances.create')
 
-        #STEP5: Send a correctly formatted service request message (from the gk) to the SLM
+        #STEP4: Send a correctly formatted service request message (from the gk) to the SLM
         self.manoconn_gk.call_async(self.dummy, 'service.instances.create', msg=self.createGkNewServiceRequestMessage(correctlyFormatted=True), content_type='application/yaml', correlation_id=self.corr_id)
 
-        #STEP6: Start waiting for the messages that are triggered by this request
+        #STEP5: Start waiting for the messages that are triggered by this request
 #        self.waitForFirstEvent(timeout=15, msg='Wait for message from SLM to IA to request deployment timed out.')
 
 
@@ -819,10 +675,11 @@ class testSlmFunctionality(unittest.TestCase):
         gk_request['VNFD3']['id'] = 'e290f165-5ac0-422f-9c29-3e595b38f6c8'
 
         #STEP3: load nsr_file, containing both NSR and the list of VNFRs
-        nsr_file = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_descriptors/infrastructure-adapter-nsr.yml','r'))
+        nsr_file = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-nsr.yml','r'))
+        vnfrs_file = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-vnfrs.yml','r'))
 
         #STEP4: call real method
-        message = tools.build_monitoring_message(gk_request, nsr_file['nsr'], nsr_file['vnfrList'])
+        message = tools.build_monitoring_message(gk_request, nsr_file, vnfrs_file)
 
         #STEP5: read expected message from descriptor file
         expected_message = json.load(open('/plugins/son-mano-service-lifecycle-management/test/test_descriptors/monitoring-message.json','r'))
@@ -847,10 +704,10 @@ class testSlmFunctionality(unittest.TestCase):
         gk_request = yaml.load(self.createGkNewServiceRequestMessage())
 
         #STEP2: add ids to NSD and VNFDs (the ones used in the expected message)
-        gk_request['NSD']['id'] = '005606ed-be7d-4ce3-983c-847039e3a5a2'
-        gk_request['VNFD1']['id'] = '24f89c1a-1259-4a1f-b0fd-c3ae99a4b626'
-        gk_request['VNFD2']['id'] = '38a6b069-f413-4415-8bbe-b00fb8b200e7'
-        gk_request['VNFD3']['id'] = 'e290f165-5ac0-422f-9c29-3e595b38f6c8'
+        gk_request['NSD']['uuid'] = '005606ed-be7d-4ce3-983c-847039e3a5a2'
+        gk_request['VNFD1']['uuid'] = '24f89c1a-1259-4a1f-b0fd-c3ae99a4b626'
+        gk_request['VNFD2']['uuid'] = '38a6b069-f413-4415-8bbe-b00fb8b200e7'
+        gk_request['VNFD3']['uuid'] = 'e290f165-5ac0-422f-9c29-3e595b38f6c8'
 
         #STEP3: read IA response and the expected NSR
         ia_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml','r'))
@@ -862,6 +719,34 @@ class testSlmFunctionality(unittest.TestCase):
         #STEP5: comprare the generated message is equals to the expected one
         self.assertEqual(message, expected_nsr, "Built NSR is not equal to the expected one")
 
+
+##################################################################################
+#TEST10: Test creation of the NSR
+##################################################################################
+
+
+    def testVnfrsCreation(self):
+        #STEP1: create NSD and VNFD by reading test descriptors.
+        gk_request = yaml.load(self.createGkNewServiceRequestMessage())
+
+        #STEP2: add ids to NSD and VNFDs (the ones used in the expected message)
+        gk_request['NSD']['uuid'] = '005606ed-be7d-4ce3-983c-847039e3a5a2'
+        gk_request['VNFD1']['uuid'] = '24f89c1a-1259-4a1f-b0fd-c3ae99a4b626'
+        gk_request['VNFD2']['uuid'] = '38a6b069-f413-4415-8bbe-b00fb8b200e7'
+        gk_request['VNFD3']['uuid'] = 'e290f165-5ac0-422f-9c29-3e595b38f6c8'
+
+        #STEP3: read IA response and the expected NSR
+        ia_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml','r'))
+        expected_vnfrs = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-vnfrs.yml','r'))
+
+        message = tools.build_vnfrs(gk_request, ia_nsr['vnfrs'])
+
+        self.assertEqual(message, expected_vnfrs, "Built VNFRs are not equals to the expected ones")
+
+
+##################################################################################
+#TEST11: Test creation of the NSR
+##################################################################################
 
 if __name__ == '__main__':
     unittest.main()

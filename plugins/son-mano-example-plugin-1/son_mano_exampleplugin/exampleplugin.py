@@ -177,9 +177,9 @@ class DemoPlugin1(ManoBasePlugin):
         return yaml.dump(service_request)
 
     def createInfrastructureAdapterResponseMessage(self):
-        path_descriptors = 'test_descriptors/'
+        path_descriptors = 'test_records/'
 
-        ia_nsr = yaml.load(open(path_descriptors + 'infrastructure-adapter-nsr.yml','r'))
+        ia_nsr = yaml.load(open(path_descriptors + 'ia-nsr.yml','r'))
 
         return str(ia_nsr)
 
