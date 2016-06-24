@@ -185,8 +185,9 @@ class TestManoBrokerRequestResponseConnection(BaseTestCase):
         self.assertEqual(self.wait_for_messages()[0], "my-notification1")
         # send notify to subscribe endpoint
         self.m.notify("test.notification2", "my-notification2")
-        self.assertIn("my-notification1", self.wait_for_messages())
-        self.assertIn("my-notification2", self.wait_for_messages())
+        res = self.wait_for_messages(n_messages=2)
+        self.assertIn("my-notification1", res)
+        self.assertIn("my-notification2", res)
 
     #@unittest.skip("disabled")
     def test_double_subscriptions(self):

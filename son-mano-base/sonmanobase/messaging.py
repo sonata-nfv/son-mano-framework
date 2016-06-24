@@ -69,11 +69,11 @@ class ManoBrokerConnection(object):
 
     def publish(self, topic, message, properties=None):
         """
-        This method profides basic topic-based message publishing.
+        This method provides basic topic-based message publishing.
 
         :param topic: topic the message is published to
         :param message: the message (JSON/YAML/STRING)
-        :param properties: custom properties for the message
+        :param properties: custom properties for the message (as dict)
         :return:
         """
         # create a new channel
@@ -179,7 +179,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
     - the caller does not block and has to specify a callback function to
       receive a result (its even possible to receive multiple results because of
       the underlying publish/subscribe terminology).
-    - the callee provides an RPC like endpoint specified by a keystring and executes
+    - the callee provides an RPC like endpoint specified by its topic and executes
       each request in an independent thread.
     """
 
@@ -249,6 +249,12 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         self.publish(props.reply_to, result, properties=properties)
 
     def _generate_cbf_call_async_rquest_received(self, cbf):
+        """
+        Generates a callback function. Only reacts if reply_to is set.
+        CBF is executed asynchronously. Publishes CBF return value to reply to.
+        :param cbf: function
+        :return:
+        """
 
         def _on_call_async_request_received(ch, method, props, body):
             # verify that the message is a request (reply_to != None)
@@ -265,6 +271,12 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         return _on_call_async_request_received
 
     def _generate_cbf_notification_received(self, cbf):
+        """
+        Generates a callback function. Only reacts if reply_to is None.
+        CBF is executed asynchronously.
+        :param cbf: function
+        :return:
+        """
 
         def _on_notification_received(ch, method, props, body):
             # verify that the message is a notification (reply_to == None)
@@ -312,7 +324,17 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
                    correlation_id=None,
                    headers=None):
         """
-        TODO
+        Sends a request message to a topic. If a "register_async_endpoint" is listening to this topic,
+        it will execute the request and reply. This method sets up the subscriber for this reply and calls it
+        when the reply is received.
+        :param cbf: Function that is called when reply is received.
+        :param topic: Topic for this call.
+        :param msg: The message (STRING)
+        :param key: additional header field
+        :param content_type: default: application/json
+        :param correlation_id: used to match requests to replies. If correlation_id is not given, a new one is generated.
+        :param headers: Dictionary with additional header fields.
+        :return:
         """
         if msg is None:
             msg = "{}"
@@ -414,10 +436,10 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         return self.subscribe(self._generate_cbf_notification_received(cbf), topic)
 
     def call_sync(self, topic, msg=None, key="default",
-                      content_type="application/json",
-                      correlation_id=None,
-                      headers={},
-                      timeout=20):  # a sync. request has a timeout
+                  content_type="application/json",
+                  correlation_id=None,
+                  headers={},
+                  timeout=20):  # a sync. request has a timeout
         """
         Client method to sync. call an endpoint registered and bound to the given topic by any
         other component connected to the broker. The method waits for a response and returns it
@@ -429,14 +451,12 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         :param content_type: type of message
         :param correlation_id: allow to set individual correlation ids
         :param headers: header dict
-        :param response_topic_postfix: postfix of response topic
         :param timeout: time in s to wait for a response
         :return: message tuple: (ch, method, props, body)
         """
         # we use this lock to wait for the response
         lock = threading.Event()
         result = None
-
 
         def result_cbf(ch, method, props, body):
             """
@@ -446,7 +466,6 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
             result = (ch, method, props, body)
             # release lock
             lock.set()
-
 
         # do a normal async call
         self.call_async(result_cbf, topic=topic, msg=msg, key=key,
