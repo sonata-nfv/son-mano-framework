@@ -194,7 +194,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #Since the key will change when new async calls are being made (each new call needs a unique corr_id), we need to keep track of the original one to reply to the GK at a later stage.
         self.service_requests_being_handled[properties.correlation_id]['original_corr_id'] = properties.correlation_id 
 
-        self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'] = uuid.uuid4().hex
+        self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'] = str(uuid.uuid4())
         LOG.info("instance uuid for service generated: " + self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'])
 
         LOG.info('MESSAGE FROM GK ########################################')
@@ -204,7 +204,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         for key in service_request_from_gk.keys():
             if key[:4] == 'VNFD':
                 LOG.info(key)
-                self.service_requests_being_handled[properties.correlation_id][key]['instance_uuid'] = uuid.uuid4().hex
+                self.service_requests_being_handled[properties.correlation_id][key]['instance_uuid'] = str(uuid.uuid4())
 
         #We make sure that all required SSMs are deployed.
         #The order of the required ssms is the order in which they are to be called. To garantuee that we call
