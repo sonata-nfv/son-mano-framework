@@ -368,10 +368,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         if msg['request_status'][:6] == 'normal':
             nsr = tools.build_nsr(self.service_requests_being_handled[properties.correlation_id], msg)
-            LOG.info('nsr built: ' + nsr)
+            LOG.info('nsr built: ' + str(nsr))
             #Retrieve VNFRs from message and translate
             vnfrs = tools.build_vnfrs(self.service_requests_being_handled[properties.correlation_id], msg['vnfrs'])
-            LOG.info('vnfrs built: ' + vnfrs)
+            LOG.info('vnfrs built: ' + str(vnfrs))
             ## Store vnfrs in the repository and add vnfr ids to nsr if it is not already present
             for vnfr in vnfrs:
                 #Store the message, catch exception when time-out occurs

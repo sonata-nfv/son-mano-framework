@@ -60,7 +60,7 @@ def build_nsr(gk_request, ia_payload):
     nsr = {}
     ## nsr mandatory fields
     nsr['descriptor_version'] = 'nsr-schema-01'
-    nsr['id'] = gk_request['NSD']['uuid']
+    nsr['id'] = ia_payload['nsr']['id']
     nsr['status'] = ia_payload['nsr']['status']
     # same version as NSD for consistency, so we can relate each other
     nsr['version'] = gk_request['NSD']['version']
