@@ -105,7 +105,7 @@ class SonPluginManager(ManoBasePlugin):
         :param message: request body
         :return: response message
         """
-        message = json.loads(str(message, "utf-8"))
+        message = json.loads(str(message))
         pid = str(uuid.uuid4())
         # create a entry in our plugin database
         p = model.Plugin(
@@ -138,7 +138,7 @@ class SonPluginManager(ManoBasePlugin):
         :param message: request body (contains UUID to identify plugin)
         :return: response message
         """
-        message = json.loads(str(message, "utf-8"))
+        message = json.loads(str(message))
 
         try:
             p = model.Plugin.objects.get(uuid=message.get("uuid"))
@@ -156,7 +156,7 @@ class SonPluginManager(ManoBasePlugin):
         return json.dumps(response)
 
     def _on_heartbeat(self, ch, method, properties, message):
-        message = json.loads(str(message, "utf-8"))
+        message = json.loads(str(message))
         pid = message.get("uuid")
 
         try:

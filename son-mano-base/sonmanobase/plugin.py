@@ -191,7 +191,7 @@ class ManoBasePlugin(object):
         :param response: response body
         :return: None
         """
-        response = json.loads(str(response, "utf-8"))
+        response = json.loads(str(response))
         if response.get("status") != "OK":
             LOG.debug("Response %r" % response)
             LOG.error("Plugin registration failed. Exit.")
@@ -221,7 +221,7 @@ class ManoBasePlugin(object):
         :param response: response body
         :return: None
         """
-        response = json.loads(str(response, "utf-8"))
+        response = json.loads(str(response))
         if response.get("status") != "OK":
             LOG.error("Plugin de-registration failed. Exit.")
             exit(1)

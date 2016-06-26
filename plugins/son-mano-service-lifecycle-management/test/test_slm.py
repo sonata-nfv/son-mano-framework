@@ -79,7 +79,7 @@ class testSlmRegistrationAndHeartbeat(unittest.TestCase):
             """
             When the heartbeat message is received, this method checks if it is formatted correctly
             """
-            msg = json.loads(str(message, "utf-8"))
+            msg = json.loads(str(message))
             #CHECK: The message should be a dictionary.
             self.assertTrue(isinstance(msg, dict), msg="Message is not a dictionary.")
             #CHECK: The dictionary should have a key 'uuid'.
@@ -120,7 +120,7 @@ class testSlmRegistrationAndHeartbeat(unittest.TestCase):
         #STEP3a: When receiving the message, we need to check whether all fields present. TODO: check properties
         def on_register_receive(ch, method, properties, message):
 
-            msg = json.loads(str(message, "utf-8"))
+            msg = json.loads(str(message))
             #CHECK: The message should be a dictionary.
             self.assertTrue(isinstance(msg, dict), msg='message is not a dictionary')
             #CHECK: The dictionary should have a key 'name'.

@@ -67,7 +67,7 @@ class TestPluginManagerBase(unittest.TestCase):
         :return:
         """
         def on_register_reply(ch, method, properties, message):
-            msg = json.loads(str(message, "utf-8"))
+            msg = json.loads(str(message))
             assert(msg.get("status") == "OK")
             assert(len(msg.get("uuid")) > 0)
             assert(msg.get("error") is None)
@@ -97,7 +97,7 @@ class TestPluginManagerBase(unittest.TestCase):
         assert(self.plugin_uuid is not None)
 
         def on_deregister_reply(ch, method, properties, message):
-            msg = json.loads(str(message, "utf-8"))
+            msg = json.loads(str(message))
             assert(msg.get("status") == "OK")
             # stop waiting
             self.messageReceived()
@@ -131,7 +131,7 @@ class TestPluginManagerMessageInterface(TestPluginManagerBase):
 
         # callback for status updates
         def on_start_receive(ch, method, properties, message):
-            msg = json.loads(str(message, "utf-8"))
+            msg = json.loads(str(message))
             assert(len(msg) == 0)
             # stop waiting
             self.messageReceived()
@@ -165,7 +165,7 @@ class TestPluginManagerMessageInterface(TestPluginManagerBase):
 
         # callback for status updates
         def on_status_update(ch, method, properties, message):
-            msg = json.loads(str(message, "utf-8"))
+            msg = json.loads(str(message))
             self.assertTrue(len(msg.get("timestamp")) > 0)
             self.assertTrue(len(msg.get("plugin_dict")) > 0)
             # stop waiting
