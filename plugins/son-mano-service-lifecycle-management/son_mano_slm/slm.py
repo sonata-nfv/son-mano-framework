@@ -228,6 +228,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         LOG.info('### Post first threading ###.')
 
+        print(str(self.service_requests_being_handled[properties.correlation_id]))
         response_for_gk = {'status'    : 'INSTANTIATING',        #INSTANTIATING or ERROR
                           'error'     : None,         #NULL or a string describing the ERROR
                           'timestamp' : time.time()}  #time() returns the number of seconds since the epoch in UTC as a float      
