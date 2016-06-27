@@ -220,6 +220,9 @@ class testSlmFunctionality(unittest.TestCase):
         def on_register_trigger(ch, method, properties, message):
             return json.dumps({'status':'OK','uuid':self.uuid})
 
+	#Generate a new corr_id for every test
+	self.corr_id = str(uuid.uuid4())
+
         #Some threading events that can be used during the tests
         self.wait_for_first_event = threading.Event()
         self.wait_for_first_event.clear()
