@@ -145,6 +145,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
         service_request_from_gk = yaml.load(message)
         LOG.info(service_request_from_gk)
 
+        #The request should not have a correlation_id that is already being used by a different request path/track
+        if properties.correlation_id in self.service_requests_being_handled.keys():
+            LOG.info("Request has correlation_id that is already in use.")
+            return yaml.dump({'status'    : 'ERROR',        
+                              'error'     : 'Correlation_id is already in use, please make sure to generate a new one.',
+                              'timestamp' : time.time()})
+
         #The service request in the yaml file should be a dictionary
         if not isinstance(service_request_from_gk, dict):
             LOG.info("service request with corr_id " + properties.correlation_id + "rejected: Message is not a dictionary.")
