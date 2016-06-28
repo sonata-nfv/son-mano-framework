@@ -682,13 +682,13 @@ class testSlmFunctionality(unittest.TestCase):
         vnfrs_file = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-vnfrs.yml','r'))
 
         #STEP4: call real method
-#        message = tools.build_monitoring_message(gk_request, nsr_file, vnfrs_file)
+        message = tools.build_monitoring_message(gk_request, nsr_file, vnfrs_file)
 
         #STEP5: read expected message from descriptor file
-#        expected_message = json.load(open('/plugins/son-mano-service-lifecycle-management/test/test_descriptors/monitoring-message.json','r'))
+        expected_message = json.load(open('/plugins/son-mano-service-lifecycle-management/test/test_descriptors/monitoring-message.json','r'))
 
         #STEP6: compare that generated message is equals to the expected one
-#        self.assertEqual(message, expected_message, "messages are not equals")
+        self.assertEqual(message, expected_message, "messages are not equals")
 
 ##################################################################################
 #TEST9: Test creation of the message addressed to the Monitoring Repository
