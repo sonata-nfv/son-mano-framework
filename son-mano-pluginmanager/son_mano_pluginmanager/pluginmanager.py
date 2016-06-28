@@ -29,7 +29,7 @@ from son_mano_pluginmanager import interface
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("son-mano-pluginmanger")
-LOG.setLevel(logging.DEBUG)
+LOG.setLevel(logging.INFO)
 logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
 
@@ -92,6 +92,7 @@ class SonPluginManager(ManoBasePlugin):
         # create correct message format
         message = {"timestamp": str(datetime.datetime.now()),
                     "plugin_dict": plugin_dict}
+        LOG.info("Broadcasting plugin status update to 'platform.management.plugin.status': %r" % message)
         # broadcast plugin status update message
         self.manoconn.notify(
             "platform.management.plugin.status", json.dumps(message))
@@ -144,7 +145,7 @@ class SonPluginManager(ManoBasePlugin):
             p = model.Plugin.objects.get(uuid=message.get("uuid"))
             p.delete()
         except DoesNotExist:
-            LOG.warning("Couldn't find plugin with UUID %r in DB" % pid)
+            LOG.debug("Couldn't find plugin with UUID %r in DB" % pid)
 
         LOG.info("DE-REGISTERED: %r" % message.get("uuid"))
         # broadcast a plugin status update to the other plugin
@@ -182,7 +183,7 @@ class SonPluginManager(ManoBasePlugin):
                 # there was a state change lets schedule an plugin status update notification
                 self.send_plugin_status_update()
         except DoesNotExist:
-            LOG.warning("Couldn't find plugin with UUID %r in DB" % pid)
+            LOG.debug("Couldn't find plugin with UUID %r in DB" % pid)
 
 
 def main():
