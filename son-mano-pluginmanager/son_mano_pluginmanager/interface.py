@@ -26,7 +26,7 @@ from son_mano_pluginmanager import model
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("son-mano-pluginmanger:interface")
-LOG.setLevel(logging.DEBUG)
+LOG.setLevel(logging.INFO)
 logging.getLogger("werkzeug").setLevel(logging.WARNING)
 
 
