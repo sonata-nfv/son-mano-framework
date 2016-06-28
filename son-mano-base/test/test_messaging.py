@@ -39,7 +39,7 @@ class BaseTestCase(unittest.TestCase):
         self.assertIsNotNone(props.content_type)
         self.waiting = 0
         self._message_buffer[0].append(body)
-        print("SUBSCRIBE CBF1")
+        print("SUBSCRIBE CBF1: %s" % body)
 
     def _simple_subscribe_cbf2(self, ch, method, props, body):
         self.assertIsNotNone(props.app_id)
@@ -47,16 +47,16 @@ class BaseTestCase(unittest.TestCase):
         self.assertIsNotNone(props.content_type)
         self.waiting = 0
         self._message_buffer[1].append(body)
-        print("SUBSCRIBE CBF2")
+        print("SUBSCRIBE CBF2: %s" % body)
 
-    def _simple_request_echo_cbf(self, ch, method, props, message):
+    def _simple_request_echo_cbf(self, ch, method, props, body):
         self.assertIsNotNone(props.app_id)
         self.assertIsNotNone(props.reply_to)
         self.assertIsNotNone(props.correlation_id)
         self.assertIsNotNone(props.headers)
         self.assertIsNotNone(props.content_type)
-        print("REQUEST ECHO CBF")
-        return message
+        print("REQUEST ECHO CBF: %s" % body)
+        return body
 
     def wait_for_messages(self, buffer=0, n_messages=1, timeout=5):
         """
@@ -73,6 +73,23 @@ class BaseTestCase(unittest.TestCase):
         if not self.waiting < timeout:
             raise Exception("Message lost. Subscription timeout reached. Buffer: %r" % self._message_buffer[buffer])
         return self._message_buffer[buffer]
+
+    def wait_for_particular_messages(self, message, buffer=0, timeout=5):
+        """
+        Helper to deal with async messaging system.
+        Waits until a the specified message can be found in the buffer.
+        :param timeout: seconds to wait
+        :return:
+        """
+        self.waiting = 0
+        while message not in self._message_buffer[buffer] and self.waiting < timeout:
+            time.sleep(0.01)
+            self.waiting += 0.01
+        if not self.waiting < timeout:
+            raise Exception(
+                "Message never found. Subscription timeout reached. Buffer: %r" % self._message_buffer[buffer])
+        return True
+
 
 class TestManoBrokerConnection(BaseTestCase):
     """
@@ -170,7 +187,7 @@ class TestManoBrokerRequestResponseConnection(BaseTestCase):
         self.m.register_notification_endpoint(self._simple_subscribe_cbf1, "test.notification")
         time.sleep(0.5)  # give broker some time to register subscriptions
         self.m.notify("test.notification", "my-notification")
-        self.assertEqual(self.wait_for_messages()[0], "my-notification")
+        self.assertTrue(self.wait_for_particular_messages("my-notification"))
 
     #@unittest.skip("disabled")
     def test_notification_pub_sub_mix(self):
@@ -185,9 +202,9 @@ class TestManoBrokerRequestResponseConnection(BaseTestCase):
         self.assertEqual(self.wait_for_messages()[0], "my-notification1")
         # send notify to subscribe endpoint
         self.m.notify("test.notification2", "my-notification2")
-        res = self.wait_for_messages(n_messages=2)
-        self.assertIn("my-notification1", res)
-        self.assertIn("my-notification2", res)
+        #res = self.wait_for_messages(n_messages=2)
+        self.assertTrue(self.wait_for_particular_messages("my-notification1"))
+        self.assertTrue(self.wait_for_particular_messages("my-notification2"))
 
     #@unittest.skip("disabled")
     def test_double_subscriptions(self):
@@ -202,8 +219,8 @@ class TestManoBrokerRequestResponseConnection(BaseTestCase):
         # send publish to notify endpoint
         self.m.publish("test.interleave", "my-notification1")
         # enusre that it is received by each subscription
-        self.assertEqual(self.wait_for_messages(buffer=0)[0], "my-notification1")
-        self.assertEqual(self.wait_for_messages(buffer=1)[0], "my-notification1")
+        self.assertTrue(self.wait_for_particular_messages("my-notification1", buffer=0))
+        self.assertTrue(self.wait_for_particular_messages("my-notification1", buffer=1))
 
     #@unittest.skip("disabled")
     def test_interleaved_subscriptions(self):
@@ -217,12 +234,13 @@ class TestManoBrokerRequestResponseConnection(BaseTestCase):
         self.m.register_async_endpoint(self._simple_request_echo_cbf, "test.interleave2")
         time.sleep(0.5)  # give broker some time to register subscriptions
         self.m.call_async(self._simple_subscribe_cbf1, "test.interleave2", "ping-pong")
-        self.assertEqual(self.wait_for_messages()[0], "ping-pong")
+        self.assertTrue(self.wait_for_particular_messages("ping-pong"))
         # send publish to notify endpoint
         self.m.publish("test.interleave2", "my-notification1")
+        time.sleep(0.5)
         # ensure that the subcriber still gets the message (and also sees the one from async_call)
-        self.assertIn("my-notification1", self.wait_for_messages(buffer=1))
-        self.assertIn("ping-pong", self.wait_for_messages(buffer=1))
+        self.assertTrue(self.wait_for_particular_messages("ping-pong"))
+        self.assertTrue(self.wait_for_particular_messages("my-notification1", buffer=1))
 
 if __name__ == "__main__":
     #unittest.main()
