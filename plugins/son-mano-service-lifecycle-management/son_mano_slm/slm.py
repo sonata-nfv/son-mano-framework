@@ -143,8 +143,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #...
 
         service_request_from_gk = yaml.load(message)
-        LOG.info(service_request_from_gk)
 
+        LOG.info("Checking whether request payload is formatted correctly.")
         #The request should not have a correlation_id that is already being used by a different request path/track
         for prop_id in self.service_requests_being_handled.keys():
             if properties.correlation_id in self.service_requests_being_handled[prop_id]['original_corr_id']:
@@ -175,10 +175,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         if len(service_request_from_gk['NSD']['network_functions']) != number_of_vnfds:
             LOG.info("service request with corr_id " + properties.correlation_id + "rejected: number of vnfds does not match nsd.")
-            LOG.info("number of vnfds :" + str(number_of_vnfds))
-            LOG.info("length of service requests network functions :" + str(len(service_request_from_gk['NSD']['network_functions'])))
-
-            LOG.info('### Start process anyways with dummy request to test integratiosn further down the chain.###')
 
             return yaml.dump({'status'    : 'ERROR',        
                               'error'     : 'Number of VNFDs doesn\'t match number of vnfs',
@@ -192,7 +188,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                                       'error'     : 'VNFDs are not allowed to be empty',
                                       'timestamp' : time.time()})
 
-        
+        LOG.info("Request payload is formatted correctly, proceeding...")        
 
         #If all checks on the received message pass, an uuid is created for the service, and we add it to the dict of services that are being deployed. 
         #Each VNF also gets an uuid. This is added to the VNFD dictionary.
@@ -205,14 +201,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'] = str(uuid.uuid4())
         LOG.info("instance uuid for service generated: " + self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'])
 
-        LOG.info('MESSAGE FROM GK ########################################')
-        LOG.info(service_request_from_gk)
-        LOG.info(self.service_requests_being_handled[properties.correlation_id])
-        LOG.info(service_request_from_gk.keys())
         for key in service_request_from_gk.keys():
             if key[:4] == 'VNFD':
-                LOG.info(key)
                 self.service_requests_being_handled[properties.correlation_id][key]['instance_uuid'] = str(uuid.uuid4())
+                LOG.info("instance uuid for vnf <" + key + "> generated: " + self.service_requests_being_handled[properties.correlation_id][key]['instance_uuid'])
 
         #We make sure that all required SSMs are deployed.
         #The order of the required ssms is the order in which they are to be called. To garantuee that we call
@@ -229,19 +221,16 @@ class ServiceLifecycleManager(ManoBasePlugin):
     
 
         #After the received request has been processed, we can start handling it in a different thread.
-        LOG.info('### Prepare for Threading ###')
+        LOG.info('Starting deployment of new service.')
         t = threading.Thread(target=self.start_new_service_deployment, args=(ch, method, properties, message))
         t.daemon = True
         t.start()
 
-        LOG.info('### Post first threading ###.')
-
-        print(str(self.service_requests_being_handled[properties.correlation_id]))
         response_for_gk = {'status'    : 'INSTANTIATING',        #INSTANTIATING or ERROR
                           'error'     : None,         #NULL or a string describing the ERROR
                           'timestamp' : time.time()}  #time() returns the number of seconds since the epoch in UTC as a float      
 
-        LOG.info(response_for_gk)
+        LOG.info('Response from SLM to GK on request: ' + str(response_for_gk))
         return yaml.dump(response_for_gk)
 
     def start_new_service_deployment(self, ch, method, properties, message):
@@ -411,8 +400,8 @@ def main():
     :return:
     """
     # reduce messaging log level to have a nicer output for this plugin
-    logging.getLogger("son-mano-base:messaging").setLevel(logging.DEBUG)
-    logging.getLogger("son-mano-base:plugin").setLevel(logging.DEBUG)
+    logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
+    logging.getLogger("son-mano-base:plugin").setLevel(logging.INFO)
 #    logging.getLogger("pika").setLevel(logging.DEBUG)
     # create our service lifecycle manager
     ServiceLifecycleManager()
