@@ -239,6 +239,8 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
             "key": None,
             "type": "reply"
         }
+        if props.headers is None:
+            props.headers = dict()
         props.headers.update(reply_headers)
 
         # build properties
