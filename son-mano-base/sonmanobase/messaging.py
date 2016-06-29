@@ -94,8 +94,9 @@ class ManoBrokerConnection(object):
             # fix properties (amqpstorm does not like None values):
             for k, v in default_properties.items():
                 default_properties[k] = "" if v is None else v
-            for k, v in default_properties["headers"].items():
-                default_properties["headers"][k] = "" if v is None else v
+            if "headers" in default_properties:
+                for k, v in default_properties["headers"].items():
+                    default_properties["headers"][k] = "" if v is None else v
             # publish the message
             channel.basic.publish(body=message,
                                   routing_key=topic,
@@ -125,6 +126,9 @@ class ManoBrokerConnection(object):
             ch = msg.channel
             body = msg.body
             method = type('method', (object,), msg.method)
+            # ensure that we have a header field
+            if "headers" not in msg.properties:
+                msg.properties["headers"] = dict()
             # make emtpy strings to None to be compatible
             for k, v in msg.properties.items():
                 msg.properties[k] = None if v == "" else v
