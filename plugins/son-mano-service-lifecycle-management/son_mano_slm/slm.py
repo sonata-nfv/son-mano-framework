@@ -231,7 +231,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                           'timestamp' : time.time()}  #time() returns the number of seconds since the epoch in UTC as a float      
 
         LOG.info('Response from SLM to GK on request: ' + str(response_for_gk))
-        return yaml.dump(response_for_gk)
+        return yaml.dump(response_for_gk) 
 
     def start_new_service_deployment(self, ch, method, properties, message):
         """
@@ -240,7 +240,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #TODO: if this method is reached as callback on a ssm reply, handle the response of the ssm --> add the data to the dict
 
         #The first step in the deployment of a new service is deploying the ssms.
-        if self.service_requests_being_handled[properties.correlation_id]['ssms_to_handle'] != []:
+        if self.service_requests_being_handled[properties.correlation_id]['ssms_to_handle'] != []: 
             LOG.info("Deploying new SSM")
 
             ssm_to_interact_with = self.service_requests_being_handled[properties.correlation_id]['ssms_to_handle'].pop(0)
