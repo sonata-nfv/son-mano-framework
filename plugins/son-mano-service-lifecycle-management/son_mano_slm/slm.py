@@ -231,7 +231,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                           'timestamp' : time.time()}  #time() returns the number of seconds since the epoch in UTC as a float      
 
         LOG.info('Response from SLM to GK on request: ' + str(response_for_gk))
-        return yaml.dump(response_for_gk)
+        return yaml.dump(response_for_gk) 
 
     def start_new_service_deployment(self, ch, method, properties, message):
         """
@@ -240,7 +240,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #TODO: if this method is reached as callback on a ssm reply, handle the response of the ssm --> add the data to the dict
 
         #The first step in the deployment of a new service is deploying the ssms.
-        if self.service_requests_being_handled[properties.correlation_id]['ssms_to_handle'] != []:
+        if self.service_requests_being_handled[properties.correlation_id]['ssms_to_handle'] != []: 
             LOG.info("Deploying new SSM")
 
             ssm_to_interact_with = self.service_requests_being_handled[properties.correlation_id]['ssms_to_handle'].pop(0)
@@ -280,6 +280,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #TODO: If an SSM needs to select the vim, this is where to trigger it. Currently, an internal method is handling the decision.
         #For now, we take the first one in the list, and just store the vim_uuid
         self.service_requests_being_handled[properties.correlation_id]['vim'] = vimList[0]['vim_uuid']
+        LOG.info("VIM selected: " + json.dumps(self.service_requests_being_handled[properties.correlation_id]['vim'], indent=4))
+
         self.request_deployment_from_IA(properties.correlation_id)
         
 
@@ -299,8 +301,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
 
         request = tools.build_message_for_IA(self.service_requests_being_handled[correlation_id])
+        LOG.info('Request message for IA built: ' + json.dumps(request, indent=4))
         #In the service_requests_being_handled dictionary, we replace the old corr_id with the new one, to be able to keep track of the request
         new_corr_id, self.service_requests_being_handled = tools.replace_old_corr_id_by_new(self.service_requests_being_handled, correlation_id)
+        LOG.info('Contacting the IA on infrastructure.service.deploy.')
         self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply,
                                  INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC,
                                  yaml.dump(request),
@@ -316,6 +320,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         LOG.info("Deployment reply received from IA for instance uuid " + self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'])
 
         msg = yaml.load(message)
+	
+        LOG.info("Response from IA: " + json.dumps(msg, indent=4))
         #The message that will be returned to the gk
         message_for_gk = {}
         message_for_gk['status'] = 'ERROR'
