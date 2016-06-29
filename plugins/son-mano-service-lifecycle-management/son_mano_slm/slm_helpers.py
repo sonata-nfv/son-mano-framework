@@ -11,10 +11,8 @@ def build_message_for_IA(request_dictionary):
     resulting_message['nsd'] = request_dictionary['NSD']
     resulting_message['vnfds'] = []
     
-    print(str(request_dictionary.keys()))
     for key in request_dictionary.keys():
         if key[:4] == 'VNFD':
-            print(str(request_dictionary[key]))
             resulting_message['vnfds'].append(request_dictionary[key])
 
     newFile = open('service_request.yml', 'w')

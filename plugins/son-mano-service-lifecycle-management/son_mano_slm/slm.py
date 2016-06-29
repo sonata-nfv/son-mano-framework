@@ -266,9 +266,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #For now, we will go through the vims in the list and check if they have enough resources for the service. Once we find such a vim, we stick with this one.
         #TODO: Outsource this process to an SSM if there is one available.
 
-        LOG.info("VIM list received.")
 
         vimList = yaml.load(message)
+        LOG.info("VIM list received: " + json.dumps(vimList, indent=4))
+
         if not isinstance(vimList, list):
             self.inform_gk_with_error(properties.correlation_id, error_msg='No VIM.')
             return
