@@ -328,7 +328,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         message_for_gk['error'] = {}
         message_for_gk['vnfrs'] = []
 
-        if msg['request_status'][:8] == 'Deployed':
+        if msg['request_status'][:8] == 'DEPLOYED':
             nsr = tools.build_nsr(self.service_requests_being_handled[properties.correlation_id], msg)
             LOG.info('nsr built: ' + str(nsr))
             #Retrieve VNFRs from message and translate
