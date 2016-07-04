@@ -11,6 +11,7 @@ descriptor_version: "vnfd-schema-01"
 vendor: "eu.sonata-nfv"
 name: "firewall-vnf"
 version: "0.2"
+uuid: "6a15313f-cb0a-4540-baa2-77cc6b3f5b68"
 author: "Steven van Rossem, iMinds"
 description: >
   "A first firewall VNF descriptor"
