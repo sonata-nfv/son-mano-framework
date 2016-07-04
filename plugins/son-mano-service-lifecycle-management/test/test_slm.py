@@ -5,7 +5,7 @@ import yaml
 import threading
 import logging
 import uuid
-import son_mano_slm.slm_helpers as tools 
+import son_mano_slm.slm_helpers as tools
 
 from unittest import mock
 from multiprocessing import Process
@@ -22,14 +22,15 @@ LOG.setLevel(logging.INFO)
 
 class testSlmRegistrationAndHeartbeat(unittest.TestCase):
     """
-    Tests the registration process of the SLM to the broker and the plugin manager, and the heartbeat process.
+    Tests the registration process of the SLM to the broker
+    and the plugin manager, and the heartbeat process.
     """
 
     def setUp(self):
         #a new SLM in another process for each test
         self.slm_proc = Process(target=ServiceLifecycleManager)
         self.slm_proc.daemon = True
-        #make a new connection with the broker before each test 
+        #make a new connection with the broker before each test
         self.manoconn = ManoBrokerRequestResponseConnection('son-plugin.SonPluginManager')
 
         #Some threading events that can be used during the tests
@@ -44,7 +45,7 @@ class testSlmRegistrationAndHeartbeat(unittest.TestCase):
         if self.slm_proc is not None:
             self.slm_proc.terminate()
         del self.slm_proc
-            
+
         #Killing the connection with the broker
         try:
             self.manoconn.stop_connection()
@@ -52,7 +53,7 @@ class testSlmRegistrationAndHeartbeat(unittest.TestCase):
             LOG.exception("Stop connection exception.")
 
         #Clearing the threading helpers
-        del self.wait_for_event  
+        del self.wait_for_event
 
     #Method that terminates the timer that waits for an event
     def eventFinished(self):
@@ -65,19 +66,23 @@ class testSlmRegistrationAndHeartbeat(unittest.TestCase):
 
     def testSlmHeartbeat(self):
         """
-        TEST: This test verifies whether the SLM sends out a heartbeat as intended, once it is registered and whether this heartbeat message is correctly formatted.
+        TEST: This test verifies whether the SLM sends out a heartbeat
+        as intended, once it is registered and whether this heartbeat
+        message is correctly formatted.
         """
-        
+
         def on_registration_trigger(ch, method, properties, message):
             """
-            When the registration request from the plugin is received, this method replies as if it were the plugin manager
+            When the registration request from the plugin is received,
+            this method replies as if it were the plugin manager
             """
             self.eventFinished()
-            return json.dumps({'status':'OK','uuid':self.uuid})
+            return json.dumps({'status': 'OK', 'uuid': self.uuid})
 
         def on_heartbeat_receive(ch, method, properties, message):
             """
-            When the heartbeat message is received, this method checks if it is formatted correctly
+            When the heartbeat message is received, this
+            method checks if it is formatted correctly
             """
             msg = json.loads(str(message))
             #CHECK: The message should be a dictionary.
@@ -91,13 +96,13 @@ class testSlmRegistrationAndHeartbeat(unittest.TestCase):
             #CHECK: The dictionary should have a key 'state'.
             self.assertTrue("state" in msg.keys(), msg="state is not a key.")
             #CHECK: The value of 'state' should be a 'READY', 'RUNNING', 'PAUSED' or 'FAILED'.
-            self.assertTrue(msg["state"] in ["READY","RUNNING","PAUSED","FAILED"], msg="Not a valid state.")
+            self.assertTrue(msg["state"] in ["READY", "RUNNING", "PAUSED", "FAILED"], msg="Not a valid state.")
 
             #Stop the wait
             self.eventFinished()
 
         #STEP1: subscribe to the correct topics
-        self.manoconn.register_async_endpoint(on_registration_trigger,'platform.management.plugin.register')
+        self.manoconn.register_async_endpoint(on_registration_trigger, 'platform.management.plugin.register')
         self.manoconn.subscribe(on_heartbeat_receive, 'platform.management.plugin.' + self.uuid + '.heartbeat')
 
         #STEP2: Start the SLM
@@ -114,7 +119,9 @@ class testSlmRegistrationAndHeartbeat(unittest.TestCase):
 
     def testSlmRegistration(self):
         """
-        TEST: This test verifies whether the SLM is sending out a message, and whether it contains all the needed info on the platform.management.plugin.register topic to register to the plugin manager. 
+        TEST: This test verifies whether the SLM is sending out a message,
+        and whether it contains all the needed info on the platform.management.plugin.register
+        topic to register to the plugin manager.
         """
 
         #STEP3a: When receiving the message, we need to check whether all fields present. TODO: check properties
@@ -152,13 +159,14 @@ class testSlmRegistrationAndHeartbeat(unittest.TestCase):
             self.eventFinished()
 
         #STEP1: Listen to the platform.management.plugin.register topic
-        self.manoconn.subscribe(on_register_receive,'platform.management.plugin.register')
+        self.manoconn.subscribe(on_register_receive, 'platform.management.plugin.register')
 
         #STEP2: Start the SLM
         self.slm_proc.start()
 
         #STEP3b: When not receiving the message, the test failed 
-        self.waitForEvent(timeout=5,msg="message not received.")
+        self.waitForEvent(timeout=5, msg="message not received.")
+
 
 #A mockup function that will be used to mock http POST responses.
 def mocked_post_requests(*args, **kwargs):
@@ -170,10 +178,12 @@ def mocked_post_requests(*args, **kwargs):
     print('#################################################')
     print('In the mock')
     return MockResponse('failed', 422)
-    
+
+
 class testSlmFunctionality(unittest.TestCase):
     """
-    Tests the tasks that the SLM should perform in the service life cycle of the network services.
+    Tests the tasks that the SLM should perform in the service
+    life cycle of the network services.
     """
 
     slm_proc    = None
@@ -218,7 +228,7 @@ class testSlmFunctionality(unittest.TestCase):
 
     def setUp(self):
         def on_register_trigger(ch, method, properties, message):
-            return json.dumps({'status':'OK','uuid':self.uuid})
+            return json.dumps({'status':'OK', 'uuid': self.uuid})
 
         #Generate a new corr_id for every test
         self.corr_id = str(uuid.uuid4())
@@ -234,7 +244,7 @@ class testSlmFunctionality(unittest.TestCase):
         self.slm_proc = Process(target=ServiceLifecycleManager)
         self.slm_proc.daemon = True
         self.manoconn_pm = ManoBrokerRequestResponseConnection('son-plugin.SonPluginManager')
-        self.manoconn_pm.subscribe(on_register_trigger,'platform.management.plugin.register')
+        self.manoconn_pm.subscribe(on_register_trigger, 'platform.management.plugin.register')
         self.slm_proc.start()
         #wait until registration process finishes
         if not self.wait_for_first_event.wait(timeout=5):
@@ -246,7 +256,6 @@ class testSlmFunctionality(unittest.TestCase):
         self.manoconn_gk = ManoBrokerRequestResponseConnection('son-plugin.SonGateKeeper')
         #we need a connection to simulate messages from the infrastructure adaptor
         self.manoconn_ia = ManoBrokerRequestResponseConnection('son-plugin.SonInfrastructureAdapter')
-
 
     def tearDown(self):
         try:
@@ -261,22 +270,23 @@ class testSlmFunctionality(unittest.TestCase):
 ########################
     def createGkNewServiceRequestMessage(self, correctlyFormatted=True):
         """
-        This method helps creating messages for the service request packets. If it needs to be wrongly formatted, the nsd part of the request is removed.
+        This method helps creating messages for the service request packets.
+        If it needs to be wrongly formatted, the nsd part of the request is removed.
         """
-        
+
         path_descriptors = '/plugins/son-mano-service-lifecycle-management/test/test_descriptors/'
 
-        nsd_descriptor   = open(path_descriptors + 'sonata-demo.yml','r')
-        vnfd1_descriptor = open(path_descriptors + 'firewall-vnfd.yml','r')
-        vnfd2_descriptor = open(path_descriptors + 'iperf-vnfd.yml','r')
-        vnfd3_descriptor = open(path_descriptors + 'tcpdump-vnfd.yml','r')
+        nsd_descriptor   = open(path_descriptors + 'sonata-demo.yml', 'r')
+        vnfd1_descriptor = open(path_descriptors + 'firewall-vnfd.yml', 'r')
+        vnfd2_descriptor = open(path_descriptors + 'iperf-vnfd.yml', 'r')
+        vnfd3_descriptor = open(path_descriptors + 'tcpdump-vnfd.yml', 'r')
 
     	#import the nsd and vnfds that form the service	
         if correctlyFormatted:
             service_request = {'NSD': yaml.load(nsd_descriptor), 'VNFD1': yaml.load(vnfd1_descriptor), 'VNFD2': yaml.load(vnfd2_descriptor), 'VNFD3': yaml.load(vnfd3_descriptor)}
         else:
             service_request = {'VNFD1': yaml.load(vnfd1_descriptor), 'VNFD2': yaml.load(vnfd2_descriptor), 'VNFD3': yaml.load(vnfd3_descriptor)}
-    
+
         return yaml.dump(service_request)
 
     #Method that terminates the timer that waits for an event
@@ -290,7 +300,6 @@ class testSlmFunctionality(unittest.TestCase):
     def waitForFirstEvent(self, timeout=5, msg="Event timed out."):
         if not self.wait_for_first_event.wait(timeout):
             self.assertEqual(True, False, msg=msg)
-
 
     def waitForSecondEvent(self, timeout=5, msg="Event timed out."):
         if not self.wait_for_second_event.wait(timeout):
@@ -323,7 +332,7 @@ class testSlmFunctionality(unittest.TestCase):
         """
         This method checks whether the SLM responds to a correctly formatted new service request it receives from the GK.
         """
-        
+
         msg = yaml.load(message)
         self.assertTrue(isinstance(msg, dict), msg='response to service request is not a dictionary.')
         self.assertEqual(msg['status'], 'INSTANTIATING', msg='not correct response, should be INSTANTIATING.')
@@ -663,9 +672,14 @@ class testSlmFunctionality(unittest.TestCase):
     def testMonitoringMessageGeneration(self):
 
         """
-        SLM should generate a message for the monitoring module in order to start the monitoring process to the deployed network service.
-        This message is generated from the information existing in NSD, VNFDs, NSRs and VNFs. The test checks that, given the sonata-demo
-        network service, SLM correctly generates the expected message for the monitoring module.
+        SLM should generate a message for the monitoring
+        module in order to start the monitoring process
+        to the deployed network service. This message is
+        generated from the information existing in NSD,
+        VNFDs, NSRs and VNFs. The test checks that, given
+        the sonata-demo network service, SLM correctly
+        generates the expected message for the monitoring
+        module.
         """
 
         #STEP1: create NSD and VNFD by reading test descriptors.
@@ -698,28 +712,24 @@ class testSlmFunctionality(unittest.TestCase):
     def testNsrCreation(self):
 
         """
-        Once the Infrastructure Adapter has deployed the network service, it would build the entire NSR from the information
-        provided by the Infrastructure Adapter. This test checks that, given the sonata-demo network service, the IA is able
+        Once the Infrastructure Adapter has deployed the network
+        service, it would build the entire NSR from the information
+        provided by the Infrastructure Adapter. This test checks
+        that, given the sonata-demo network service, the IA is able
         to build the correct NSR.
         """
 
         #STEP1: create NSD and VNFD by reading test descriptors.
         gk_request = yaml.load(self.createGkNewServiceRequestMessage())
 
-        #STEP2: add ids to NSD and VNFDs (the ones used in the expected message)
-        gk_request['NSD']['uuid'] = '005606ed-be7d-4ce3-983c-847039e3a5a2'
-        gk_request['VNFD1']['uuid'] = '24f89c1a-1259-4a1f-b0fd-c3ae99a4b626'
-        gk_request['VNFD2']['uuid'] = '38a6b069-f413-4415-8bbe-b00fb8b200e7'
-        gk_request['VNFD3']['uuid'] = 'e290f165-5ac0-422f-9c29-3e595b38f6c8'
-
-        #STEP3: read IA response and the expected NSR
+        #STEP2: read IA response and the expected NSR
         ia_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml','r'))
         expected_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-nsr.yml','r'))
 
-        #STEP4: call real method
+        #STEP3: call real method
         message = tools.build_nsr(gk_request, ia_nsr)
 
-        #STEP5: comprare the generated message is equals to the expected one
+        #STEP4: comprare the generated message is equals to the expected one
         self.assertEqual(message, expected_nsr, "Built NSR is not equal to the expected one")
 
 
@@ -732,13 +742,7 @@ class testSlmFunctionality(unittest.TestCase):
         #STEP1: create NSD and VNFD by reading test descriptors.
         gk_request = yaml.load(self.createGkNewServiceRequestMessage())
 
-        #STEP2: add ids to NSD and VNFDs (the ones used in the expected message)
-        gk_request['NSD']['uuid'] = '005606ed-be7d-4ce3-983c-847039e3a5a2'
-        gk_request['VNFD1']['uuid'] = '24f89c1a-1259-4a1f-b0fd-c3ae99a4b626'
-        gk_request['VNFD2']['uuid'] = '38a6b069-f413-4415-8bbe-b00fb8b200e7'
-        gk_request['VNFD3']['uuid'] = 'e290f165-5ac0-422f-9c29-3e595b38f6c8'
-
-        #STEP3: read IA response and the expected NSR
+        #STEP2: read IA response and the expected NSR
         ia_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml','r'))
         expected_vnfrs = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-vnfrs.yml','r'))
 
