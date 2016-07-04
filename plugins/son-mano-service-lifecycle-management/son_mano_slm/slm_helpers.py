@@ -295,6 +295,7 @@ def build_monitoring_message(gk_request, nsr, vnfrs):
 
         function = {}
 
+
         vnfd = get_vnfd_by_id(gk_request, vnfr['descriptor_reference'])
 
         function['sonata_func_id'] = vnfd['id']
