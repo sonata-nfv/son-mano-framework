@@ -12,6 +12,7 @@ descriptor_version: "1.0"
 vendor: "eu.sonata-nfv.service-descriptor"
 name: "sonata-demo"
 version: "0.2"
+uuid: "005606ed-be7d-4ce3-983c-847039e3a5a2"
 author: "Michael Bredel, NEC Labs Europe"
 description: >
   "The network service descriptor for the SONATA demo,
