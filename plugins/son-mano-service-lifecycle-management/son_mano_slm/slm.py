@@ -301,7 +301,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
 
         request = tools.build_message_for_IA(self.service_requests_being_handled[correlation_id])
-        LOG.info('Request message for IA built: ' + json.dumps(request, indent=4))
+        LOG.info('Request message for IA built: ' + yaml.dump(request))
         #In the service_requests_being_handled dictionary, we replace the old corr_id with the new one, to be able to keep track of the request
         new_corr_id, self.service_requests_being_handled = tools.replace_old_corr_id_by_new(self.service_requests_being_handled, correlation_id)
         LOG.info('Contacting the IA on infrastructure.service.deploy.')
@@ -328,7 +328,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         message_for_gk['error'] = {}
         message_for_gk['vnfrs'] = []
 
-        if msg['request_status'][:6] == 'normal':
+        if msg['request_status'][:8] == 'DEPLOYED':
             nsr = tools.build_nsr(self.service_requests_being_handled[properties.correlation_id], msg)
             LOG.info('nsr built: ' + str(nsr))
             #Retrieve VNFRs from message and translate
@@ -382,7 +382,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         #Inform the gk of the result.
         LOG.info("inform gk of result of deployment for service with uuid " + self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'])
-        LOG.info(message_for_gk)        
+        LOG.info("Message for gk: " + str(message_for_gk))        
         self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(message_for_gk), correlation_id=self.service_requests_being_handled[properties.correlation_id]['original_corr_id'])
         #Delete service request from handling dictionary, as handling is completed.
         self.service_requests_being_handled.pop(properties.correlation_id, None)

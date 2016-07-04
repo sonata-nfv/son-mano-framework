@@ -1,6 +1,6 @@
 - descriptor_version: vnfr-schema-01
   id: 645db4fa-a714-4cba-9617-4001477d0000
-  version: '0.2'
+  version: '1'
   status: offline
   descriptor_reference_vendor: "eu.sonata-nfv"
   descriptor_reference_name: "iperf-vnf"
@@ -55,7 +55,7 @@
       - output
 - descriptor_version: vnfr-schema-01
   id: 6a15313f-cb0a-4540-baa2-77cc6b3f0000
-  version: '0.2'
+  version: '1'
   status: offline
   descriptor_reference_vendor: "eu.sonata-nfv"
   descriptor_reference_name: "firewall-vnf"
@@ -118,7 +118,7 @@
     type: interface
 - descriptor_version: vnfr-schema-01
   id: 8a0aa837-ec1c-44e5-9907-898f64010000
-  version: '0.2'
+  version: '1'
   status: offline
   descriptor_reference_vendor: "eu.sonata-nfv"
   descriptor_reference_name: "tcpdump-vnf"

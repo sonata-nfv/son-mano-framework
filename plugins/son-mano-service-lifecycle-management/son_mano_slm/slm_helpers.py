@@ -62,8 +62,8 @@ def build_nsr(gk_request, ia_payload):
     nsr['descriptor_version'] = 'nsr-schema-01'
     nsr['id'] = ia_payload['nsr']['id']
     nsr['status'] = ia_payload['nsr']['status']
-    # same version as NSD for consistency, so we can relate each other
-    nsr['version'] = gk_request['NSD']['version']
+    #Building the nsr makes it the first version of this nsr
+    nsr['version'] = '1'
     nsr['descriptor_reference'] = gk_request['NSD']['uuid']
 
     if 'instanceVimUuid' in ia_payload:
@@ -147,7 +147,8 @@ def build_vnfrs(gk_request, ia_vnfrs):
         ## vnfd base fields
         vnfr['descriptor_version'] = ia_vnfr['descriptor_version']
         vnfr['id'] = ia_vnfr['id']
-        vnfr['version'] = vnfd['version']
+	#Building the vnfr makes it the first version of this vnfr.
+        vnfr['version'] = '1'
         vnfr['status'] = ia_vnfr['status']
         vnfr['descriptor_reference_vendor'] = ia_vnfr['descriptor_reference_vendor']
         vnfr['descriptor_reference_name'] = ia_vnfr['descriptor_reference_name']
