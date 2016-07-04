@@ -260,11 +260,12 @@ def build_monitoring_message(gk_request, nsr, vnfrs):
 
         return None
 
-    def get_vnfd_by_id(gk_request, id):
+    def get_vnfd_by_id(gk_request, vnfd_reference):
         for key in gk_request.keys():
             if key[:4] == 'VNFD':
-                if gk_request[key]['id'] == id:
+                if gk_request[key]['uuid'] == vnfd_reference:
                     return gk_request[key]
+
         return None
 
     message = {}
@@ -294,7 +295,6 @@ def build_monitoring_message(gk_request, nsr, vnfrs):
     for vnfr in vnfrs:
 
         function = {}
-
 
         vnfd = get_vnfd_by_id(gk_request, vnfr['descriptor_reference'])
 
