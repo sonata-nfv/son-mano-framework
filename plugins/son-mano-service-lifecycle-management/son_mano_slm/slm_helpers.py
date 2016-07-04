@@ -260,12 +260,10 @@ def build_monitoring_message(gk_request, nsr, vnfrs):
 
         return None
 
-    def get_vnfd_by_trio(gk_request, vnfd_vendor, vnfd_name, vnfd_version):
+    def get_vnfd_by_id(gk_request, vnfd_reference):
         for key in gk_request.keys():
             if key[:4] == 'VNFD':
-                if gk_request[key]['vendor'] == vnfd_vendor and gk_request[key]['name'] == vnfd_name and gk_request[key]['version'] == vnfd_version:
-                    return gk_request[key]
-
+                if gk_request[key]['uuid'] == vnfd_reference:
         return None
 
     message = {}
@@ -296,7 +294,7 @@ def build_monitoring_message(gk_request, nsr, vnfrs):
 
         function = {}
 
-        vnfd = get_vnfd_by_trio(gk_request, vnfr['descriptor_reference_vendor'], vnfr['descriptor_reference_name'], vnfr['descriptor_reference_version'])
+        vnfd = get_vnfd_by_id(gk_request, vnfr['descriptor_reference'])
 
         function['sonata_func_id'] = vnfd['id']
         function['name'] = vnfd['name']
