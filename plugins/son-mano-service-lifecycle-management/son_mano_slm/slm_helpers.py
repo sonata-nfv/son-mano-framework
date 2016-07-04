@@ -264,6 +264,8 @@ def build_monitoring_message(gk_request, nsr, vnfrs):
         for key in gk_request.keys():
             if key[:4] == 'VNFD':
                 if gk_request[key]['uuid'] == vnfd_reference:
+                    return gk_request[key]
+        
         return None
 
     message = {}
