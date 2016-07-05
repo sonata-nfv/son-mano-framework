@@ -91,7 +91,7 @@ def build_nsr(gk_request, ia_payload):
         for virtual_link in gk_request['NSD']['virtual_links']:
             vlink = {}
             vlink['id'] = virtual_link['id']
-            vlink['connection_type'] = virtual_link['connectivity_type']
+            vlink['connectivity_type'] = virtual_link['connectivity_type']
             vlink['connection_points_reference'] = virtual_link['connection_points_reference']
             nsr['virtual_links'].append(vlink)
 
@@ -141,19 +141,16 @@ def build_vnfrs(gk_request, ia_vnfrs):
     """
     vnfrs = []
     for ia_vnfr in ia_vnfrs:
-        vnfd = get_vnfd_by_trio(gk_request, ia_vnfr['descriptor_reference_name'], ia_vnfr['descriptor_reference_vendor'], ia_vnfr['descriptor_reference_version'])
+        vnfd = get_vnfd_by_reference(gk_request, ia_vnfr['descriptor_reference'])
 
         vnfr = {}
         ## vnfd base fields
         vnfr['descriptor_version'] = ia_vnfr['descriptor_version']
         vnfr['id'] = ia_vnfr['id']
-	#Building the vnfr makes it the first version of this vnfr.
+        #Building the vnfr makes it the first version of this vnfr.
         vnfr['version'] = '1'
         vnfr['status'] = ia_vnfr['status']
-        vnfr['descriptor_reference_vendor'] = ia_vnfr['descriptor_reference_vendor']
-        vnfr['descriptor_reference_name'] = ia_vnfr['descriptor_reference_name']
-        vnfr['descriptor_reference_version'] = ia_vnfr['descriptor_reference_version']
-
+        vnfr['descriptor_reference'] = ia_vnfr['descriptor_reference']
 
         ## deployment flavour
         if 'deployment_flavour' in ia_vnfr:
@@ -223,23 +220,23 @@ def get_vnfd_vdu_by_reference(vnfd, vdu_reference):
     return None
 
 
-
-def get_vnfd_by_trio(gk_request, vnfd_name, vnfd_vendor, vnfd_version):
+def get_vnfd_by_reference(gk_request, vnfd_reference):
 
     for key in gk_request.keys():
         if key[:4] == 'VNFD':
             vnfd = gk_request[key]
-            if vnfd['name'] == vnfd_name and vnfd['vendor'] == vnfd_vendor and vnfd['version'] == vnfd_version:
+            if vnfd['uuid'] == vnfd_reference:
                 return vnfd
 
     return None
+
 
 def build_monitoring_message(gk_request, nsr, vnfrs):
 
     # This method searches inside the VNFRs for the VDU that makes reference to a specific VDU of a VNFD.
     def get_matching_vdu(vnfrs, vnfd, vdu):
         for vnfr in vnfrs:
-            if vnfr['descriptor_reference'] == vnfd['id']:
+            if vnfr['descriptor_reference'] == vnfd['uuid']:
                 for nsr_vdu in vnfr['virtual_deployment_units']:
                     if vdu['id'] in nsr_vdu['vdu_reference']:
                         return nsr_vdu
@@ -263,12 +260,12 @@ def build_monitoring_message(gk_request, nsr, vnfrs):
 
         return None
 
-    def get_vnfd_by_trio(gk_request, vnfd_vendor, vnfd_name, vnfd_version):
+    def get_vnfd_by_id(gk_request, vnfd_reference):
         for key in gk_request.keys():
             if key[:4] == 'VNFD':
-                if gk_request[key]['vendor'] == vnfd_vendor and gk_request[key]['name'] == vnfd_name and gk_request[key]['version'] == vnfd_version:
+                if gk_request[key]['uuid'] == vnfd_reference:
                     return gk_request[key]
-
+        
         return None
 
     message = {}
@@ -299,7 +296,7 @@ def build_monitoring_message(gk_request, nsr, vnfrs):
 
         function = {}
 
-        vnfd = get_vnfd_by_trio(gk_request, vnfr['descriptor_reference_vendor'], vnfr['descriptor_reference_name'], vnfr['descriptor_reference_version'])
+        vnfd = get_vnfd_by_id(gk_request, vnfr['descriptor_reference'])
 
         function['sonata_func_id'] = vnfd['id']
         function['name'] = vnfd['name']

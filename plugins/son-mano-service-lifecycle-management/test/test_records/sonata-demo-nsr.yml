@@ -11,11 +11,11 @@ network_functions:
   - vnfr_id: 8a0aa837-ec1c-44e5-9907-898f64010000
 connection_points:
   - id: "ns:mgmt"
-    type: interface
+    type: interfaces
   - id: "ns:input"
-    type: interface
+    type: interfaces
   - id: "ns:output"
-    type: interface
+    type: interfaces
 
 forwarding_graphs:
   - constituent_virtual_links:
@@ -58,25 +58,25 @@ virtual_links:
       - "vnf_firewall:mgmt"
       - "vnf_tcpdump:mgmt"
       - "ns:mgmt"
-    connection_type: E-LAN
+    connectivity_type: E-LAN
     id: mgmt
   - connection_points_reference:
       - "ns:input"
       - "vnf_iperf:input"
-    connection_type: E-Line
+    connectivity_type: E-Line
     id: input-2-iperf
   - connection_points_reference:
       - "vnf_iperf:output"
       - "vnf_firewall:input"
-    connection_type: E-Line
+    connectivity_type: E-Line
     id: iperf-2-firewall
   - connection_points_reference:
       - "vnf_firewall:output"
       - "vnf_tcpdump:input"
-    connection_type: E-Line
+    connectivity_type: E-Line
     id: firewall-2-tcpdump
   - connection_points_reference:
       - "vnf_firewall:output"
       - "ns:output"
-    connection_type: E-Line
+    connectivity_type: E-Line
     id: tcpdump-2-output
