@@ -35,11 +35,11 @@ virtual_deployment_units:
         size_unit: "GB"
     connection_points:
       - id: "vdu01:cp01"
-        type: "interfaces"
+        type: "interface"
       - id: "vdu01:cp02"
-        type: "interfaces"
+        type: "interface"
       - id: "vdu01:cp03"
-        type: "interfaces"
+        type: "interface"
 
 ##
 ## The virtual links that interconnect
@@ -68,8 +68,8 @@ virtual_links:
 ##
 connection_points:
   - id: "mgmt"
-    type: "interfaces"
+    type: "interface"
   - id: "input"
-    type: "interfaces"
+    type: "interface"
   - id: "output"
-    type: "interfaces"
+    type: "interface"

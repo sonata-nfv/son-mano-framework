@@ -20,21 +20,21 @@
     vnfc_instance:
     - connection_points:
       - id: 'vdu01:cp01'
-        type: interfaces
+        type: interface
       - id: 'vdu01:cp02'
-        type: interfaces
+        type: interface
       - id: 'vdu01:cp03'
-        type: interfaces
+        type: interface
       id: b04f
       vc_id: 768fdd67-d6fe-4053-bf5e-ff2291ece261
       vim_id: 798014b5-e864-4678-a313-485523c04543
   connection_points:
   - id: mgmt
-    type: interfaces
+    type: interface
   - id: input
-    type: interfaces
+    type: interface
   - id: output
-    type: interfaces
+    type: interface
   virtual_links:
   - id: mgmt
     connectivity_type: E-LAN
@@ -82,11 +82,11 @@
     vnfc_instance:
     - connection_points:
       - id: 'vdu01:cp01'
-        type: interfaces
+        type: interface
       - id: 'vdu01:cp02'
-        type: interfaces
+        type: interface
       - id: 'vdu01:cp03'
-        type: interfaces
+        type: interface
       id: c3c9
       vc_id: fc643554-bfd7-4b55-9c26-c78a16abb9b8
       vim_id: 798014b5-e864-4678-a313-485523c04543
@@ -107,11 +107,11 @@
     connection_points_reference: ['vdu01:eth2', output]
   connection_points:
   - id: mgmt
-    type: interfaces
+    type: interface
   - id: input
-    type: interfaces
+    type: interface
   - id: output
-    type: interfaces
+    type: interface
 - descriptor_version: vnfr-schema-01
   id: 8a0aa837-ec1c-44e5-9907-898f64010000
   version: '1'
@@ -119,11 +119,11 @@
   descriptor_reference: 8a0aa837-ec1c-44e5-9907-898f6401c3ae
   connection_points:
   - id: mgmt
-    type: interfaces
+    type: interface
   - id: input
-    type: interfaces
+    type: interface
   - id: output
-    type: interfaces
+    type: interface
   virtual_deployment_units:
   - id: 87d7d350-7c23-4e66-ab46-5060dcfb5b6c
     number_of_instances: 1
@@ -141,11 +141,11 @@
     vnfc_instance:
     - connection_points:
       - id: 'vdu01:cp01'
-        type: interfaces
+        type: interface
       - id: 'vdu01:cp02'
-        type: interfaces
+        type: interface
       - id: 'vdu01:cp03'
-        type: interfaces
+        type: interface
       id: 6ca3
       vc_id: dce7d2c8-e149-48ca-a839-c0807e90524f
       vim_id: 798014b5-e864-4678-a313-485523c04543

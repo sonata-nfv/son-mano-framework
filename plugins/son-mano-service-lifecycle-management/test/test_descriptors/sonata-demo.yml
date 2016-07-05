@@ -42,11 +42,11 @@ network_functions:
 ##
 connection_points:
   - id: "ns:mgmt"
-    type: "interfaces"
+    type: "interface"
   - id: "ns:input"
-    type: "interfaces"
+    type: "interface"
   - id: "ns:output"
-    type: "interfaces"
+    type: "interface"
 
 ##
 ## The virtual links that interconnect

@@ -66,8 +66,10 @@ def build_nsr(gk_request, ia_payload):
     nsr['version'] = '1'
     nsr['descriptor_reference'] = gk_request['NSD']['uuid']
 
-    if 'instanceVimUuid' in ia_payload:
-        nsr['instanceVimUuid'] = ia_payload['instanceVimUuid']
+    #Future functionality
+#    if 'instanceVimUuid' in ia_payload:
+#        nsr['instanceVimUuid'] = ia_payload['instanceVimUuid']
+
     ## network functions
     if 'vnfrs' in ia_payload.keys():
         nsr['network_functions'] = []
@@ -210,7 +212,6 @@ def build_vnfrs(gk_request, ia_vnfrs):
 
     return vnfrs
 
-
 def get_vnfd_vdu_by_reference(vnfd, vdu_reference):
     ## TODO can we do it with functional programming?
     if 'virtual_deployment_units' in vnfd:
@@ -218,7 +219,6 @@ def get_vnfd_vdu_by_reference(vnfd, vdu_reference):
             if vnfd_vdu['id'] in vdu_reference:
                 return vnfd_vdu
     return None
-
 
 def get_vnfd_by_reference(gk_request, vnfd_reference):
 
@@ -230,8 +230,7 @@ def get_vnfd_by_reference(gk_request, vnfd_reference):
 
     return None
 
-
-def build_monitoring_message(gk_request, nsr, vnfrs):
+def build_monitoring_message(gk_request, message_from_ia, nsr, vnfrs):
 
     # This method searches inside the VNFRs for the VDU that makes reference to a specific VDU of a VNFD.
     def get_matching_vdu(vnfrs, vnfd, vdu):
@@ -277,7 +276,7 @@ def build_monitoring_message(gk_request, nsr, vnfrs):
     service['sonata_srv_id'] = nsd['id']
     service['name'] = nsd['name']
     service['description'] = nsd['description']
-    service['host_id'] = nsr['instanceVimUuid']
+    service['host_id'] = message_from_ia['instanceVimUuid']
     # TODO add pop_id and sonata_usr_id
     service['pop_id'] = None
     service['sonata_usr_id'] = None
