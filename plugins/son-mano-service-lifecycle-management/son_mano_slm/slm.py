@@ -310,7 +310,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
 
         request = tools.build_message_for_IA(self.service_requests_being_handled[correlation_id])
-        LOG.info('Request message for IA built: ' + yaml.dump(request))
+        LOG.info('Request message for IA built: ' + yaml.dump(request, indent=4))
         #In the service_requests_being_handled dictionary, we replace the old corr_id with the new one, to be able to keep track of the request
         new_corr_id, self.service_requests_being_handled = tools.replace_old_corr_id_by_new(self.service_requests_being_handled, correlation_id)
         LOG.info('Contacting the IA on infrastructure.service.deploy.')
@@ -339,10 +339,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         if msg['request_status'][:8] == 'DEPLOYED':
             nsr = tools.build_nsr(self.service_requests_being_handled[properties.correlation_id], msg)
-            LOG.info('nsr built: ' + yaml.dump(nsr))
+            LOG.info('nsr built: ' + yaml.dump(nsr, indent=4))
             #Retrieve VNFRs from message and translate
             vnfrs = tools.build_vnfrs(self.service_requests_being_handled[properties.correlation_id], msg['vnfrs'])
-            LOG.info('vnfrs built: ' + yaml.dump(vnfr))
+            LOG.info('vnfrs built: ' + yaml.dump(vnfrs, indent=4))
             ## Store vnfrs in the repository and add vnfr ids to nsr if it is not already present
             for vnfr in vnfrs:
                 #Store the message, catch exception when time-out occurs
