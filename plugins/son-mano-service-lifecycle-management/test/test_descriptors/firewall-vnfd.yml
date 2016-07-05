@@ -43,11 +43,11 @@ virtual_deployment_units:
         unit: "Mbps"
     connection_points:
       - id: "vdu01:eth0"
-        type: "interfaces"
+        type: "interface"
       - id: "vdu01:eth1"
-        type: "interfaces"
+        type: "interface"
       - id: "vdu01:eth2"
-        type: "interfaces"
+        type: "interface"
 
 ##
 ## The virtual links that interconnect
@@ -79,11 +79,11 @@ virtual_links:
 ##
 connection_points:
   - id: "mgmt"
-    type: "interfaces"
+    type: "interface"
   - id: "input"
-    type: "interfaces"
+    type: "interface"
   - id: "output"
-    type: "interfaces"
+    type: "interface"
 
 ##
 ## The monitoring rules that react
