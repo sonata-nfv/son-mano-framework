@@ -91,7 +91,7 @@ def build_nsr(gk_request, ia_payload):
         for virtual_link in gk_request['NSD']['virtual_links']:
             vlink = {}
             vlink['id'] = virtual_link['id']
-            vlink['connection_type'] = virtual_link['connectivity_type']
+            vlink['connectivity_type'] = virtual_link['connectivity_type']
             vlink['connection_points_reference'] = virtual_link['connection_points_reference']
             nsr['virtual_links'].append(vlink)
 
