@@ -4,7 +4,7 @@
   status: offline
   descriptor_reference: 645db4fa-a714-4cba-9617-4001477d1281
   virtual_deployment_units:
-  - id: 7a781b79-9513-499b-9794-a529f32cfc74
+  - id: vdu01
     number_of_instances: 1
     resource_requirements:
       cpu:
@@ -16,18 +16,23 @@
         size: 10
         size_unit: GB
     vdu_reference: iperf-vnf:vdu01
-    vm_image: sonata_firewall_VM
+    vm_image: TestVM
     vnfc_instance:
     - connection_points:
       - id: 'vdu01:cp01'
-        type: interface
+        type:
+          address: "10.31.12.124"
       - id: 'vdu01:cp02'
-        type: interface
+        type:
+          address: "172.0.3.98"
+          netmask: "255.255.255.248"
       - id: 'vdu01:cp03'
-        type: interface
-      id: b04f
-      vc_id: 768fdd67-d6fe-4053-bf5e-ff2291ece261
-      vim_id: 798014b5-e864-4678-a313-485523c04543
+        type:
+          address: "172.0.3.106"
+          netmask: "255.255.255.248"
+      id: 9df6a98f-9e11-4cb7-b3c0-InAdUnitTest-02
+      vc_id: 1772a2ce-3bbb-4dca-b39d-42980bd7bc1c
+      vim_id: 5b780368-0f66-4c7a-8c10-4b7213100605
   connection_points:
   - id: mgmt
     type: interface
@@ -57,7 +62,7 @@
   status: offline
   descriptor_reference: 6a15313f-cb0a-4540-baa2-77cc6b3f5b68
   virtual_deployment_units:
-  - id: 06325809-aec7-4aa7-8b20-4758c706af8d
+  - id: vdu01
     monitoring_parameters:
     - name: vm_cpu_perc
       unit: Percentage
@@ -78,18 +83,23 @@
         size: 10
         size_unit: GB
     vdu_reference: firewall-vnf:vdu01
-    vm_image: sonata_firewall_VM
+    vm_image: TestVM
     vnfc_instance:
     - connection_points:
       - id: 'vdu01:cp01'
-        type: interface
+        type:
+          address: "10.31.12.125"
       - id: 'vdu01:cp02'
-        type: interface
+        type:
+          address: "172.0.3.114"
+          netmask: "255.255.255.248"
       - id: 'vdu01:cp03'
-        type: interface
-      id: c3c9
-      vc_id: fc643554-bfd7-4b55-9c26-c78a16abb9b8
-      vim_id: 798014b5-e864-4678-a313-485523c04543
+        type:
+          address: "172.0.3.122"
+          netmask: "255.255.255.248"
+      id: 9df6a98f-9e11-4cb7-b3c0-InAdUnitTest-02
+      vc_id: 0cd43432-f6ea-49ab-8d36-6f025f4b8e67
+      vim_id: 5b780368-0f66-4c7a-8c10-4b7213100605
   virtual_links:
   - id: mgmt
     connectivity_type: E-LAN
@@ -125,7 +135,7 @@
   - id: output
     type: interface
   virtual_deployment_units:
-  - id: 87d7d350-7c23-4e66-ab46-5060dcfb5b6c
+  - id: vdu01
     number_of_instances: 1
     resource_requirements:
       cpu:
@@ -137,18 +147,23 @@
         size: 10
         size_unit: GB
     vdu_reference: tcpdump-vnf:vdu01
-    vm_image: sonata_firewall_VM
+    vm_image: TestVM
     vnfc_instance:
     - connection_points:
       - id: 'vdu01:cp01'
-        type: interface
+        type:
+          address: "10.31.12.126"
       - id: 'vdu01:cp02'
-        type: interface
+        type:
+          address: "172.0.3.131"
+          netmask: "255.255.255.248"
       - id: 'vdu01:cp03'
-        type: interface
-      id: 6ca3
-      vc_id: dce7d2c8-e149-48ca-a839-c0807e90524f
-      vim_id: 798014b5-e864-4678-a313-485523c04543
+        type:
+          address: "172.0.3.138"
+          netmask: "255.255.255.248"
+      id: 9df6a98f-9e11-4cb7-b3c0-InAdUnitTest-02
+      vc_id: dc62df11-18e8-45b5-a869-e3828b9e93fe
+      vim_id: 5b780368-0f66-4c7a-8c10-4b7213100605
   virtual_links:
   - id: mgmt
     connectivity_type: E-LAN
