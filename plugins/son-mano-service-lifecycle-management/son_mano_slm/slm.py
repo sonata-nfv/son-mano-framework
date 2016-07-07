@@ -379,7 +379,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             #TODO: Build try/except around this
             LOG.info('nsr and vnfrs stored in Repositories, starting montitoring process.')
             monitoring_message = tools.build_monitoring_message(self.service_requests_being_handled[properties.correlation_id], msg, nsr, vnfrs)
-            LOG.info('Monitoring message built: ' + yaml.dump(monitoring_message), ident=4)
+            LOG.info('Monitoring message built: ' + yaml.dump(monitoring_message, indent=4))
             monitoring_response = requests.post(MONITORING_REPOSITORY_URL + 'service/new', data=json.dumps(monitoring_message), headers={'Content-Type':'application/json'}, timeout=10.0)
             LOG.info('Monitoring response: ' + str(monitoring_response))
             monitoring_json = monitoring_response.json()
