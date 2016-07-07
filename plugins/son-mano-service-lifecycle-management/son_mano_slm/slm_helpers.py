@@ -273,7 +273,7 @@ def build_monitoring_message(gk_request, message_from_ia, nsr, vnfrs):
     nsd = gk_request['NSD']
 
     # add nsd fields
-    service['sonata_srv_id'] = nsd['uuid']
+    service['sonata_srv_id'] = nsr['id']
     service['name'] = nsd['name']
     service['description'] = nsd['description']
     service['host_id'] = message_from_ia['instanceVimUuid']
@@ -297,7 +297,7 @@ def build_monitoring_message(gk_request, message_from_ia, nsr, vnfrs):
 
         vnfd = get_vnfd_by_id(gk_request, vnfr['descriptor_reference'])
 
-        function['sonata_func_id'] = vnfd['uuid']
+        function['sonata_func_id'] = vnfr['id']
         function['name'] = vnfd['name']
         function['description'] = vnfd['description']
         function['pop_id'] = ""
