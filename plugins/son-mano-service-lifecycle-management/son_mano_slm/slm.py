@@ -375,13 +375,17 @@ class ServiceLifecycleManager(ManoBasePlugin):
             except:
                 message_for_gk['error']['nsr'] = {'http_code':'0', 'message':'Timeout when contacting server'}
             
-            if message_for_gk['error'] == {}:
-                #TODO: Build try/except around this
-                monitoring_message = tools.build_monitoring_message(self.service_requests_being_handled[properties.correlation_id], msg, nsr, vnfrs)
-                monitoring_response = requests.post(MONITORING_REPOSITORY_URL + 'service/new', data=json.dumps(monitoring_message), headers={'Content-Type':'application/json'}, timeout=10.0)
-                monitoring_json = monitoring_response.json()
-                if ('status' not in monitoring_json.keys()) or (monitoring_json['status'] != 'success'):
-                    message_for_gk['error']['monitoring'] = monitoring_json
+            #TODO: put this in an if clause, so it is only done when nsr and vnfrs are accepted by repository.
+            #TODO: Build try/except around this
+            LOG.info('nsr and vnfrs stored in Repositories, starting montitoring process.')
+            monitoring_message = tools.build_monitoring_message(self.service_requests_being_handled[properties.correlation_id], msg, nsr, vnfrs)
+            LOG.info('Monitoring message built: ' + yaml.dump(monitoring_message), ident=4)
+            monitoring_response = requests.post(MONITORING_REPOSITORY_URL + 'service/new', data=json.dumps(monitoring_message), headers={'Content-Type':'application/json'}, timeout=10.0)
+            LOG.info('Monitoring response: ' + str(monitoring_response))
+            monitoring_json = monitoring_response.json()
+            LOG.info('Monitoring json: ' + yaml.dump(monitoring_json))
+            if ('status' not in monitoring_json.keys()) or (monitoring_json['status'] != 'success'):
+                message_for_gk['error']['monitoring'] = monitoring_json
                     
             if message_for_gk['error'] == {}:
                 message_for_gk['status'] = 'READY'
