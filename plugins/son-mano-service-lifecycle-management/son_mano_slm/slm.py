@@ -368,19 +368,21 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 nsr_response = requests.post(NSR_REPOSITORY_URL + 'ns-instances', data=json.dumps(nsr), headers={'Content-Type':'application/json'}, timeout=10.0)
                 if (nsr_response.status_code == 200):
                     LOG.info('repo response for nsr: ' + str(nsr_response))
-
-                    monitoring_message = tools.build_monitoring_message(self.service_requests_being_handled[properties.correlation_id], msg, nsr, vnfrs)
-                    monitoring_response = requests.post(MONITORING_REPOSITORY_URL + 'service/new', data=json.dumps(monitoring_message), headers={'Content-Type':'application/json'}, timeout=10.0)
-                    monitoring_json = monitoring_response.json()
-                    if ('status' not in monitoring_json.keys()) or (monitoring_json['status'] != 'success'):
-                        message_for_gk['error']['monitoring'] = monitoring_json
-
                     message_for_gk['nsr'] = nsr
+
                 else:
                     message_for_gk['error']['nsr'] = {'http_code':nsr_response.status_code, 'message':nsr_response.json()}
             except:
                 message_for_gk['error']['nsr'] = {'http_code':'0', 'message':'Timeout when contacting server'}
             
+            if message_for_gk['error'] == {}:
+                #TODO: Build try/except around this
+                monitoring_message = tools.build_monitoring_message(self.service_requests_being_handled[properties.correlation_id], msg, nsr, vnfrs)
+                monitoring_response = requests.post(MONITORING_REPOSITORY_URL + 'service/new', data=json.dumps(monitoring_message), headers={'Content-Type':'application/json'}, timeout=10.0)
+                monitoring_json = monitoring_response.json()
+                if ('status' not in monitoring_json.keys()) or (monitoring_json['status'] != 'success'):
+                    message_for_gk['error']['monitoring'] = monitoring_json
+                    
             if message_for_gk['error'] == {}:
                 message_for_gk['status'] = 'READY'
                 message_for_gk['error'] = None
