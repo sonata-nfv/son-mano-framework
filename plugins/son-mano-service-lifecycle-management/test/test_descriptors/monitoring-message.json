@@ -9,7 +9,7 @@
    },
    "functions":[
       {
-         "sonata_func_id":"38a6b069-f413-4415-8bbe-b00fb8b200e7",
+         "sonata_func_id":"645db4fa-a714-4cba-9617-4001477d1281",
          "host_id":"1772a2ce-3bbb-4dca-b39d-42980bd7bc1c",
          "pop_id":"",
          "name":"iperf-vnf",
@@ -19,7 +19,7 @@
          "description":"\"A first firewall VNF descriptor\"\n",
          "host_id":"0cd43432-f6ea-49ab-8d36-6f025f4b8e67",
          "name":"firewall-vnf",
-         "sonata_func_id":"24f89c1a-1259-4a1f-b0fd-c3ae99a4b626",
+         "sonata_func_id":"6a15313f-cb0a-4540-baa2-77cc6b3f5b68",
          "metrics":[
             {
                "cmd":null,
@@ -57,7 +57,7 @@
          "pop_id":""
       },
       {
-         "sonata_func_id":"e290f165-5ac0-422f-9c29-3e595b38f6c8",
+         "sonata_func_id":"8a0aa837-ec1c-44e5-9907-898f6401c3ae",
          "host_id":"dc62df11-18e8-45b5-a869-e3828b9e93fe",
          "pop_id":"",
          "name":"tcpdump-vnf",
