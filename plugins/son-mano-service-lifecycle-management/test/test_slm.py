@@ -673,10 +673,10 @@ class testSlmFunctionality(unittest.TestCase):
         gk_request = yaml.load(self.createGkNewServiceRequestMessage())
 
         #STEP2: add ids to NSD and VNFDs (the ones used in the expected message)
-        gk_request['NSD']['id'] = '005606ed-be7d-4ce3-983c-847039e3a5a2'
-        gk_request['VNFD1']['id'] = '24f89c1a-1259-4a1f-b0fd-c3ae99a4b626'
-        gk_request['VNFD2']['id'] = '38a6b069-f413-4415-8bbe-b00fb8b200e7'
-        gk_request['VNFD3']['id'] = 'e290f165-5ac0-422f-9c29-3e595b38f6c8'
+        gk_request['NSD']['uuid'] = '005606ed-be7d-4ce3-983c-847039e3a5a2'
+        gk_request['VNFD1']['uuid'] = '6a15313f-cb0a-4540-baa2-77cc6b3f5b68'
+        gk_request['VNFD2']['uuid'] = '645db4fa-a714-4cba-9617-4001477d1281'
+        gk_request['VNFD3']['uuid'] = '8a0aa837-ec1c-44e5-9907-898f6401c3ae'
 
         #STEP3: load nsr_file, containing both NSR and the list of VNFRs
         message_from_ia = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml','r'))
