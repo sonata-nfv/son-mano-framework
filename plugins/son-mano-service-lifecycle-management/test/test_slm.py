@@ -113,15 +113,14 @@ class testSlmRegistrationAndHeartbeat(unittest.TestCase):
 
         self.wait_for_event.clear()
 
-        # TODO: deactivated (seems to break local tests)
-        #STEP4: Wait until the heartbeat message is received. TODO: What is the time window?
-        #self.waitForEvent(timeout=30, msg="No heartbeat received")
+        #STEP4: Wait until the heartbeat message is received.
 
     def testSlmRegistration(self):
         """
         TEST: This test verifies whether the SLM is sending out a message,
-        and whether it contains all the needed info on the platform.management.plugin.register
-        topic to register to the plugin manager.
+        and whether it contains all the needed info on the
+        platform.management.plugin.register topic to register to the plugin
+        manager.
         """
 
         #STEP3a: When receiving the message, we need to check whether all fields present. TODO: check properties
@@ -228,7 +227,7 @@ class testSlmFunctionality(unittest.TestCase):
 
     def setUp(self):
         def on_register_trigger(ch, method, properties, message):
-            return json.dumps({'status':'OK', 'uuid': self.uuid})
+            return json.dumps({'status': 'OK', 'uuid': self.uuid})
 
         #Generate a new corr_id for every test
         self.corr_id = str(uuid.uuid4())
@@ -271,7 +270,8 @@ class testSlmFunctionality(unittest.TestCase):
     def createGkNewServiceRequestMessage(self, correctlyFormatted=True):
         """
         This method helps creating messages for the service request packets.
-        If it needs to be wrongly formatted, the nsd part of the request is removed.
+        If it needs to be wrongly formatted, the nsd part of the request is
+        removed.
         """
 
         path_descriptors = '/plugins/son-mano-service-lifecycle-management/test/test_descriptors/'
@@ -281,7 +281,7 @@ class testSlmFunctionality(unittest.TestCase):
         vnfd2_descriptor = open(path_descriptors + 'iperf-vnfd.yml', 'r')
         vnfd3_descriptor = open(path_descriptors + 'tcpdump-vnfd.yml', 'r')
 
-    	#import the nsd and vnfds that form the service	
+        #import the nsd and vnfds that form the service
         if correctlyFormatted:
             service_request = {'NSD': yaml.load(nsd_descriptor), 'VNFD1': yaml.load(vnfd1_descriptor), 'VNFD2': yaml.load(vnfd2_descriptor), 'VNFD3': yaml.load(vnfd3_descriptor)}
         else:
@@ -317,7 +317,8 @@ class testSlmFunctionality(unittest.TestCase):
 #############################################################
     def on_slm_infra_adaptor_vim_list_test1(self, ch, method, properties, message):
         """
-        This method checks what the SLM sends towards the IA when it receives a valid request from the gk.
+        This method checks what the SLM sends towards the IA when it receives a
+        valid request from the gk.
         """
         msg = yaml.load(message)
 
@@ -330,7 +331,8 @@ class testSlmFunctionality(unittest.TestCase):
 
     def on_gk_response_to_correct_service_request(self, ch, method, properties, message):
         """
-        This method checks whether the SLM responds to a correctly formatted new service request it receives from the GK.
+        This method checks whether the SLM responds to a correctly formatted
+        new service request it receives from the GK.
         """
 
         msg = yaml.load(message)
@@ -341,13 +343,17 @@ class testSlmFunctionality(unittest.TestCase):
         self.assertEqual(properties.correlation_id, self.corr_id, msg='response to async call doesnt have the same correlation_id')
 
         self.secondEventFinished()
-    
+
     def testReactionToCorrectlyFormattedServiceRequest(self):
         """
-        If the gk sends a request on the service.instances.create topic that is correctly formatted,
-        then the SLM should respond by doing 2 things:
-            1. Replying with the message {'status':'INSTANTIATING', 'error':NULL, 'timestamp':<timestamp>} with the same correlation_id as the one in the request.
-            2. Requesting the available vims from the IA on the infrastructure.management.compute.list topic with a new correlation_id and an empty body.
+        If the gk sends a request on the service.instances.create topic that is
+        correctly formatted, then the SLM should respond by doing 2 things:
+        1. Replying with the message {'status':'INSTANTIATING',
+            'error':NULL, 'timestamp':<timestamp>} with the same correlation_id
+            as the one in the request.
+        2. Requesting the available vims from the IA on the
+            infrastructure.management.compute.list topic with a new correlation
+            id and an empty body.
         """
 
         self.wait_for_first_event.clear()
@@ -368,9 +374,10 @@ class testSlmFunctionality(unittest.TestCase):
 ###########################################################
     def on_gk_response_to_wrong_service_request(self, ch, method, properties, message):
         """
-        This method checks whether the SLM responds to a wrongly formatted new service request it receives from the GK.
+        This method checks whether the SLM responds to a wrongly formatted new
+        service request it receives from the GK.
         """
-        
+
         msg = yaml.load(message)
         self.assertTrue(isinstance(msg, dict), msg='response to service request is not a dictionary.')
         self.assertEqual(msg['status'], 'ERROR', msg='not correct response, should be ERROR')
@@ -379,11 +386,14 @@ class testSlmFunctionality(unittest.TestCase):
         self.assertEqual(properties.correlation_id, self.corr_id, msg='response to async call doesnt have the same correlation_id')
 
         self.firstEventFinished()
-    
+
     def testReactionToWronglyFormattedServiceRequest(self):
         """
-        If the gk sends a request on the service.instances.create topic that is wrongly formatted, then the SLM should respond by
-        replying with the message {'status':'ERROR', 'error':<error message>, 'timestamp':<timestamp>} with the same correlation_id as the one in the request.
+        If the gk sends a request on the service.instances.create topic that is
+        wrongly formatted, then the SLM should respond by
+        replying with the message {'status':'ERROR', 'error':<error message>,
+        'timestamp':<timestamp>} with the same correlation_id as the one in the
+        request.
         """
 
         self.wait_for_first_event.clear()
@@ -399,16 +409,18 @@ class testSlmFunctionality(unittest.TestCase):
 ###############################################################
     def on_slm_infra_adaptor_vim_list_test3(self, ch, method, properties, message):
         """
-        This method replies to a request of the SLM to the IA to get the VIM-list.
+        This method replies to a request of the SLM to the IA to get the
+        VIM-list.
         """
 
         if properties.app_id == 'son-plugin.ServiceLifecycleManager':
-            VIM_list = [{'vim_uuid':uuid.uuid4().hex},{'vim_uuid':uuid.uuid4().hex},{'vim_uuid':uuid.uuid4().hex}]
+            VIM_list = [{'vim_uuid': uuid.uuid4().hex}, {'vim_uuid': uuid.uuid4().hex}, {'vim_uuid': uuid.uuid4().hex}]
             self.manoconn_ia.notify('infrastructure.management.compute.list', yaml.dump(VIM_list), correlation_id=properties.correlation_id)
 
     def on_slm_infra_adaptor_service_deploy_request_test3(self, ch, method, properties, message):
         """
-        This method checks whether the request from the SLM to the IA to deploy a service is correctly formatted.
+        This method checks whether the request from the SLM to the IA to deploy
+        a service is correctly formatted.
         """
 
         msg = yaml.load(message)
@@ -418,15 +430,17 @@ class testSlmFunctionality(unittest.TestCase):
         self.assertIn('nsd', msg.keys(), msg="nsd is not a key in the dictionary.")
         self.assertIn('vnfds', msg.keys(), msg="vnfds is not a key in the dictionary.")
         self.assertIn('instance_uuid', msg['nsd'].keys(), msg="instance_uuid is not a key in the dictionary.")
-        
+
         for vnfd in msg['vnfds']:
             self.assertIn('instance_uuid', vnfd.keys(), msg='intance_uuid is not a key in the dictionary.')
 
         self.firstEventFinished()
-    
+
     def testReactionToCorrectlyFormattedVimList(self):
         """
-        This method tests the response of the SLM when it receives a valid VIM list. The SLM should choose a VIM out of the list, and request whether it has enough resources to host the service.
+        This method tests the response of the SLM when it receives a valid VIM
+        list. The SLM should choose a VIM out of the list, and request whether
+        it has enough resources to host the service.
         """
 
         self.wait_for_first_event.clear()
@@ -449,7 +463,8 @@ class testSlmFunctionality(unittest.TestCase):
 ###############################################################
     def on_slm_infra_adaptor_vim_list_test4(self, ch, method, properties, message):
         """
-        This method replies to a request of the SLM to the IA to get the VIM-list.
+        This method replies to a request of the SLM to the IA to get the
+        VIM-list.
         """
 
         if properties.app_id == 'son-plugin.ServiceLifecycleManager':
@@ -458,12 +473,13 @@ class testSlmFunctionality(unittest.TestCase):
 
     def on_slm_response_to_gk_with_empty_vim_list(self, ch, method, properties, message):
         """
-        This method checks the content of the message send from SLM to the GK to indicate that there are no vims available.
-        """        
+        This method checks the content of the message send from SLM to the GK
+        to indicate that there are no vims available.
+        """
         msg = yaml.load(message)
 
-        #We don't want to trigger on the first response (the async_call), but only on the second(the notify) and we don't want to trigger on our outgoing message.
-        if properties.app_id == 'son-plugin.ServiceLifecycleManager':        
+        #We don't want to trigger on the first response (the async_call), butonly on the second(the notify) and we don't want to trigger on our outgoing message.
+        if properties.app_id == 'son-plugin.ServiceLifecycleManager':
             if msg['status'] != 'INSTANTIATING':
 
                 self.assertTrue(isinstance(msg, dict), msg='message is not a dictionary.')
@@ -472,10 +488,11 @@ class testSlmFunctionality(unittest.TestCase):
                 self.assertTrue(isinstance(msg['timestamp'], float), msg='timestamp is not a float.')
 
                 self.firstEventFinished()
-    
+
     def testReactionToWronglyFormattedVimList(self):
         """
-        This method tests the response of the SLM when it receives an empty VIM list. The SLM should report back to the gk with an error.
+        This method tests the response of the SLM when it receives an empty VIM
+        list. The SLM should report back to the gk with an error.
         """
 
         self.wait_for_first_event.clear()
@@ -493,12 +510,13 @@ class testSlmFunctionality(unittest.TestCase):
         self.waitForFirstEvent(timeout=10, msg='Wait for message from SLM to IA to request resources timed out.')
 
 
-##################################################################################
+###############################################################################
 #TEST7: Test reaction to negative response on deployment message to/from IA
-##################################################################################
+###############################################################################
     def on_slm_infra_adaptor_vim_list_test7(self, ch, method, properties, message):
         """
-        This method replies to a request of the SLM to the IA to get the VIM-list.
+        This method replies to a request of the SLM to the IA to get the
+        VIM-list.
         """
 
         if properties.app_id == 'son-plugin.ServiceLifecycleManager':
@@ -507,7 +525,8 @@ class testSlmFunctionality(unittest.TestCase):
 
     def on_slm_infra_adaptor_service_deploy_request_test7(self, ch, method, properties, message):
         """
-        This method fakes a message from the IA to the SLM that indicates that the deployment has failed.
+        This method fakes a message from the IA to the SLM that indicates that
+        the deployment has failed.
         """
 
         if properties.app_id == 'son-plugin.ServiceLifecycleManager':
@@ -516,12 +535,13 @@ class testSlmFunctionality(unittest.TestCase):
 
     def on_slm_gk_service_deploy_request_failed(self, ch, method, properties, message):
         """
-        This method checks whether the message from the SLM to the GK to indicate that the deployment failed is correctly formatted.
+        This method checks whether the message from the SLM to the GK to
+        indicate that the deployment failed is correctly formatted.
         """
         msg = yaml.load(message)
 
         #We don't want to trigger on the first response (the async_call), but only on the second(the notify) and we don't want to trigger on our outgoing message.
-        if properties.app_id == 'son-plugin.ServiceLifecycleManager':        
+        if properties.app_id == 'son-plugin.ServiceLifecycleManager':
             if msg['status'] != 'INSTANTIATING':
 
                 self.assertTrue(isinstance(msg, dict), msg='message is not a dictionary.')
@@ -533,9 +553,10 @@ class testSlmFunctionality(unittest.TestCase):
 
     def testReactionToNegativeReplyOnDeploymentFromIA(self):
         """
-        When the SLM contacts the IA to request whether enough resources are available, it gets a response from the IA.
-        If this response indicates that the resources are available, the SLM should requestthe deployment of the service 
-        to the IA.
+        When the SLM contacts the IA to request whether enough resources are
+        available, it gets a response from the IA.
+        If this response indicates that the resources are available, the SLM
+        should requestthe deployment of the service to the IA.
         """
 
         self.wait_for_first_event.clear()
@@ -555,30 +576,32 @@ class testSlmFunctionality(unittest.TestCase):
         #STEP5: Start waiting for the messages that are triggered by this request
         self.waitForFirstEvent(timeout=15, msg='Wait for message from SLM to IA to request deployment timed out.')
 
-##################################################################################
+###############################################################################
 #TEST8: Test reaction to negative response from Repositories.
-##################################################################################
+###############################################################################
 #TO BE FINISHED!
     def on_slm_infra_adaptor_vim_list_test8(self, ch, method, properties, message):
         """
-        This method replies to a request of the SLM to the IA to get the VIM-list.
+        This method replies to a request of the SLM to the IA to get
+        the VIM-list.
         """
 
         if properties.app_id == 'son-plugin.ServiceLifecycleManager':
-            VIM_list = [{'vim_uuid':uuid.uuid4().hex}]
+            VIM_list = [{'vim_uuid': uuid.uuid4().hex}]
             self.manoconn_ia.notify('infrastructure.management.compute.list', yaml.dump(VIM_list), correlation_id=properties.correlation_id)
 
     def on_slm_infra_adaptor_service_deploy_request_test8(self, ch, method, properties, message):
         """
-        This method fakes a message from the IA to the SLM that indicates that the deployment has succeeded.
+        This method fakes a message from the IA to the SLM that indicates that
+        the deployment has succeeded.
         """
         print('################################################')
         print('valid reply sent')
         if properties.app_id == 'son-plugin.ServiceLifecycleManager':
             reply_message = {}
             reply_message['status'] = 'normal operation'
-            reply_message['nsr']    = {'dummy1' : 'dummy1'}
-            reply_message['vnfrs']  = [{'dummy2':'dummy2'},{'dummy3':'dummy3'}] 
+            reply_message['nsr']    = {'dummy1': 'dummy1'}
+            reply_message['vnfrs']  = [{'dummy2': 'dummy2'}, {'dummy3': 'dummy3'}]
 
             self.manoconn_ia.notify('infrastructure.service.deploy', yaml.dump(reply_message), correlation_id=properties.correlation_id)
 
@@ -587,12 +610,8 @@ class testSlmFunctionality(unittest.TestCase):
         This method checks whether the message from the SLM to the GK to indicate that storing the records in the repositories has failed is correctly formatted.
         """
         msg = yaml.load(message)
-        print('#####################################################')
-        print('In the message')
-        print(msg)
-        print(properties)
         #We don't want to trigger on the first response (the async_call), but only on the second(the notify) and we don't want to trigger on our outgoing message.
-        if properties.app_id == 'son-plugin.ServiceLifecycleManager':        
+        if properties.app_id == 'son-plugin.ServiceLifecycleManager':
             if msg['status'] != 'INSTANTIATING':
 
 #                self.assertTrue(isinstance(msg, dict), msg='message is not a dictionary.')
@@ -606,20 +625,13 @@ class testSlmFunctionality(unittest.TestCase):
     @mock.patch('son_mano_slm.slm.requests.post', side_effect=mocked_post_requests)
     def testReactionToNegativeResponseFromRepository(self, mock_get):
         """
-        When the SLM receives a response from the repositories, after it requested to store the records, which is negative, the SLM should communicate this to the GK.
+        When the SLM receives a response from the repositories, after it
+        requested to store the records, which is negative, the SLM should
+        communicate this to the GK.
         """
 
-
-
-
-
-
-
-
-
-
         def on_register_trigger(ch, method, properties, message):
-            return json.dumps({'status':'OK','uuid':self.uuid})
+            return json.dumps({'status': 'OK',  'uuid': self.uuid})
 
         #Some threading events that can be used during the tests
         self.wait_for_first_event = threading.Event()
@@ -655,7 +667,6 @@ class testSlmFunctionality(unittest.TestCase):
         #STEP5: Start waiting for the messages that are triggered by this request
 #        self.waitForFirstEvent(timeout=15, msg='Wait for message from SLM to IA to request deployment timed out.')
 
-
     def testMonitoringMessageGeneration(self):
 
         """
@@ -672,30 +683,29 @@ class testSlmFunctionality(unittest.TestCase):
         #STEP1: create NSD and VNFD by reading test descriptors.
         gk_request = yaml.load(self.createGkNewServiceRequestMessage())
 
-        #STEP2: add ids to NSD and VNFDs (the ones used in the expected message)
+        #STEP2: add ids to NSD and VNFDs (those used in the expected message)
         gk_request['NSD']['uuid'] = '005606ed-be7d-4ce3-983c-847039e3a5a2'
         gk_request['VNFD1']['uuid'] = '6a15313f-cb0a-4540-baa2-77cc6b3f5b68'
         gk_request['VNFD2']['uuid'] = '645db4fa-a714-4cba-9617-4001477d1281'
         gk_request['VNFD3']['uuid'] = '8a0aa837-ec1c-44e5-9907-898f6401c3ae'
 
         #STEP3: load nsr_file, containing both NSR and the list of VNFRs
-        message_from_ia = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml','r'))
-        nsr_file = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-nsr.yml','r'))
-        vnfrs_file = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-vnfrs.yml','r'))
+        message_from_ia = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml', 'r'))
+        nsr_file = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-nsr.yml', 'r'))
+        vnfrs_file = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-vnfrs.yml', 'r'))
 
         #STEP4: call real method
         message = tools.build_monitoring_message(gk_request, message_from_ia, nsr_file, vnfrs_file)
 
         #STEP5: read expected message from descriptor file
-        expected_message = json.load(open('/plugins/son-mano-service-lifecycle-management/test/test_descriptors/monitoring-message.json','r'))
+        expected_message = json.load(open('/plugins/son-mano-service-lifecycle-management/test/test_descriptors/monitoring-message.json', 'r'))
 
         #STEP6: compare that generated message is equals to the expected one
         self.assertEqual(message, expected_message, "messages are not equals")
 
-##################################################################################
+###############################################################################
 #TEST9: Test creation of the message addressed to the Monitoring Repository
-##################################################################################
-
+###############################################################################
 
     def testNsrCreation(self):
 
@@ -711,8 +721,8 @@ class testSlmFunctionality(unittest.TestCase):
         gk_request = yaml.load(self.createGkNewServiceRequestMessage())
 
         #STEP2: read IA response and the expected NSR
-        ia_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml','r'))
-        expected_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-nsr.yml','r'))
+        ia_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml', 'r'))
+        expected_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-nsr.yml', 'r'))
 
         #STEP3: call real method
         message = tools.build_nsr(gk_request, ia_nsr)
@@ -720,33 +730,26 @@ class testSlmFunctionality(unittest.TestCase):
         #STEP4: comprare the generated message is equals to the expected one
         self.assertEqual(message, expected_nsr, "Built NSR is not equal to the expected one")
 
-
-##################################################################################
+###############################################################################
 #TEST10: Test creation of the NSR
-##################################################################################
-
+###############################################################################
 
     def testVnfrsCreation(self):
         #STEP1: create NSD and VNFD by reading test descriptors.
         gk_request = yaml.load(self.createGkNewServiceRequestMessage())
 
         #STEP2: read IA response and the expected NSR
-        ia_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml','r'))
-        expected_vnfrs = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-vnfrs.yml','r'))
+        ia_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml', 'r'))
+        expected_vnfrs = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-vnfrs.yml', 'r'))
 
         message = tools.build_vnfrs(gk_request, ia_nsr['vnfrs'])
 
         self.assertEqual(message, expected_vnfrs, "Built VNFRs are not equals to the expected ones")
 
 
-##################################################################################
+###############################################################################
 #TEST11: Test creation of the NSR
-##################################################################################
+###############################################################################
 
 if __name__ == '__main__':
     unittest.main()
-        
-
-        
-                
-

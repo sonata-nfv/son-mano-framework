@@ -1,7 +1,6 @@
 import requests
 import uuid
 import yaml
-import json
 
 def build_message_for_IA(request_dictionary):
     """
