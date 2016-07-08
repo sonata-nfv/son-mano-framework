@@ -13,7 +13,10 @@
          "host_id":"1772a2ce-3bbb-4dca-b39d-42980bd7bc1c",
          "pop_id":"",
          "name":"iperf-vnf",
-         "description":"\"A first iperf VNF descriptor. The iperf VNF\n acts as a traffic source.\"\n"
+         "description":"\"A first iperf VNF descriptor. The iperf VNF\n acts as a traffic source.\"\n",
+         "metrics": [
+
+         ]
       },
       {
          "description":"\"A first firewall VNF descriptor\"\n",
@@ -61,7 +64,10 @@
          "host_id":"dc62df11-18e8-45b5-a869-e3828b9e93fe",
          "pop_id":"",
          "name":"tcpdump-vnf",
-         "description":"\"A first tcpdump VNF descriptor. The tcpdump\n VNF acts as a traffic sink.\"\n"
+         "description":"\"A first tcpdump VNF descriptor. The tcpdump\n VNF acts as a traffic sink.\"\n",
+         "metrics": [
+
+         ]
       }
    ],
    "rules":[
