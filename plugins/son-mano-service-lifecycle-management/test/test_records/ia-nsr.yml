@@ -7,6 +7,16 @@ nsr:
   descriptor_reference: "9df6a98f-9e11-4cb7-b3c0-b1375e7cb0b0"
 vnfrs:
 - status: "offline"
+  connection_points:
+  - id: 'vnf:cp01'
+    type:
+        address: "10.0.0.1"
+  - id: 'vnf:cp02'
+    type:
+        address: "10.0.0.2"
+  - id: 'vnf:cp03'
+    type:
+        address: "10.0.0.3"
   descriptor_version: "vnfr-schema-01"
   id: "645db4fa-a714-4cba-9617-4001477d0000"
   descriptor_reference: "645db4fa-a714-4cba-9617-4001477d1281"
@@ -34,6 +44,16 @@ vnfrs:
 - status: "offline"
   descriptor_version: "vnfr-schema-01"
   id: "6a15313f-cb0a-4540-baa2-77cc6b3f0000"
+  connection_points:
+  - id: 'vnf:cp04'
+    type:
+        address: "10.0.0.4"
+  - id: 'vnf:cp05'
+    type:
+        address: "10.0.0.5"
+  - id: 'vnf:cp06'
+    type:
+        address: "10.0.0.6"
   descriptor_reference: "6a15313f-cb0a-4540-baa2-77cc6b3f5b68"
   virtual_deployment_units:
   - id: "vdu01"
@@ -59,6 +79,16 @@ vnfrs:
 - status: "offline"
   descriptor_version: "vnfr-schema-01"
   id: "8a0aa837-ec1c-44e5-9907-898f64010000"
+  connection_points:
+  - id: 'vnf:cp07'
+    type:
+        address: "10.0.0.7"
+  - id: 'vnf:cp08'
+    type:
+        address: "10.0.0.8"
+  - id: 'vnf:cp09'
+    type:
+        address: "10.0.0.9"
   descriptor_reference: "8a0aa837-ec1c-44e5-9907-898f6401c3ae"
   virtual_deployment_units:
   - id: "vdu01"
