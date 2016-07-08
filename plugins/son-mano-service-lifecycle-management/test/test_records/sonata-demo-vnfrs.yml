@@ -34,12 +34,15 @@
       vc_id: 1772a2ce-3bbb-4dca-b39d-42980bd7bc1c
       vim_id: 5b780368-0f66-4c7a-8c10-4b7213100605
   connection_points:
-  - id: mgmt
-    type: interface
-  - id: input
-    type: interface
-  - id: output
-    type: interface
+  - id: 'vnf:cp01'
+    type:
+        address: "10.0.0.1"
+  - id: 'vnf:cp02'
+    type:
+        address: "10.0.0.2"
+  - id: 'vnf:cp03'
+    type:
+        address: "10.0.0.3"
   virtual_links:
   - id: mgmt
     connectivity_type: E-LAN
@@ -116,24 +119,30 @@
     dhcp: true
     connection_points_reference: ['vdu01:eth2', output]
   connection_points:
-  - id: mgmt
-    type: interface
-  - id: input
-    type: interface
-  - id: output
-    type: interface
+  - id: 'vnf:cp04'
+    type:
+        address: "10.0.0.4"
+  - id: 'vnf:cp05'
+    type:
+        address: "10.0.0.5"
+  - id: 'vnf:cp06'
+    type:
+        address: "10.0.0.6"
 - descriptor_version: vnfr-schema-01
   id: 8a0aa837-ec1c-44e5-9907-898f64010000
   version: '1'
   status: offline
   descriptor_reference: 8a0aa837-ec1c-44e5-9907-898f6401c3ae
   connection_points:
-  - id: mgmt
-    type: interface
-  - id: input
-    type: interface
-  - id: output
-    type: interface
+  - id: 'vnf:cp07'
+    type:
+        address: "10.0.0.7"
+  - id: 'vnf:cp08'
+    type:
+        address: "10.0.0.8"
+  - id: 'vnf:cp09'
+    type:
+        address: "10.0.0.9"
   virtual_deployment_units:
   - id: vdu01
     number_of_instances: 1

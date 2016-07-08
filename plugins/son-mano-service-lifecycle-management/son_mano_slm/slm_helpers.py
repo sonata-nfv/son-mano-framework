@@ -197,8 +197,8 @@ def build_vnfrs(gk_request, ia_vnfrs):
             vnfr['virtual_deployment_units'].append(vdu)
 
         ## connection points && virtual links (optional)
-        if 'connection_points' in vnfd:
-            vnfr['connection_points'] = vnfd['connection_points']
+        if 'connection_points' in ia_vnfr:
+            vnfr['connection_points'] = ia_vnfr['connection_points']
         if 'virtual_links' in vnfd:
             vnfr['virtual_links'] = vnfd['virtual_links']
 
@@ -386,7 +386,6 @@ def build_monitoring_message(gk_request, message_from_ia, nsr, vnfrs):
                     r['notification_type'] = notification_type_mapping[notification['type']]
                     ## add rule to message
                     message['rules'].append(r)
-
 
     return message
 
