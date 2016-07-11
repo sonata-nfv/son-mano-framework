@@ -63,7 +63,7 @@ setup(
     keywords='NFV orchestrator',
 
     packages=find_packages("son_mano_pluginmanager"),
-    install_requires=['pika', 'pytest', 'mongoengine', 'Flask>=0.10.1', 'flask-restful', 'requests'],
+    install_requires=['argparse', 'amqpstorm', 'pytest', 'mongoengine', 'Flask>=0.10.1', 'flask-restful', 'requests'],
     setup_requires=['pytest-runner'],
 
     # To provide executable scripts, use entry points in preference to the
