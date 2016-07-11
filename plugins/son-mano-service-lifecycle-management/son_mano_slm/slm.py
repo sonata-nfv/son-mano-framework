@@ -20,7 +20,6 @@ the Horizon 2020 and 5G-PPP programmes. The authors would like to
 acknowledge the contributions of their colleagues of the SONATA
 partner consortium (www.sonata-nfv.eu).
 """
-
 """
 This is SONATA's service lifecycle management plugin
 """
@@ -277,7 +276,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             LOG.info("Deploying new SSM")
 
             ssm_to_interact_with = self.service_requests_being_handled[properties.correlation_id]['ssms_to_handle'].pop(0)
-            #TODO: build message for ssm if needed (I propose to keep it generalised, for example the entire data field in the service_requests_being_handled)
+            #TODO: build message for ssm if needed
             message_for_ssm = {'dummy': 'dummy'}
             #Contacting the SSM. In the service_requests_being_handled dictionary, we replace the old corr_id with the new one, to be able to keep track of the request
             new_corr_id, self.service_requests_being_handled = tools.replace_old_corr_id_by_new(self.service_requests_being_handled, properties.correlation_id)
