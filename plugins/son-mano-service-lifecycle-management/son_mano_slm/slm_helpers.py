@@ -295,6 +295,9 @@ def build_monitoring_message(gk_request, message_from_ia, nsr, vnfrs):
         return None
 
     def get_threshold(condition):
+        """
+        This method retrieves a threshold from a condition message.
+        """
         if '>' in condition:
             return condition.split('>', 1)[-1].strip()
         elif '<' in condition:
@@ -367,16 +370,12 @@ def build_monitoring_message(gk_request, message_from_ia, nsr, vnfrs):
                     metric['name'] = mp['name']
                     metric['unit'] = mp['unit']
 
-                    # extract threshold from the associated monitoring rule. It's defined in the ['condition'] key.
-                    # example: if monitoring_rule['condition] is "vdu01:vm_cpu_perc > 10", the threshold is 10.
                     associated_rule = get_associated_monitoring_rule(vnfd, mp['name'])
                     if (associated_rule is not None):
-                        threshold = get_threshold(associated_rule['condition'])
-                        if threshold is not None:
-                            metric['threshold'] = threshold
-                            if threshold is not None:
-                                metric['threshold'] = threshold
-
+                        if 'threshold' in mp.keys():
+                            metric['threshold'] = mp['threshold']
+                        else:
+                            metric['threshold'] = None
                         if 'frequency' in mp.keys():
                             metric['interval'] = mp['frequency']
                         else:
