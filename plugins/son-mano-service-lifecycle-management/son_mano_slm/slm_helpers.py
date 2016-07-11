@@ -369,6 +369,7 @@ def build_monitoring_message(gk_request, message_from_ia, nsr, vnfrs):
                 message['functions'].append(func)
 
             else:
+                function['metrics'] = []
                 message['functions'].append(function)
 
         if 'monitoring_rules' in vnfd.keys():
