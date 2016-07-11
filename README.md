@@ -4,7 +4,7 @@
 
 SONATA's MANO framework is the core of SONATA's service platform and builds a flexible orchestration system. It consists of a set of loosely coupled components (micro services) that use a message broker to communicate. These components are called MANO plugins and can easily be replaced to customize the orchestration functionalities of the platform.
 
-The main orchestration functionalities are currently implemented in the [service lifecycle management plugin (SLM)](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-service-lifecycle-management) which receives instantiation requests from the [gatekeeper](https://github.com/sonata-nfv/son-gkeeper) and instructs the [infrastructure adapter](https://github.com/sonata-nfv/son-sp-infrabstract) to deploy the service. The SLM is also responsible to create the network and function records in the [repositories](https://github.com/sonata-nfv/son-catalogue-repos) once a service is instantiated.
+The main orchestration functionalities are currently implemented in the [service lifecycle management plugin (SLM)](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-service-lifecycle-management) which receives instantiation requests from the [gatekeeper](https://github.com/sonata-nfv/son-gkeeper) and instructs the [infrastructure adapter](https://github.com/sonata-nfv/son-sp-infrabstract) to deploy a service. The SLM is also responsible to create the service and function records in the [repositories](https://github.com/sonata-nfv/son-catalogue-repos) once a service is instantiated.
 
 More details about the service platform's architecture are available on SONATA's website:
 
@@ -15,8 +15,8 @@ More details about the service platform's architecture are available on SONATA's
 
 SONATA's MANO framework is organized as micro services. The following micro services are currently implemented:
 
-1. [`son-mano-base`](https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-base): not a standalone service, a collection of base classes that are used by the other MANO plugins, also contains a message abstraction layer that encapsulates the RabbitMQ related communication code
-2. [`son-mano-pluginmanager`](https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-pluginmanager): every MANO plugin registers to this service, provides a CLI management interface to control and monitor active plugins
+1. [`son-mano-base`](https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-base): not a standalone service but a collection of base classes that are used by the other MANO plugins, also contains a message abstraction layer that encapsulates the RabbitMQ related communication code
+2. [`son-mano-pluginmanager`](https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-pluginmanager): every MANO plugin registers to this service, the PM provides a CLI to control and monitor active plugins
 3. [`plugins/son-mano-service-lifecycle-management`](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-service-lifecycle-management): main orchestration component, gets service and function descriptors, instructs the infrastructure adapter to start service components in the infrastructure
 4. [`plugins/son-mano-test-plugin`](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-test-plugin): the most simple implementation of a MANO plugin, used for integration tests and as an example for plugin developers
 
@@ -26,7 +26,7 @@ Other MANO plugins (e.g. a placement and scaling plugin) will appear during the 
 
 ### Building
 
-Each micro service of the framework is executed in its own Docker container. So 'building' the framework becomes building all the containers. The build steps for this is described in a `Dockerfile` that is placed in the folder of each micro service.
+Each micro service of the framework is executed in its own Docker container. So 'building' the framework becomes building all the containers. The build steps for this are described in a `Dockerfile` that is placed in the folder of each micro service.
 
 
 1. `docker build -t registry.sonata-nfv.eu:5000/pluginmanager -f son-mano-pluginmanager/Dockerfile .`
@@ -66,7 +66,7 @@ Contributing to the Gatekeeper is really easy. You must:
 
 ## Installation
 
-If you do not want to execute the components within a Docker container, you can also install them on a normal machine. Each micro service contains a `setup.py` file for this so that you can follow the standard Python installation procedure by simply doing:
+If you do not want to execute the components within a Docker container, you can also install them on a normal machine. Each micro service contains a `setup.py` file so that you can follow the standard Python installation procedure by doing:
 
 ```
 python setup.py install
