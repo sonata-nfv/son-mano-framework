@@ -400,7 +400,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         #Inform the gk of the result.
         LOG.info("inform gk of result of deployment for service with uuid " + self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'])
-        LOG.info("Message for gk: " + str(message_for_gk))
+        LOG.info("Message for gk: " + yaml.dump(message_for_gk, indent=4))
         self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(message_for_gk), correlation_id=self.service_requests_being_handled[properties.correlation_id]['original_corr_id'])
         #Delete service request from handling dictionary, as handling is completed.
         self.service_requests_being_handled.pop(properties.correlation_id, None)
