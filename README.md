@@ -1,131 +1,77 @@
 [![Build Status](http://jenkins.sonata-nfv.eu/buildStatus/icon?job=son-mano-framework)](http://jenkins.sonata-nfv.eu/job/son-mano-framework)
 
 # son-mano-framework
-## SONATA's Service Platform MANO Framework
 
-This repository contains the orchestration core (the flexible MANO framework) and all its components (broker, plugins, ...).
+TBD
 
-## Lead Developers
+### Development
+
+TBD
+
+
+### Building
+
+TBD
+
+### Dependencies
+
+Son-mano-framework expects the following environment:
+
+* Python 3.4
+* [Docker](https://www.docker.com) >= 1.10 (Apache 2.0)
+* [RabbitMQ](https://www.rabbitmq.com) >= 3.5 (Mozilla Public License)
+* [MongoDB] (https://www.mongodb.com/community) >= 3.2 (AGPLv3)
+
+
+
+Son-mano-framework has the following dependencies:
+
+* [amqpstorm](https://pypi.python.org/pypi/AMQPStorm) >= 1.4 (MIT)
+* [argparse](https://pypi.python.org/pypi/argparse) >= 1.4.0 (Python software foundation License)
+* [docker-py](https://pypi.python.org/pypi/docker-py) == 1.7.1(Apache 2.0)
+* [Flask](https://pypi.python.org/pypi/Flask) >= 0.11 (BSD)
+* [flask_restful](https://pypi.python.org/pypi/Flask-RESTful) >= 0.3 (BSD)
+* [mongoengine](https://pypi.python.org/pypi/mongoengine) >= 0.10.6 (MIT)
+* [pytest-runner](https://pypi.python.org/pypi/pytest-runner) >= 2.8 (MIT)
+* [pytest](https://pypi.python.org/pypi/pytest) >= 2.9 (MIT)
+* [PyYAML](https://pypi.python.org/pypi/PyYAML) >= 3.11 (MIT)
+* [requests](https://pypi.python.org/pypi/requests) >= 2.10 (Apache 2.0)
+
+### Contributing
+Contributing to the Gatekeeper is really easy. You must:
+
+1. Clone [this repository](http://github.com/sonata-nfv/son-mano-framework);
+2. Work on your proposed changes, preferably through submiting [issues](https://github.com/sonata-nfv/son-mano-framework/issues);
+3. Submit a Pull Request;
+4. Follow/answer related [issues](https://github.com/sonata-nfv/son-mano-framework/issues) (see Feedback-Chanel, below).
+
+## Installation
+
+TBD
+
+## Usage
+
+TBD
+
+## License
+
+Son-mano-framework is published under Apache 2.0 license. Please see the LICENSE file for more details.
+
+## Useful Links
+
+TBD
+
+---
+#### Lead Developers
+
 The following lead developers are responsible for this repository and have admin rights. They can, for example, merge pull requests.
 
-* Sharon Mendel-Brin (smendel) 
-* Manuel Peuster (mpeuster)
-* Felipe Vicens (felipevicens)
+* Sharon Mendel-Brin (shttps://github.com/mendel) 
+* Manuel Peuster (https://github.com/mpeuster)
+* Felipe Vicens (https://github.com/felipevicens)
+* Thomas Soenen (https://github.com/tsoenen)
 
-## Environment
-* Python 3.4
-* RabbitMQ (Mozilla Public License)
-* MongoDB (AGPLv3)
-* Docker (Apache 2.0)
-* docker-compose (Apache 2.0)
+#### Feedback-Chanel
 
-## Dependencies
-* mongoengine (public domain)
-* pika (public domain)
-* pytest (MIT)
-* pytest-runner (MIT)
-* Flask (BSD)
-* flask-restful (BSD)
-* requests (Apache 2.0)
-
-## 3rd-party code used
-* (none)
-
-
-## Folder structure
-
-* `libs/` contains any supporting libraries
-* `plugins/` contains MANO plugin implementations
-* `son-mano-base/` abstract base classes for plugins, messaging support
-* `son-mano-pluginmanager/` the plugin manager component
-* `test/` entry points (bash scripts) to trigger tests of sub-components (e.g., for CI/CD)
-* `utils/` helper functionality, scripts, tools
-
-
-## Run MANO framework
-
-(see below for simpler Docker Compose based execution)
-
-
-### Run directly:
-
-* Requires a locally running RabbitMQ instance
-* Requires a locally running MongoDB instance for the pluginmanager
-* Do a `python setup.py develop` for each component
-
-
-* Terminal 1: Run the plugin manager component
- * `cd son-mano-pluginmanager/sonmanopluginmanager/`
- * `python __main__.py`
-
-* Terminal 2: Run the example plugin
- * `cd plugins/son-mano-example-plugin-1/sonmanoexampleplugin1/`
- * `python __main__.py`
-
-What will happen? The example plugin will ...
-
-1. connect to the broker
-2. register itself to the plugin manager
-3. periodically send heartbeat messages to the plugin manager
-4. plugin manager will broadcast plugin status information whenever it changes
-5. de-register and stop itself after a few seconds
-
-### Docker support
-#### Build Docker containers for each component
-
-* `docker build -t pluginmanager -f son-mano-pluginmanager/Dockerfile .`
-* `docker build -t exampleplugin -f plugins/son-mano-example-plugin-1/Dockerfile .`
-* `docker build -t testplugin -f plugins/son-mano-test-plugin/Dockerfile .`
-
-#### Run each component as a container
-
-We need to run a default RabbitMQ and a default MonoDB container before we can run our own components.
-
-* `docker run -d -p 5672:5672 --name broker rabbitmq:3`
-* `docker run -d -p 27017:27017 --name mongo mongo`
-* `docker run -it --rm --link broker:broker --link mongo:mongo --name pluginmanager pluginmanager`
-* `docker run -it --rm --link broker:broker --name exampleplugin exampleplugin`
-* `docker run -it --rm --link broker:broker --name testplugin testplugin`
-
-
-### Docker Compose support (should be used to deploy the platform)
-
-Using [Docker Compose](https://docs.docker.com/compose/) allows us to deploy all components of the MANO framework in individual containers with a single command.
-
-#### Build (and Re-build)
-
-* `docker-compose build`
-
-#### Start
-
-* `docker-compose up`
-
-#### Stop (in second terminal)
-
-* `docker-compose down`
-
-
-## Test
-
-### General
-
-* ```./run_tests.sh```
-
-### Python unit tests
-
-* Run tests using the following steps:
-    * NOTICE: The tests need a running RabbitMQ broker to test the messaging subsystem! Without this, tests will fail.
-    * `cd son-mano-framework`
-    * `py.test -v son-mano-base/`
-
-
-### CI Integration (fully automated tests)
-
-These tests are used by our CI/CD system and are fully automated. They spin up required support functions, e.g., the RabbitMQ broker in separated Docker containers and remove them after each test run.
-
-* Test entrypoint scripts are located in: test/
-* Trigger test execution from Jenkins: ```for i in `find ${WORKSPACE} -name test_*.sh -type f`; do $i; if [ $? -ne 0 ]; then exit 1; fi; done```
-* Trigger test execution locally by hand (does the same like Jenkins does): ```./run_tests.sh```
-* This will start all components in independent Docker containers, run the tests, and cleanup everything
-* Exitcode of each script is either 0 = test OK or 1 = test FAIL
-
+* You may use the mailing list [sonata-dev@lists.atosresearch.eu](mailto:sonata-dev@lists.atosresearch.eu)
+* [GitHub issues](https://github.com/sonata-nfv/son-mano-framework/issues)

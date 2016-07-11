@@ -63,7 +63,7 @@ setup(
     keywords='NFV orchestrator',
 
     packages=find_packages(),
-    install_requires=['pika', 'amqpstorm', 'pytest', 'PyYAML', 'requests', 'docker-py'],
+    install_requires=['amqpstorm', 'pytest', 'PyYAML', 'requests', 'docker-py'],
     setup_requires=['pytest-runner'],
 
     # To provide executable scripts, use entry points in preference to the
