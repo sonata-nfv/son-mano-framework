@@ -15,10 +15,10 @@ More details about the service platforms architecture are available on SONATA's 
 
 SONATA's MANO framework is organized as micro services. The following micro services are currently implemented:
 
-1. son-mano-base: not a standalone service, a collection of base classes that are used by the other MANO plugins, also contains a message abstraction layer that encapsulates the RabbitMQ related communication code
-2. son-mano-pluginmanager: every MANO plugin registers to this service, provides a CLI management interface to control and monitor active plugins
-3. plugins/son-mano-service-lifecycle-management: main orchestration component, gets service and function descriptors, instructs the infrastructure adapter to start service components in the infrastructure
-4. plugins/son-mano-test-plugin: the most simple implementation of a MANO plugin, used for integration tests and as an example for plugin developers
+1. [`son-mano-base`](https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-base): not a standalone service, a collection of base classes that are used by the other MANO plugins, also contains a message abstraction layer that encapsulates the RabbitMQ related communication code
+2. [`son-mano-pluginmanager`](https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-pluginmanager): every MANO plugin registers to this service, provides a CLI management interface to control and monitor active plugins
+3. [`plugins/son-mano-service-lifecycle-management`](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-service-lifecycle-management): main orchestration component, gets service and function descriptors, instructs the infrastructure adapter to start service components in the infrastructure
+4. [`plugins/son-mano-test-plugin`](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-test-plugin): the most simple implementation of a MANO plugin, used for integration tests and as an example for plugin developers
 
 Each of these components is entirely implemented in Python.
 
@@ -106,31 +106,20 @@ Runs unit tests on a local installation.
 * `py.test -v son-mano-base/`
 
 
-### CI Integration (fully automated tests)
-
-These tests are used by our CI/CD system and are fully automated. They spin up required support functions, e.g., the RabbitMQ broker in separated Docker containers and remove them after each test run.
-
-* Test entrypoint scripts are located in: test/
-* Trigger test execution from Jenkins: ```for i in `find ${WORKSPACE} -name test_*.sh -type f`; do $i; if [ $? -ne 0 ]; then exit 1; fi; done```
-* Trigger test execution locally by hand (does the same like Jenkins does): ```./run_tests.sh```
-* This will start all components in independent Docker containers, run the tests, and cleanup everything
-* Exitcode of each script is either 0 = test OK or 1 = test FAIL
-
-
 ## License
 
 Son-mano-framework is published under Apache 2.0 license. Please see the LICENSE file for more details.
 
 ## Useful Links
 
-TBD
+* Paper: [SONATA: Service Programming and Orchestration for Virtualized Software Networks](http://arxiv.org/abs/1605.05850)
 
 ---
 #### Lead Developers
 
 The following lead developers are responsible for this repository and have admin rights. They can, for example, merge pull requests.
 
-* Sharon Mendel-Brin (shttps://github.com/mendel) 
+* Sharon Mendel-Brin (https://github.com/mendel) 
 * Manuel Peuster (https://github.com/mpeuster)
 * Felipe Vicens (https://github.com/felipevicens)
 * Thomas Soenen (https://github.com/tsoenen)
