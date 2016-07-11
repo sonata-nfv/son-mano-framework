@@ -4,7 +4,7 @@
 
 SONATA's MANO framework is the core of SONATA's service platform and builds a flexible orchestration system. It consists of a set of loosely coupled components (micro services) that use a message broker to communicate. These components are called MANO plugins and can easily be replaced to customize the orchestration functionalities of the platform.
 
-The main orchestration functionalities are currently implemented in the [service lifecycle management plugin (SLM)](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-service-lifecycle-management) which receives instantiation requests from the [gatekeeper](https://github.com/sonata-nfv/son-gkeeper) and instructs the [infrastructure adapter](https://github.com/sonata-nfv/son-sp-infrabstract) to deploy a service. The SLM is also responsible to create the service and function records in the [repositories](https://github.com/sonata-nfv/son-catalogue-repos) once a service is instantiated.
+The main orchestration functionalities are currently implemented in the [service lifecycle management plugin (SLM)](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-service-lifecycle-management) which receives instantiation requests from the [gatekeeper](https://github.com/sonata-nfv/son-gkeeper) and instructs the [infrastructure adapter](https://github.com/sonata-nfv/son-sp-infrabstract) to deploy a service. The SLM is also responsible to create the service and function records in the [repositories](https://github.com/sonata-nfv/son-catalogue-repos) once a service is instantiated and to inform the [Monitoring Manager](https://github.com/sonata-nfv/son-monitor) which metrics to monitor and on which triggers to send an alarm.
 
 More details about the service platform's architecture are available on SONATA's website:
 
@@ -17,7 +17,7 @@ SONATA's MANO framework is organized as micro services. The following micro serv
 
 1. [`son-mano-base`](https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-base): not a standalone service but a collection of base classes that are used by the other MANO plugins, also contains a message abstraction layer that encapsulates the RabbitMQ related communication code
 2. [`son-mano-pluginmanager`](https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-pluginmanager): every MANO plugin registers to this service, the PM provides a CLI to control and monitor active plugins
-3. [`plugins/son-mano-service-lifecycle-management`](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-service-lifecycle-management): main orchestration component, gets service and function descriptors, instructs the infrastructure adapter to start service components in the infrastructure
+3. [`plugins/son-mano-service-lifecycle-management`](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-service-lifecycle-management): main orchestration component, gets service and function descriptors, instructs the infrastructure adapter to start service components in the infrastructure, stores records on services and functions once instantiated, informs Monitoring Manager
 4. [`plugins/son-mano-test-plugin`](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-test-plugin): the most simple implementation of a MANO plugin, used for integration tests and as an example for plugin developers
 
 Each of these components is entirely implemented in Python.
@@ -57,7 +57,7 @@ Son-mano-framework has the following dependencies:
 * [requests](https://pypi.python.org/pypi/requests) >= 2.10 (Apache 2.0)
 
 ### Contributing
-Contributing to the Gatekeeper is really easy. You must:
+Contributing to the son-mano-framework is really easy. You must:
 
 1. Clone [this repository](http://github.com/sonata-nfv/son-mano-framework);
 2. Work on your proposed changes, preferably through submiting [issues](https://github.com/sonata-nfv/son-mano-framework/issues);
@@ -123,6 +123,7 @@ The following lead developers are responsible for this repository and have admin
 * Manuel Peuster (https://github.com/mpeuster)
 * Felipe Vicens (https://github.com/felipevicens)
 * Thomas Soenen (https://github.com/tsoenen)
+* Adrian Rosello (https://github.com/adrian-rosello)
 
 #### Feedback-Chanel
 
