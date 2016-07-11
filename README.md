@@ -6,7 +6,7 @@ SONATA's MANO framework is the core of SONATA's service platform and builds a fl
 
 The main orchestration functionalities are currently implemented in the [service lifecycle management plugin (SLM)](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-service-lifecycle-management) which receives instantiation requests from the [gatekeeper](https://github.com/sonata-nfv/son-gkeeper) and instructs the [infrastructure adapter](https://github.com/sonata-nfv/son-sp-infrabstract) to deploy the service. The SLM is also responsible to create the network and function records in the [repositories](https://github.com/sonata-nfv/son-catalogue-repos) once a service is instantiated.
 
-More details about the service platforms architecture are available on SONATA's website:
+More details about the service platform's architecture are available on SONATA's website:
 
 * [SONATA Architecture](http://sonata-nfv.eu/content/architecture)
 * [SONATA Architecture Deliverable 2.2](http://sonata-nfv.eu/sites/default/files/sonata/public/content-files/pages/SONATA_D2.2_Architecture_and_Design.pdf)
