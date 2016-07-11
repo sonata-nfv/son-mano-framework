@@ -30,7 +30,7 @@
                "interval":null,
                "name":"vm_cpu_perc",
                "unit":"Percentage",
-               "threshold":"10"
+               "threshold":null
             },
             {
                "cmd":null,
@@ -38,7 +38,7 @@
                "interval":null,
                "name":"vm_mem_perc",
                "unit":"Percentage",
-               "threshold":"10"
+               "threshold":null
             },
             {
                "cmd":null,
@@ -46,7 +46,7 @@
                "interval":null,
                "name":"vm_net_rx_MB",
                "unit":"MB",
-               "threshold":"10"
+               "threshold":null
             },
             {
                "cmd":null,
@@ -54,7 +54,7 @@
                "interval":null,
                "name":"vm_net_tx_MB",
                "unit":"Mbps",
-               "threshold":"10"
+               "threshold":null
             }
          ],
          "pop_id":""
