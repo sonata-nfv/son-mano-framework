@@ -11,7 +11,7 @@ More details about the service platform's architecture are available on SONATA's
 * [SONATA Architecture](http://sonata-nfv.eu/content/architecture)
 * [SONATA Architecture Deliverable 2.2](http://sonata-nfv.eu/sites/default/files/sonata/public/content-files/pages/SONATA_D2.2_Architecture_and_Design.pdf)
 
-### Development
+## Development
 
 SONATA's MANO framework is organized as micro services. The following micro services are currently implemented:
 
