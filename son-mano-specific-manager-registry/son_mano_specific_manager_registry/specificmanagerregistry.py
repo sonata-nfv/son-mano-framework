@@ -36,7 +36,7 @@ from sonmanobase import messaging
 from sonmanobase.plugin import ManoBasePlugin
 import sys
 
-from son_mano_specific_manger_registry.smr_engine import SMREngine
+from son_mano_specific_manager_registry.smr_engine import SMREngine
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("son-mano-specific-manager-registry")

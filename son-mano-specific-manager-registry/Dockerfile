@@ -13,14 +13,14 @@ ENV broker_exchange son-kernel
 
 
 ADD son-mano-base /son-mano-base
-ADD son-mano-specific-manger-registry /son-mano-specific-manger-registry
+ADD son-mano-specific-manager-registry /son-mano-specific-manager-registry
 ADD utils/delayedstart.sh /delayedstart.sh
 
 
 WORKDIR /son-mano-base
 RUN python setup.py install
 
-WORKDIR /son-mano-specific-manger-registry
+WORKDIR /son-mano-specific-manager-registry
 RUN pip3 install docker-py
 RUN python setup.py develop
 

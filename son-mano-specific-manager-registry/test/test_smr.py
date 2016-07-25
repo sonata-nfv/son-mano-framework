@@ -28,9 +28,9 @@ import json
 import threading
 from multiprocessing import Process
 from sonmanobase.messaging import ManoBrokerRequestResponseConnection
-from son_mano_specific_manger_registry.specificmangerregistry import SpecificManagerRegistry
-from son_mano_specific_manger_registry.slm_nsd1 import fakeslm
-from son_mano_specific_manger_registry.slm_nsd2 import fakeslmU
+from son_mano_specific_manager_registry.specificmanagerregistry import SpecificManagerRegistry
+from son_mano_specific_manager_registry.slm_nsd1 import fakeslm
+from son_mano_specific_manager_registry.slm_nsd2 import fakeslmU
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger('amqp-storm').setLevel(logging.INFO)
