@@ -42,7 +42,7 @@ LOG.setLevel(logging.DEBUG)
 logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
 
-class fakesmlU(object):
+class fakeslmU(object):
 
     def __init__(self):
 
@@ -74,7 +74,7 @@ class fakesmlU(object):
 
         message = {'name': 'ssm2',
                    'version': '0.1',
-                   'uri': 'registry.sonata-nfv.eu:5000/ssm/ssm2'}
+                   'uri': 'hadik3r/ssm2'}#'registry.sonata-nfv.eu:5000/ssm/ssm2'}
 
         self.manoconn.call_async(self._on_publish_update_nsd_response,
                                  'specific.manager.registry.ssm.update',
@@ -90,7 +90,7 @@ class fakesmlU(object):
             exit(1)
 
 def main():
-    fakesmlU()
+    fakeslmU()
 
 if __name__ == '__main__':
     main()
