@@ -98,7 +98,7 @@ class fakeslm(object):
 
         message = {'name': 'ssm1',
                    'version': '0.1',
-                   'uri': 'hadik3r/ssm1'}#'registry.sonata-nfv.eu:5000/ssm/ssm1'}#'file:///son-mano-specific-manger-registry/ssm1.tar'}
+                   'uri': 'hadik3r/ssm1'}#'registry.sonata-nfv.eu:5000/ssm/ssm1'}#'file:///son-mano-specific-manager-registry/ssm1.tar'}
 
         self.manoconn.call_async(self._on_publish_nsd_response,
                                  'specific.manager.registry.on-board',
