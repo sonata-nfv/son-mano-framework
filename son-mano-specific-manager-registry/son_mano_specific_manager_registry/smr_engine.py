@@ -133,7 +133,7 @@ class SMREngine(object):
                 self.dc.stop(ssm_name)
                 self.dc.remove_container(ssm_name)
             container = self.dc.create_container(image=image_name , tty=True, name=ssm_name)
-            self.dc.start(container=container.get('Id'), links=[('broker', 'broker')])
+            self.dc.start(container=container.get('Id'), links=[('test.broker', 'broker')])
             LOG.debug("%r instantiation done" % ssm_name)
             response = {'instantiation':'OK'}
         except BaseException as ex:
