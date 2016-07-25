@@ -73,7 +73,7 @@ class fakeslm(object):
         while True:
             time.sleep(1)
 
-    def _wait_for_onboarding(self, timeout=100, sleep_interval=0.1):
+    def _wait_for_onboarding(self, timeout=50, sleep_interval=0.1):
 
         c = 0
         LOG.debug("Waiting for onboarding (timeout=%d) ..." % timeout)
@@ -81,7 +81,7 @@ class fakeslm(object):
             time.sleep(sleep_interval)
             c += sleep_interval
 
-    def _wait_instantiation(self, timeout=5, sleep_interval=0.1):
+    def _wait_instantiation(self, timeout=70, sleep_interval=0.1):
 
         c = 0
         LOG.debug("Waiting for registration (timeout=%d) ..." % timeout)
@@ -98,7 +98,7 @@ class fakeslm(object):
 
         message = {'name': 'ssm1',
                    'version': '0.1',
-                   'uri': 'registry.sonata-nfv.eu:5000/ssm/ssm1'}#'file:///son-mano-specific-manger-registry/ssm1.tar'}
+                   'uri': 'hadik3r/ssm1'}#'registry.sonata-nfv.eu:5000/ssm/ssm1'}#'file:///son-mano-specific-manger-registry/ssm1.tar'}
 
         self.manoconn.call_async(self._on_publish_nsd_response,
                                  'specific.manager.registry.on-board',
@@ -122,10 +122,9 @@ class fakeslm(object):
             exit(1)
 
     def publish_sid(self):
-
         message = {'name': 'ssm1',
                    'version': '0.1',
-                   'sid': 'registry.sonata-nfv.eu:5000/ssm/ssm1'}#self.result['uuid']}
+                   'sid': 'hadik3r/ssm1'}#'registry.sonata-nfv.eu:5000/ssm/ssm1'}#self.result['uuid']}
         self.manoconn.call_async(self._on_publish_sid_response,
                                  'specific.manager.registry.instantiate',
                                  json.dumps(message))
