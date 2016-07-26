@@ -26,15 +26,11 @@ acknowledge the contributions of their colleagues of the SONATA
 partner consortium (www.sonata-nfv.eu).
 """
 
-
 import logging
 import json
 import time
-import os
-import threading
 
 from sonmanobase import messaging
-from sonmanobase.plugin import ManoBasePlugin
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("son-mano-fakeslm")
@@ -43,7 +39,6 @@ logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
 
 class fakeslmU(object):
-
     def __init__(self):
 
         self.name = 'fake-slm-update'
@@ -51,12 +46,11 @@ class fakeslmU(object):
         self.description = 'description'
 
         LOG.info(
-            "Starting SLM:..." )
+            "Starting SLM:...")
         # create and initialize broker connection
         self.manoconn = messaging.ManoBrokerRequestResponseConnection(self.name)
 
-
-        self.result = {'on-board':None, 'instantiation':None}
+        self.result = {'on-board': None, 'instantiation': None}
         # register to plugin manager
         self.publish_update_nsd()
 
@@ -74,7 +68,7 @@ class fakeslmU(object):
 
         message = {'name': 'ssm2',
                    'version': '0.1',
-                   'uri': 'hadik3r/ssm2'}#'registry.sonata-nfv.eu:5000/ssm/ssm2'}
+                   'uri': 'hadik3r/ssm2'}  # 'registry.sonata-nfv.eu:5000/ssm/ssm2'}
 
         self.manoconn.call_async(self._on_publish_update_nsd_response,
                                  'specific.manager.registry.ssm.update',
@@ -82,15 +76,17 @@ class fakeslmU(object):
 
     def _on_publish_update_nsd_response(self, ch, method, props, response):
 
-        response = json.loads(str(response))#, "utf-8"))
+        response = json.loads(str(response))  # , "utf-8"))
         if response['instantiation'] == 'OK' and response['on-board'] == 'OK':
             LOG.info("pull and instantiation done")
         else:
             LOG.error("SMR instantiation failed. Exit.")
             exit(1)
 
+
 def main():
     fakeslmU()
+
 
 if __name__ == '__main__':
     main()
