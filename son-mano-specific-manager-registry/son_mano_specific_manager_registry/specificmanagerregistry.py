@@ -32,9 +32,7 @@ import logging
 import json
 import time
 import uuid
-from sonmanobase import messaging
 from sonmanobase.plugin import ManoBasePlugin
-import sys
 
 from son_mano_specific_manager_registry.smr_engine import SMREngine
 
@@ -43,11 +41,12 @@ LOG = logging.getLogger("son-mano-specific-manager-registry")
 LOG.setLevel(logging.DEBUG)
 logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
+
 class SsmNotFoundException(BaseException):
     pass
 
-class SpecificManagerRegistry(ManoBasePlugin):
 
+class SpecificManagerRegistry(ManoBasePlugin):
     def __init__(self):
 
         self.name = "smr"
@@ -62,7 +61,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
         # connect to the docker daemon
         self.smrengine = SMREngine()
 
-        #register smr into the plugin manager
+        # register smr into the plugin manager
         super(SpecificManagerRegistry, self).__init__(self.name,
                                                       self.version,
                                                       self.description,
@@ -73,13 +72,13 @@ class SpecificManagerRegistry(ManoBasePlugin):
         LOG.info("Starting Specific Manager Registry (SMR) ...")
 
         # create and initialize broker connection
-        #self.manoconn = messaging.ManoBrokerRequestResponseConnection(self.name)
+        # self.manoconn = messaging.ManoBrokerRequestResponseConnection(self.name)
 
         # register subscriptions
         self.declare_subscriptions()
 
         # jump to run
-        #self.run()
+        # self.run()
 
     def run(self):
 
@@ -99,21 +98,19 @@ class SpecificManagerRegistry(ManoBasePlugin):
 
     def on_board(self, ch, method, properties, message):
 
-        message = json.loads(str(message))#, "utf-8"))
-        ssm_uri = message ['uri']
-        ssm_name = message ['name']
-        return json.dumps(self.smrengine.pull(ssm_uri=ssm_uri, ssm_name=ssm_name))
+        message = json.loads(str(message))  # , "utf-8"))
+        return json.dumps(self.smrengine.pull(ssm_uri=message['uri'],
+                                              ssm_name=message['name']))
 
     def on_instantiate(self, ch, method, properties, message):
 
-        message = json.loads(str(message))#, 'utf-8'))
-        image_name = message['sid']
-        ssm_name = message['name']
-        return json.dumps(self.smrengine.start(image_name,ssm_name))
+        message = json.loads(str(message))  # , 'utf-8'))
+        return json.dumps(self.smrengine.start(image_name= message['sid'],
+                                               ssm_name= message['name']))
 
     def on_ssm_register(self, ch, method, properties, message):
 
-        message = json.loads(str(message))#, "utf-8"))
+        message = json.loads(str(message))  # , "utf-8"))
         response = {}
         try:
             pid = str(uuid.uuid4())
@@ -128,7 +125,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
             }
             self.ssm_repo.update({message['name']: response})
             LOG.debug("SSM registration done %r" % self.ssm_repo)
-            response = {'status': 'OK','name':response['name']}
+            response = {'status': 'OK', 'name': response['name']}
         except BaseException as ex:
             response = {'status': 'failed'}
             LOG.exception('Cannot register SSM: %r' % message['name'])
@@ -136,25 +133,24 @@ class SpecificManagerRegistry(ManoBasePlugin):
 
     def on_ssm_update(self, ch, method, properties, message):
 
-        message = json.loads(str(message))#, "utf-8"))
-        ssm_uri = message ['uri']
-        ssm_name = message ['name']
+        message = json.loads(str(message))  # , "utf-8"))
+        ssm_uri = message['uri']
+        ssm_name = message['name']
         result = {}
-        result.update(self.smrengine.pull(ssm_uri,ssm_name))
-        result.update(self.smrengine.start(ssm_uri,ssm_name))
+        result.update(self.smrengine.pull(ssm_uri, ssm_name))
+        result.update(self.smrengine.start(ssm_uri, ssm_name))
         LOG.info("Waiting for ssm2 registration ...")
         self._wait_for_ssm()
         result.update(self.ssm_kill())
         return json.dumps(result)
 
-
     def ssm_kill(self):
 
         result = self.smrengine.stop('ssm1')
         if result == 'done':
-            self.ssm_repo['ssm1']['status']= 'killed'
+            self.ssm_repo['ssm1']['status'] = 'killed'
             LOG.debug("%r" % self.ssm_repo)
-        return {'status':self.ssm_repo['ssm1']['status']}
+        return {'status': self.ssm_repo['ssm1']['status']}
 
     def _wait_for_ssm(self, timeout=5, sleep_interval=0.1):
 
@@ -165,9 +161,9 @@ class SpecificManagerRegistry(ManoBasePlugin):
             c += sleep_interval
 
 
-
 def main():
     SpecificManagerRegistry()
+
 
 if __name__ == '__main__':
     main()

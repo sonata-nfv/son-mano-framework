@@ -20,12 +20,14 @@ the Horizon 2020 and 5G-PPP programmes. The authors would like to
 acknowledge the contributions of their colleagues of the SONATA
 partner consortium (www.sonata-nfv.eu).
 """
+#!/usr/bin/env python -W ignore::ResourceWarning
 
 import unittest
 import time
 import logging
 import json
 import threading
+import warnings
 from multiprocessing import Process
 from sonmanobase.messaging import ManoBrokerRequestResponseConnection
 from son_mano_specific_manager_registry.specificmanagerregistry import SpecificManagerRegistry
@@ -33,14 +35,12 @@ from son_mano_specific_manager_registry.slm_nsd1 import fakeslm
 from son_mano_specific_manager_registry.slm_nsd2 import fakeslmU
 from son_mano_specific_manager_registry.smr_engine import SMREngine
 
-
 logging.basicConfig(level=logging.INFO)
 logging.getLogger('amqp-storm').setLevel(logging.INFO)
 LOG = logging.getLogger("son-mano-plugins:smr_test")
 logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 logging.getLogger("son-mano-base:plugin").setLevel(logging.INFO)
 LOG.setLevel(logging.INFO)
-
 
 class test1SpecificManagerRegistry(unittest.TestCase):
     def setUp(self):
@@ -55,8 +55,6 @@ class test1SpecificManagerRegistry(unittest.TestCase):
 
         self.wait_for_event = threading.Event()
         self.wait_for_event.clear()
-
-        self.uuid = '1'
 
     def tearDown(self):
         if self.srm_proc is not None:
@@ -105,8 +103,12 @@ class test1SpecificManagerRegistry(unittest.TestCase):
 
 
 class test2SpecificManagerRegistry(unittest.TestCase):
-
     def setUp(self):
+
+        # ensure that existing test images and containers are removed
+
+        image_container_cleaner(ssm1=True,ssm2=True)
+
         self.srm_proc = Process(target=SpecificManagerRegistry)
         self.srm_proc.daemon = True
 
@@ -116,8 +118,7 @@ class test2SpecificManagerRegistry(unittest.TestCase):
         self.nsd2_proc = Process(target=fakeslmU)
         self.nsd2_proc.daemon = True
 
-        self.manoconn = ManoBrokerRequestResponseConnection('son-plugin.SonPluginManager')#'smr.SpecificManagerRegistry')
-
+        self.manoconn = ManoBrokerRequestResponseConnection('son-plugin.SonPluginManager')
         self.wait_for_event1 = threading.Event()
         self.wait_for_event1.clear()
 
@@ -203,30 +204,36 @@ class test2SpecificManagerRegistry(unittest.TestCase):
 
         time.sleep(5)
         self.srm_proc.start()
+
         time.sleep(3)
-        # if len(img) != 0:
-        #    self.dc.remove_image(force=True, image = ssm_uri)
         self.nsd1_proc.start()
 
         self.waitForEvent1(timeout=150, msg="message not received.")
 
+
 class testSMREngine(unittest.TestCase):
-
     def test_docker_service_connection(self):
-
         e = SMREngine()
         self.assertIsNotNone(e.dc.info().get("ServerVersion"))
 
-
     def test_ssm_board(self):
 
+
+        # ensure that existing test images and containers are removed
+        image_container_cleaner(ssm1=True,ssm2=False)
+
         e = SMREngine()
-        result = e.pull(ssm_uri="hadik3r/ssm1", ssm_name= 'ssm1')
+
+        result = e.pull(ssm_uri="hadik3r/ssm1", ssm_name='ssm1')
         self.assertEqual(result['on-board'], 'OK')
         img = e.dc.get_image('hadik3r/ssm1')
         self.assertIsNotNone(img)
 
     def test_ssm_instantiate(self):
+
+
+        # ensure that existing test images and containers are removed
+        image_container_cleaner(ssm1=True,ssm2=False)
 
         e = SMREngine()
         e.pull(ssm_uri="hadik3r/ssm1", ssm_name='ssm1')
@@ -236,13 +243,40 @@ class testSMREngine(unittest.TestCase):
         self.assertIsNotNone(con)
 
     def test_ssm_kill(self):
-
+        # ensure that existing test images and containers are removed
+        image_container_cleaner(ssm1=True,ssm2=False)
         e = SMREngine()
         e.pull(ssm_uri="hadik3r/ssm1", ssm_name='ssm1')
         e.start(image_name="hadik3r/ssm1", ssm_name='ssm1')
         e.stop('ssm1')
         con = e.dc.containers(filters={'name': 'ssm1'})
         self.assertEqual(con, [])
+
+
+def image_container_cleaner(ssm1, ssm2):
+    e = SMREngine()
+    if ssm1:
+        try:
+            e.dc.stop('ssm1')
+            e.dc.remove_container('ssm1')
+        except BaseException as ex:
+            pass
+        try:
+            e.dc.remove_image(force=True, image='hadik3r/ssm1')
+        except BaseException as ex:
+            pass
+
+    if ssm2:
+        try:
+            e.dc.stop('ssm2')
+            e.dc.remove_container('ssm2')
+        except BaseException as ex:
+            pass
+
+        try:
+            e.dc.remove_image(force=True, image='hadik3r/ssm2')
+        except BaseException as ex:
+            pass
 
 
 if __name__ == "__main__":

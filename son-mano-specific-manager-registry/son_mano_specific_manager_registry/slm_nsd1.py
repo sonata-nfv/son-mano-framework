@@ -29,11 +29,8 @@ partner consortium (www.sonata-nfv.eu).
 import logging
 import json
 import time
-import os
-import threading
 
 from sonmanobase import messaging
-from sonmanobase.plugin import ManoBasePlugin
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("son-mano-fakeslm")
@@ -42,7 +39,6 @@ logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
 
 class fakeslm(object):
-
     def __init__(self):
 
         self.name = 'fake-slm'
@@ -50,12 +46,11 @@ class fakeslm(object):
         self.description = 'description'
 
         LOG.info(
-            "Starting SLM:..." )
+            "Starting SLM:...")
         # create and initialize broker connection
         self.manoconn = messaging.ManoBrokerRequestResponseConnection(self.name)
 
-
-        self.result = {'on-board':None, 'instantiation':None}
+        self.result = {'on-board': None, 'instantiation': None}
         # register to plugin manager
         self.publish_nsd()
         self._wait_for_onboarding()
@@ -89,7 +84,6 @@ class fakeslm(object):
             time.sleep(sleep_interval)
             c += sleep_interval
 
-
     def publish_nsd(self):
 
         """
@@ -98,7 +92,7 @@ class fakeslm(object):
 
         message = {'name': 'ssm1',
                    'version': '0.1',
-                   'uri': 'hadik3r/ssm1'}#'registry.sonata-nfv.eu:5000/ssm/ssm1'}#'file:///son-mano-specific-manager-registry/ssm1.tar'}
+                   'uri': 'hadik3r/ssm1'}  # 'registry.sonata-nfv.eu:5000/ssm/ssm1'}#'file:///son-mano-specific-manager-registry/ssm1.tar'}
 
         self.manoconn.call_async(self._on_publish_nsd_response,
                                  'specific.manager.registry.on-board',
@@ -112,11 +106,11 @@ class fakeslm(object):
         :param response: response body
         :return: None
         """
-        response = json.loads(str(response))#, "utf-8"))
+        response = json.loads(str(response))  # , "utf-8"))
         if response['on-board'] == 'OK':
             LOG.info("Docker container on-boarded")
-            self.result['on-board']= response['on-board']
-            #self.result['uuid']= response['uuid']
+            self.result['on-board'] = response['on-board']
+            # self.result['uuid']= response['uuid']
         else:
             LOG.error("SSM on-boarding failed. Exit.")
             exit(1)
@@ -124,13 +118,14 @@ class fakeslm(object):
     def publish_sid(self):
         message = {'name': 'ssm1',
                    'version': '0.1',
-                   'sid': 'hadik3r/ssm1'}#'registry.sonata-nfv.eu:5000/ssm/ssm1'}#self.result['uuid']}
+                   'sid': 'hadik3r/ssm1'}  # 'registry.sonata-nfv.eu:5000/ssm/ssm1'}#self.result['uuid']}
         self.manoconn.call_async(self._on_publish_sid_response,
                                  'specific.manager.registry.instantiate',
                                  json.dumps(message))
+
     def _on_publish_sid_response(self, ch, method, props, response):
 
-        response = json.loads(str(response))#, "utf-8"))
+        response = json.loads(str(response))  # , "utf-8"))
         if response['instantiation'] == 'OK':
             self.result['instantiation'] = 'OK'
             LOG.info("instantiation done")
@@ -141,6 +136,7 @@ class fakeslm(object):
 
 def main():
     fakeslm()
+
 
 if __name__ == '__main__':
     main()
