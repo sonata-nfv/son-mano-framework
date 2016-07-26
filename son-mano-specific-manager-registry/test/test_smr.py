@@ -31,6 +31,8 @@ from sonmanobase.messaging import ManoBrokerRequestResponseConnection
 from son_mano_specific_manager_registry.specificmanagerregistry import SpecificManagerRegistry
 from son_mano_specific_manager_registry.slm_nsd1 import fakeslm
 from son_mano_specific_manager_registry.slm_nsd2 import fakeslmU
+from son_mano_specific_manager_registry.smr_engine import SMREngine
+
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger('amqp-storm').setLevel(logging.INFO)
@@ -49,8 +51,7 @@ class test1SpecificManagerRegistry(unittest.TestCase):
         self.nsd1_proc = Process(target=fakeslm)
         self.nsd1_proc.daemon = True
 
-        self.manoconn1 = ManoBrokerRequestResponseConnection('son-plugin.SonPluginManager')
-        self.manoconn2 = ManoBrokerRequestResponseConnection('smr.SpecificManagerRegistry')
+        self.manoconn = ManoBrokerRequestResponseConnection('son-plugin.SonPluginManager')
 
         self.wait_for_event = threading.Event()
         self.wait_for_event.clear()
@@ -63,8 +64,7 @@ class test1SpecificManagerRegistry(unittest.TestCase):
         del self.srm_proc
 
         try:
-            self.manoconn1.stop_connection()
-            self.manoconn2.stop_connection()
+            self.manoconn.stop_connection()
         except Exception as e:
             LOG.exception("Stop connection exception.")
 
@@ -95,7 +95,7 @@ class test1SpecificManagerRegistry(unittest.TestCase):
                 LOG.info('SMR registration into the plugin manager test: Passed')
                 self.eventFinished()
 
-        self.manoconn1.subscribe(on_register_receive, 'platform.management.plugin.register')
+        self.manoconn.subscribe(on_register_receive, 'platform.management.plugin.register')
 
         self.srm_proc.start()
 
@@ -105,6 +105,7 @@ class test1SpecificManagerRegistry(unittest.TestCase):
 
 
 class test2SpecificManagerRegistry(unittest.TestCase):
+
     def setUp(self):
         self.srm_proc = Process(target=SpecificManagerRegistry)
         self.srm_proc.daemon = True
@@ -116,7 +117,6 @@ class test2SpecificManagerRegistry(unittest.TestCase):
         self.nsd2_proc.daemon = True
 
         self.manoconn = ManoBrokerRequestResponseConnection('son-plugin.SonPluginManager')#'smr.SpecificManagerRegistry')
-        self.manoconnssm = ManoBrokerRequestResponseConnection('ssm1')
 
         self.wait_for_event1 = threading.Event()
         self.wait_for_event1.clear()
@@ -171,10 +171,6 @@ class test2SpecificManagerRegistry(unittest.TestCase):
             if 'instantiation' in msg.keys():
                 self.assertEqual(msg['instantiation'], 'OK')
                 LOG.info('SSM instantiation test: Passed')
-                #self.nsd1_proc.terminate()
-                #self.nsd2_proc.start()
-                #self.waitForEvent2(timeout=50, msg="message not received.")
-                #self.eventFinished1()
 
         def test_on_registration_receive(ch, method, properties, message):
             msg = json.loads(str(message))  # , 'utf-8'))
@@ -203,7 +199,6 @@ class test2SpecificManagerRegistry(unittest.TestCase):
         self.manoconn.subscribe(test_on_onboard_receive, 'specific.manager.registry.on-board')
         self.manoconn.subscribe(test_on_instantiate_receive, 'specific.manager.registry.instantiate')
         self.manoconn.subscribe(test_on_registration_receive, 'specific.manager.registry.ssm.registration')
-
         self.manoconn.subscribe(test_on_update_receive, 'specific.manager.registry.ssm.update')
 
         time.sleep(5)
@@ -214,6 +209,40 @@ class test2SpecificManagerRegistry(unittest.TestCase):
         self.nsd1_proc.start()
 
         self.waitForEvent1(timeout=150, msg="message not received.")
+
+class testSMREngine(unittest.TestCase):
+
+    def test_docker_service_connection(self):
+
+        e = SMREngine()
+        self.assertIsNotNone(e.dc.info().get("ServerVersion"))
+
+
+    def test_ssm_board(self):
+
+        e = SMREngine()
+        result = e.pull(ssm_uri="hadik3r/ssm1", ssm_name= 'ssm1')
+        self.assertEqual(result['on-board'], 'OK')
+        img = e.dc.get_image('hadik3r/ssm1')
+        self.assertIsNotNone(img)
+
+    def test_ssm_instantiate(self):
+
+        e = SMREngine()
+        e.pull(ssm_uri="hadik3r/ssm1", ssm_name='ssm1')
+        result = e.start(image_name="hadik3r/ssm1", ssm_name='ssm1')
+        self.assertEqual(result['instantiation'], 'OK')
+        con = e.dc.containers(filters={'name': 'ssm1'})
+        self.assertIsNotNone(con)
+
+    def test_ssm_kill(self):
+
+        e = SMREngine()
+        e.pull(ssm_uri="hadik3r/ssm1", ssm_name='ssm1')
+        e.start(image_name="hadik3r/ssm1", ssm_name='ssm1')
+        e.stop('ssm1')
+        con = e.dc.containers(filters={'name': 'ssm1'})
+        self.assertEqual(con, [])
 
 
 if __name__ == "__main__":
