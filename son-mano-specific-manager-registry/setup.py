@@ -49,6 +49,8 @@ setup(
     description='SONATA MANO framework SSM/FSM manager',
     long_description=long_description,
 
+    # The project's main homepage.
+    url='https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-specific-manager-registry',
 
     # Author details
     author='Hadi Razzaghi Kouchaksaraei',

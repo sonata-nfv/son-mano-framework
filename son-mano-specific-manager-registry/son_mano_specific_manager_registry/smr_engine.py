@@ -34,7 +34,7 @@ import os
 import docker
 
 logging.basicConfig(level=logging.INFO)
-LOG = logging.getLogger("son-mano-specific-manager-registry")
+LOG = logging.getLogger("son-mano-specific-manager-registry-engine")
 LOG.setLevel(logging.DEBUG)
 logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
@@ -42,8 +42,8 @@ logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 class SsmNotFoundException(BaseException):
     pass
 
-class SMREngine(object):
 
+class SMREngine(object):
     def __init__(self):
         self.dc = self.connect()
 
@@ -92,57 +92,64 @@ class SMREngine(object):
 
         if "file://" in ssm_uri:
             # opt A: file based import
-            try:
-                ssm_path = ssm_uri.replace("file://", "")
-                ssm_image_name = os.path.splitext(os.path.basename(ssm_path))[0]
-                img = self.dc.images(name= ssm_uri)
-                if len(img) != 0:
-                    self.dc.remove_image(force=True, image = ssm_uri)
-                r = self.dc.import_image(ssm_path, repository=ssm_image_name)
-                if "error" in r:
-                    raise SsmNotFoundException("Import error: %r" % r)
-                LOG.debug("%r pull done" % ssm_name)
-                response = {'on-board':'OK'}
-            except BaseException as ex:
-                LOG.exception("Cannot import SSM from %r" % ssm_uri)
-                response= {'on-board':'failed'}
+            img = self.dc.images(name=ssm_uri)
+            if len(img) != 0:
+                LOG.error('Cannot pull: %r already exists' % ssm_uri)
+                # self.dc.remove_image(force=True, image=ssm_uri)
+            else:
+                try:
+                    ssm_path = ssm_uri.replace("file://", "")
+                    ssm_image_name = os.path.splitext(os.path.basename(ssm_path))[0]
+                    img = self.dc.images(name=ssm_uri)
+                    if len(img) != 0:
+                        self.dc.remove_image(force=True, image=ssm_uri)
+                    r = self.dc.import_image(ssm_path, repository=ssm_image_name)
+                    if "error" in r:
+                        raise SsmNotFoundException("Import error: %r" % r)
+                    LOG.debug("%r pull done" % ssm_name)
+                    response = {'on-board': 'OK'}
+                except BaseException as ex:
+                    LOG.exception("Cannot import SSM from %r" % ssm_uri)
+                    response = {'on-board': 'failed'}
         else:
             # opt B: repository pull
-            try:
-                img = self.dc.images(name= ssm_uri)
-                if len(img) != 0:
-                    self.dc.remove_image(force=True, image = ssm_uri)
-                r = self.dc.pull(ssm_uri)
-                if "error" in r:
-                    raise SsmNotFoundException("Pull error: %r" % r)
-                LOG.info("%r pull done" % ssm_name)
-                response = {'on-board':'OK'}  # image name and uri are the same
-            except BaseException as ex:
-                LOG.exception("Cannot pull SSM from %r" % ssm_uri)
-                response = {'on-board':'failed'}
+            img = self.dc.images(name=ssm_uri)
+            if len(img) != 0:
+                LOG.error('Cannot pull: %r already exists' % ssm_uri)
+                # self.dc.remove_image(force=True, image=ssm_uri)
+            else:
+                try:
+                    r = self.dc.pull(ssm_uri)
+                    if "error" in r:
+                        raise SsmNotFoundException("Pull error: %r" % r)
+                    LOG.info("%r pull done" % ssm_name)
+                    response = {'on-board': 'OK'}  # image name and uri are the same
+                except BaseException as ex:
+                    LOG.exception("Cannot pull SSM from %r" % ssm_uri)
+                    response = {'on-board': 'failed'}
         return response
 
-    def start(self,image_name,ssm_name):
+    def start(self, image_name, ssm_name):
         response = {}
         container = None
-        try:
-            con = None
-            con = self.dc.containers(all= True, filters={'name':ssm_name})
-            if len(con) != 0:
-                LOG.info('waiting for instantiation')
-                self.dc.stop(ssm_name)
-                self.dc.remove_container(ssm_name)
-            container = self.dc.create_container(image=image_name , tty=True, name=ssm_name)
-            self.dc.start(container=container.get('Id'), links=[('broker', 'broker')])
-            LOG.debug("%r instantiation done" % ssm_name)
-            response = {'instantiation':'OK'}
-        except BaseException as ex:
-            LOG.exception("Cannot instantiate SSM: %r" % image_name)
-            response = {'instantiation': 'failed'}
-        response = {'instantiation':'OK', 'container': container.get('Id')}
+        con = None
+        con = self.dc.containers(all=True, filters={'name': ssm_name})
+        if len(con) != 0:
+            LOG.error('Cannot instantiate: %r already exists' % ssm_name)
+            # self.dc.stop(ssm_name)
+            # self.dc.remove_container(ssm_name)
+        else:
+            try:
+                container = self.dc.create_container(image=image_name, tty=True, name=ssm_name)
+                self.dc.start(container=container.get('Id'), links=[('broker', 'broker')])
+                LOG.debug("%r instantiation done" % ssm_name)
+                response = {'instantiation': 'OK', 'container': container.get('Id')}
+            except BaseException as ex:
+                LOG.exception("Cannot instantiate SSM: %r" % image_name)
+                response = {'instantiation': 'failed'}
         return response
 
-    def stop(self,ssm_name):
+    def stop(self, ssm_name):
         try:
             self.dc.kill(ssm_name)
             response = 'done'
