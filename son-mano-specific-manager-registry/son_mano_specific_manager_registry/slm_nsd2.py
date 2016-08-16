@@ -29,6 +29,7 @@ partner consortium (www.sonata-nfv.eu).
 import logging
 import json
 import time
+import yaml
 
 from sonmanobase import messaging
 
@@ -66,17 +67,18 @@ class fakeslmU(object):
 
     def publish_update_nsd(self):
 
-        message = {'name': 'ssm2',
-                   'version': '0.1',
-                   'uri': 'hadik3r/ssm2'}  # 'registry.sonata-nfv.eu:5000/ssm/ssm2'}
-
+        # message = {'name': 'ssm2',
+        #            'version': '0.1',
+        #            'uri': 'hadik3r/ssm2'}  # 'registry.sonata-nfv.eu:5000/ssm/ssm2'}
+        nsd = open('son_mano_specific_manager_registry/NSD2.yaml', 'r')
+        message = yaml.load(nsd)
         self.manoconn.call_async(self._on_publish_update_nsd_response,
                                  'specific.manager.registry.ssm.update',
-                                 json.dumps(message))
+                                 yaml.dump(message))
 
     def _on_publish_update_nsd_response(self, ch, method, props, response):
 
-        response = json.loads(str(response))  # , "utf-8"))
+        response = yaml.load(str(response))  # , "utf-8"))
         if response['instantiation'] == 'OK' and response['on-board'] == 'OK':
             LOG.info("pull and instantiation done")
         else:
