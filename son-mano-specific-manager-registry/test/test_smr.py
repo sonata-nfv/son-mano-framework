@@ -27,6 +27,7 @@ import time
 import logging
 import json
 import threading
+import yaml
 import warnings
 from multiprocessing import Process
 from sonmanobase.messaging import ManoBrokerRequestResponseConnection
@@ -81,16 +82,16 @@ class test1SpecificManagerRegistry(unittest.TestCase):
             time.sleep(0.1)
             c += 0.1
 
-    def test_SMR_registration(self):
+    def test_smr_registration(self):
 
         def on_register_receive(ch, method, properties, message):
-            msg = json.loads(str(message))  # ,'utf-8'))
+            msg = yaml.load(str(message))  # ,'utf-8'))
 
             self.msg_receive_waiting(msg, 'status', 5)
             if 'status' in msg.keys():
                 self.assertEqual(msg['status'], 'OK')
                 self.assertGreater(len(msg.get("uuid")), 0)
-                LOG.info('SMR registration into the plugin manager test: Passed')
+                LOG.info('SMR registration in the plugin manager test: Passed')
                 self.eventFinished()
 
         self.manoconn.subscribe(on_register_receive, 'platform.management.plugin.register')
@@ -157,24 +158,24 @@ class test2SpecificManagerRegistry(unittest.TestCase):
             time.sleep(0.1)
             c += 0.1
 
-    def test_ssm_features(self):
+    def test_smr_features(self):
 
         def test_on_onboard_receive(ch, method, properties, message):
-            msg = json.loads(str(message))  # , 'utf-8'))
+            msg = yaml.load(str(message))  # , 'utf-8'))
             self.msg_receive_waiting(msg, 'on-board', 5)
             if 'on-board' in msg.keys():
                 self.assertEqual(msg['on-board'], 'OK')
                 LOG.info('SSM on-board test: Passed')
 
         def test_on_instantiate_receive(ch, method, properties, message):
-            msg = json.loads(str(message))  # , 'utf-8'))
+            msg = yaml.load(str(message))  # , 'utf-8'))
             self.msg_receive_waiting(msg, 'instantiation', 5)
             if 'instantiation' in msg.keys():
                 self.assertEqual(msg['instantiation'], 'OK')
                 LOG.info('SSM instantiation test: Passed')
 
         def test_on_registration_receive(ch, method, properties, message):
-            msg = json.loads(str(message))  # , 'utf-8'))
+            msg = yaml.load(str(message))  # , 'utf-8'))
             self.msg_receive_waiting(msg, 'status', 5)
             if 'status' in msg.keys():
                 self.assertEqual(msg['status'], 'OK')
@@ -186,7 +187,7 @@ class test2SpecificManagerRegistry(unittest.TestCase):
                 self.eventFinished1()
 
         def test_on_update_receive(ch, method, properties, message):
-            msg = json.loads(str(message))  # , 'utf-8'))
+            msg = yaml.load(str(message))  # , 'utf-8'))
             self.msg_receive_waiting(msg, 'status', 5)
             if 'on-board' in msg.keys():
                 self.assertEqual(msg['on-board'], 'OK')
@@ -197,8 +198,8 @@ class test2SpecificManagerRegistry(unittest.TestCase):
                 # stop waiting
                 self.eventFinished2()
 
-        self.manoconn.subscribe(test_on_onboard_receive, 'specific.manager.registry.on-board')
-        self.manoconn.subscribe(test_on_instantiate_receive, 'specific.manager.registry.instantiate')
+        self.manoconn.subscribe(test_on_onboard_receive, 'specific.manager.registry.ssm.on-board')
+        self.manoconn.subscribe(test_on_instantiate_receive, 'specific.manager.registry.ssm.instantiate')
         self.manoconn.subscribe(test_on_registration_receive, 'specific.manager.registry.ssm.registration')
         self.manoconn.subscribe(test_on_update_receive, 'specific.manager.registry.ssm.update')
 

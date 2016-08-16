@@ -32,6 +32,7 @@ import logging
 import json
 import time
 import uuid
+import yaml
 from sonmanobase.plugin import ManoBasePlugin
 
 from son_mano_specific_manager_registry.smr_engine import SMREngine
@@ -49,13 +50,12 @@ class SsmNotFoundException(BaseException):
 class SpecificManagerRegistry(ManoBasePlugin):
     def __init__(self):
 
-        self.name = "smr"
+        self.name = "SMR"
         self.version = 'v0.01'
-        self.description = 'description'
+        self.description = 'Specific Manager Registry'
         self.auto_register = True
         self.wait_for_registration = True
         self.auto_heartbeat_rate = 0
-        self.result = {}
         self.ssm_repo = {}
 
         # connect to the docker daemon
@@ -71,78 +71,71 @@ class SpecificManagerRegistry(ManoBasePlugin):
 
         LOG.info("Starting Specific Manager Registry (SMR) ...")
 
-        # create and initialize broker connection
-        # self.manoconn = messaging.ManoBrokerRequestResponseConnection(self.name)
-
         # register subscriptions
         self.declare_subscriptions()
-
-        # jump to run
-        # self.run()
-
-    def run(self):
-
-        # go into infinity loop
-
-        while True:
-            time.sleep(1)
 
     def declare_subscriptions(self):
         """
         Declare topics to which we want to listen and define callback methods.
         """
-        self.manoconn.register_async_endpoint(self.on_board, "specific.manager.registry.on-board")
-        self.manoconn.register_async_endpoint(self.on_instantiate, "specific.manager.registry.instantiate")
+        self.manoconn.register_async_endpoint(self.on_board, "specific.manager.registry.ssm.on-board")
+        self.manoconn.register_async_endpoint(self.on_instantiate, "specific.manager.registry.ssm.instantiate")
         self.manoconn.register_async_endpoint(self.on_ssm_register, "specific.manager.registry.ssm.registration")
         self.manoconn.register_async_endpoint(self.on_ssm_update, "specific.manager.registry.ssm.update")
 
     def on_board(self, ch, method, properties, message):
 
-        message = json.loads(str(message))  # , "utf-8"))
-        return json.dumps(self.smrengine.pull(ssm_uri=message['uri'],
-                                              ssm_name=message['name']))
+        message = yaml.load(message)
+        return yaml.dump(self.smrengine.pull(ssm_uri=message['service_specific_managers'][0]['image'],
+                                              ssm_name=message['service_specific_managers'][0]['id']))
 
     def on_instantiate(self, ch, method, properties, message):
 
-        message = json.loads(str(message))  # , 'utf-8'))
-        return json.dumps(self.smrengine.start(image_name= message['sid'],
-                                               ssm_name= message['name']))
+        message = yaml.load(message)
+        return yaml.dump(self.smrengine.start(image_name= message['service_specific_managers'][0]['image'],
+                                               ssm_name= message['service_specific_managers'][0]['id']))
 
     def on_ssm_register(self, ch, method, properties, message):
 
         message = json.loads(str(message))  # , "utf-8"))
         response = {}
-        try:
-            pid = str(uuid.uuid4())
-            self.ssm_repo.update({message['name']: message})
-            response = {
-                "status": "running",
-                "name": message['name'],
-                "version": message['version'],
-                "description": message['description'],
-                "uuid": pid,
-                "error": None
-            }
-            self.ssm_repo.update({message['name']: response})
-            LOG.debug("SSM registration done %r" % self.ssm_repo)
-            response = {'status': 'OK', 'name': response['name']}
-        except BaseException as ex:
+        keys = self.ssm_repo.keys()
+        if message['name'] in keys:
+            LOG.error('Cannot register SSM: %r, already exists' % message['name'])
             response = {'status': 'failed'}
-            LOG.exception('Cannot register SSM: %r' % message['name'])
+        else:
+
+            try:
+                pid = str(uuid.uuid4())
+                self.ssm_repo.update({message['name']: message})
+                response = {
+                    "status": "running",
+                    "name": message['name'],
+                    "version": message['version'],
+                    "description": message['description'],
+                    "uuid": pid,
+                    "error": None
+                }
+                self.ssm_repo.update({message['name']: response})
+                LOG.debug("SSM registration done %r" % self.ssm_repo)
+                response = {'status': 'OK', 'name': response['name']}
+            except BaseException as ex:
+                response = {'status': 'failed'}
+                LOG.exception('Cannot register SSM: %r' % message['name'])
         return json.dumps(response)
 
     def on_ssm_update(self, ch, method, properties, message):
 
-        message = json.loads(str(message))  # , "utf-8"))
-        ssm_uri = message['uri']
-        ssm_name = message['name']
+        message = yaml.load(message)
+        ssm_uri = message['service_specific_managers'][0]['image']
+        ssm_name = message['service_specific_managers'][0]['id']
         result = {}
         result.update(self.smrengine.pull(ssm_uri, ssm_name))
         result.update(self.smrengine.start(ssm_uri, ssm_name))
         LOG.info("Waiting for ssm2 registration ...")
         self._wait_for_ssm()
         result.update(self.ssm_kill())
-        return json.dumps(result)
+        return yaml.dump(result)
 
     def ssm_kill(self):
 

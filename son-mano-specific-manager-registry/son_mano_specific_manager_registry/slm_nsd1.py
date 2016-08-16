@@ -29,6 +29,7 @@ partner consortium (www.sonata-nfv.eu).
 import logging
 import json
 import time
+import yaml
 
 from sonmanobase import messaging
 
@@ -90,13 +91,14 @@ class fakeslm(object):
         Send a register request to the Specific Manager registry to announce this SSM.
         """
 
-        message = {'name': 'ssm1',
-                   'version': '0.1',
-                   'uri': 'hadik3r/ssm1'}  # 'registry.sonata-nfv.eu:5000/ssm/ssm1'}#'file:///son-mano-specific-manager-registry/ssm1.tar'}
-
+        #message = {'name': 'ssm1',
+        #           'version': '0.1',
+        #           'uri': 'hadik3r/ssm1'}  # 'registry.sonata-nfv.eu:5000/ssm/ssm1'}#'file:///son-mano-specific-manager-registry/ssm1.tar'}
+        nsd = open('son_mano_specific_manager_registry/NSD1.yaml', 'r')
+        message = yaml.load(nsd)
         self.manoconn.call_async(self._on_publish_nsd_response,
-                                 'specific.manager.registry.on-board',
-                                 json.dumps(message))
+                                 'specific.manager.registry.ssm.on-board',
+                                 yaml.dump(message))
 
     def _on_publish_nsd_response(self, ch, method, props, response):
 
@@ -106,7 +108,7 @@ class fakeslm(object):
         :param response: response body
         :return: None
         """
-        response = json.loads(str(response))  # , "utf-8"))
+        response = yaml.load(str(response))  # , "utf-8"))
         if response['on-board'] == 'OK':
             LOG.info("Docker container on-boarded")
             self.result['on-board'] = response['on-board']
@@ -116,16 +118,18 @@ class fakeslm(object):
             exit(1)
 
     def publish_sid(self):
-        message = {'name': 'ssm1',
-                   'version': '0.1',
-                   'sid': 'hadik3r/ssm1'}  # 'registry.sonata-nfv.eu:5000/ssm/ssm1'}#self.result['uuid']}
+        # message = {'name': 'ssm1',
+        #            'version': '0.1',
+        #            'sid': 'hadik3r/ssm1'}  # 'registry.sonata-nfv.eu:5000/ssm/ssm1'}#self.result['uuid']}
+        nsd = open('son_mano_specific_manager_registry/NSD1.yaml', 'r')
+        message = yaml.load(nsd)
         self.manoconn.call_async(self._on_publish_sid_response,
-                                 'specific.manager.registry.instantiate',
-                                 json.dumps(message))
+                                 'specific.manager.registry.ssm.instantiate',
+                                 yaml.dump(message))
 
     def _on_publish_sid_response(self, ch, method, props, response):
 
-        response = json.loads(str(response))  # , "utf-8"))
+        response = yaml.load(str(response))  # , "utf-8"))
         if response['instantiation'] == 'OK':
             self.result['instantiation'] = 'OK'
             LOG.info("instantiation done")
