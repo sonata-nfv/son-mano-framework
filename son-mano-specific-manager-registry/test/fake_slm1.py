@@ -27,10 +27,8 @@ partner consortium (www.sonata-nfv.eu).
 """
 
 import logging
-import json
-import time
 import yaml
-
+import time
 from sonmanobase import messaging
 
 logging.basicConfig(level=logging.INFO)
@@ -39,55 +37,72 @@ LOG.setLevel(logging.DEBUG)
 logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
 
-class fakeslmU(object):
+class fakeslm(object):
     def __init__(self):
 
-        self.name = 'fake-slm-update'
+        self.name = 'fake-slm'
         self.version = '0.1-dev'
         self.description = 'description'
 
-        LOG.info(
-            "Starting SLM:...")
+        LOG.info("Starting SLM1:...")
+
         # create and initialize broker connection
         self.manoconn = messaging.ManoBrokerRequestResponseConnection(self.name)
 
-        self.result = {'on-board': None, 'instantiation': None}
-        # register to plugin manager
-        self.publish_update_nsd()
+        self.path_descriptors = 'test/test_descriptors/'
+        self.end = False
 
-        # jump to run
+        self.publish_nsd()
+
         self.run()
 
     def run(self):
 
         # go into infinity loop
 
-        while True:
+        while self.end == False:
             time.sleep(1)
 
-    def publish_update_nsd(self):
+    def publish_nsd(self):
 
-        # message = {'name': 'ssm2',
-        #            'version': '0.1',
-        #            'uri': 'hadik3r/ssm2'}  # 'registry.sonata-nfv.eu:5000/ssm/ssm2'}
-        nsd = open('son_mano_specific_manager_registry/NSD2.yaml', 'r')
+        nsd = open(self.path_descriptors + 'nsd1.yaml', 'r')
         message = yaml.load(nsd)
-        self.manoconn.call_async(self._on_publish_update_nsd_response,
-                                 'specific.manager.registry.ssm.update',
+        self.manoconn.call_async(self._on_publish_nsd_response,
+                                 'specific.manager.registry.ssm.on-board',
                                  yaml.dump(message))
 
-    def _on_publish_update_nsd_response(self, ch, method, props, response):
+    def _on_publish_nsd_response(self, ch, method, props, response):
 
-        response = yaml.load(str(response))  # , "utf-8"))
-        if response['update'] == 'OK': #and response['on-board'] == 'OK':
-            LOG.info("update done")
-        else:
-            LOG.error("SMR instantiation failed. Exit.")
-            exit(1)
+        response = yaml.load(str(response))
+        if type(response) == dict:
+            if response['on-board'] == 'OK':
+                LOG.info("Docker container on-boarded")
+                self.publish_sid()
+            else:
+                LOG.error("SSM on-boarding failed. Exit.")
+                self.end = True
 
+    def publish_sid(self):
 
+        nsd = open(self.path_descriptors + 'nsd1.yaml', 'r')
+        nsr = open(self.path_descriptors + 'nsr.yaml', 'r')
+        message = {'NSD':yaml.load(nsd),'NSR':yaml.load(nsr)}
+        self.manoconn.call_async(self._on_publish_sid_response,
+                                 'specific.manager.registry.ssm.instantiate',
+                                 yaml.dump(message))
+
+    def _on_publish_sid_response(self, ch, method, props, response):
+
+        response = yaml.load(str(response))
+        if type(response) == dict:
+            if response['instantiation'] == 'OK':
+                LOG.info("instantiation done")
+                self.end = True
+            else:
+                LOG.error("SSM instantiation failed.")
+                self.end = True
 def main():
-    fakeslmU()
+    fakeslm()
 
 
 if __name__ == '__main__':

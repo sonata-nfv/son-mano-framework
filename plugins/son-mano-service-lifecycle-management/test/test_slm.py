@@ -625,8 +625,8 @@ class testSlmFunctionality(unittest.TestCase):
         gk_request['VNFD3']['uuid'] = '8a0aa837-ec1c-44e5-9907-898f6401c3ae'
 
         #STEP3: load nsr_file, containing both NSR and the list of VNFRs
-        message_from_ia = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml', 'r'))
-        nsr_file = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-nsr.yml', 'r'))
+        message_from_ia = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yaml', 'r'))
+        nsr_file = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/nsr.yaml', 'r'))
         vnfrs_file = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-vnfrs.yml', 'r'))
 
         #STEP4: call real method
@@ -656,8 +656,8 @@ class testSlmFunctionality(unittest.TestCase):
         gk_request = yaml.load(self.createGkNewServiceRequestMessage())
 
         #STEP2: read IA response and the expected NSR
-        ia_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml', 'r'))
-        expected_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-nsr.yml', 'r'))
+        ia_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yaml', 'r'))
+        expected_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/nsr.yaml', 'r'))
 
         #STEP3: call real method
         message = tools.build_nsr(gk_request, ia_nsr)
@@ -674,7 +674,7 @@ class testSlmFunctionality(unittest.TestCase):
         gk_request = yaml.load(self.createGkNewServiceRequestMessage())
 
         #STEP2: read IA response and the expected NSR
-        ia_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml', 'r'))
+        ia_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yaml', 'r'))
         expected_vnfrs = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-vnfrs.yml', 'r'))
 
         message = tools.build_vnfrs(gk_request, ia_nsr['vnfrs'])
