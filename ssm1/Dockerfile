@@ -9,7 +9,7 @@ ENV broker_exchange son-kernel
 
 
 ADD son-mano-base /son-mano-base
-ADD son-mano-specific-manager-registry/ssm1 /ssm1
+ADD son-mano-specific-manger-registry/ssm1 /ssm1
 ADD utils/delayedstart.sh /delayedstart.sh
 
 

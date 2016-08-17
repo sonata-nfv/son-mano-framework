@@ -50,6 +50,7 @@ class fakeslm(object):
             "Starting SLM:...")
         # create and initialize broker connection
         self.manoconn = messaging.ManoBrokerRequestResponseConnection(self.name)
+        self.declare_subscriptions()
 
         self.result = {'on-board': None, 'instantiation': None}
         # register to plugin manager
@@ -85,6 +86,12 @@ class fakeslm(object):
             time.sleep(sleep_interval)
             c += sleep_interval
 
+    def declare_subscriptions(self):
+        """
+        Declare topics to which we want to listen and define callback methods.
+        """
+        self.manoconn.subscribe(self.on_instantiate, "specific.manager.registry.ssm.instantiate")
+
     def publish_nsd(self):
 
         """
@@ -108,6 +115,7 @@ class fakeslm(object):
         :param response: response body
         :return: None
         """
+
         response = yaml.load(str(response))  # , "utf-8"))
         if response['on-board'] == 'OK':
             LOG.info("Docker container on-boarded")
@@ -128,16 +136,28 @@ class fakeslm(object):
                                  yaml.dump(message))
 
     def _on_publish_sid_response(self, ch, method, props, response):
+        pass
+
+        # response = yaml.load(str(response))  # , "utf-8"))
+        # if response['instantiation'] == 'OK':
+        #     self.result['instantiation'] = 'OK'
+        #     LOG.info("instantiation done")
+        # else:
+        #     LOG.error("SSM instantiation failed. Exit.")
+        #     exit(1)
+
+    def on_instantiate (self, ch, method, props, response):
 
         response = yaml.load(str(response))  # , "utf-8"))
-        if response['instantiation'] == 'OK':
-            self.result['instantiation'] = 'OK'
-            LOG.info("instantiation done")
-        else:
-            LOG.error("SSM instantiation failed. Exit.")
-            exit(1)
-
-
+        #print (response)
+        if type(response) == dict:
+            if 'instantiation' in response.keys():
+                if response['instantiation'] == 'OK':
+                    self.result['instantiation'] = 'OK'
+                    LOG.info("instantiation done")
+                else:
+                    LOG.error("SSM instantiation failed. Exit.")
+                    exit(1)
 def main():
     fakeslm()
 
