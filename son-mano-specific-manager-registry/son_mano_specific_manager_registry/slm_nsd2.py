@@ -79,8 +79,8 @@ class fakeslmU(object):
     def _on_publish_update_nsd_response(self, ch, method, props, response):
 
         response = yaml.load(str(response))  # , "utf-8"))
-        if response['instantiation'] == 'OK' and response['on-board'] == 'OK':
-            LOG.info("pull and instantiation done")
+        if response['update'] == 'OK': #and response['on-board'] == 'OK':
+            LOG.info("update done")
         else:
             LOG.error("SMR instantiation failed. Exit.")
             exit(1)
