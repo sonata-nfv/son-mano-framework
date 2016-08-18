@@ -28,11 +28,12 @@ partner consortium (www.sonata-nfv.eu).
 import logging
 import json
 import time
+import yaml
 
 from sonmanobase import messaging
 
 logging.basicConfig(level=logging.INFO)
-LOG = logging.getLogger("ssm2")
+LOG = logging.getLogger("ssm1_new")
 LOG.setLevel(logging.DEBUG)
 logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
@@ -41,7 +42,7 @@ class ManoSSM(object):
 
     def __init__(self):
 
-        self.name = 'ssm2'
+        self.name = 'ssm1_new'
         self.version = '0.1-dev'
         self.description = 'description'
         self.uuid = None
@@ -74,17 +75,17 @@ class ManoSSM(object):
         Send a register request to the Specific Manager registry to announce this SSM.
         """
 
-        message = {'name': 'ssm2',
+        message = {'name': 'ssm1_new',
                    'version': '0.1-dev',
                    'description': 'description'}
 
         self.manoconn.call_async(self._on_publish_response,
                                  'specific.manager.registry.ssm.registration',
-                                 json.dumps(message))
+                                 yaml.dump(message))
 
     def _on_publish_response(self, ch, method, props, response):
 
-        response = json.loads(str(response, "utf-8"))
+        response = yaml.load(str(response))#, "utf-8"))
 
         if response.get("status") != "OK":
             LOG.debug("Response %r" % response)

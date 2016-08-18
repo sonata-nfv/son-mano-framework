@@ -1,8 +1,8 @@
-from ssm2 import ssm2
+from ssm1_new import ssm1_new
 
 
 def main():
-    ssm2.main()
+    ssm1_new.main()
 
 if __name__ == '__main__':
     main()

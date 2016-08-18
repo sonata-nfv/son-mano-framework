@@ -28,6 +28,7 @@ partner consortium (www.sonata-nfv.eu).
 
 import logging
 import json
+import yaml
 import  time
 from sonmanobase import messaging
 
@@ -82,11 +83,11 @@ class ManoSSM(object):
 
         self.manoconn.call_async(self._on_publish_response,
                                  'specific.manager.registry.ssm.registration',
-                                 json.dumps(message))
+                                 yaml.dump(message))
 
     def _on_publish_response(self, ch, method, props, response):
 
-        response = json.loads(str(response, "utf-8"))
+        response = yaml.load(str(response))#, "utf-8"))
 
         if response.get("status") != "OK":
             LOG.debug("Response %r" % response)
