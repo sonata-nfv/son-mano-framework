@@ -293,6 +293,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
 
         LOG.info("Response from SRM regarding on-boarding received.")
+        LOG.info("GOT HERE")
 
         for service_request in self.service_requests_being_handled:
             service_request = self.service_requests_being_handled[service_request]
@@ -308,6 +309,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
                         service_request['ssms_ready_to_start'] = True
                         break
                         
+        LOG.info(self.service_requests_being_handled)        
+
     def start_new_service_deployment(self, ch, method, properties, message):
         """
         This method initiates the deployment of a new service
@@ -450,15 +453,17 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 if 'service_specific_managers' in self.service_requests_being_handled[properties.correlation_id]['NSD'].keys():
                     if len(service_request_from_gk['NSD']['service_specific_managers']) > 0:
                         dict_for_srm = {'NSD':self.service_requests_being_handled[properties.correlation_id]['NSD'], 'NSR':nsr}
-                        if service_requests_being_handled[properties.correlation_id]['ssms_ready_to_start'] == True:   
+                        if self.service_requests_being_handled[properties.correlation_id]['ssms_ready_to_start'] == True:   
                             LOG.info("Informing SRM that SSMs can be started.")                                             
                             self.manoconn.call_async(self.on_ssm_start_return, SRM_START, yaml.dump(dict_for_srm))
                         else:
                             LOG.info("service deployement completed. Waiting for SSM onboarding to finish so SSMs can be started.")
-                            service_requests_being_handled[properties.correlation_id]['ssms_ready_to_start'] = True
-                            service_requests_being_handled[properties.correlation_id]['completed'] = False
-                            service_requests_being_handled[properties.correlation_id]['message_for_srm'] = dict_for_srm
+                            self.service_requests_being_handled[properties.correlation_id]['ssms_ready_to_start'] = True
+                            self.service_requests_being_handled[properties.correlation_id]['completed'] = False
+                            self.service_requests_being_handled[properties.correlation_id]['message_for_srm'] = dict_for_srm
 
+            LOG.info("GOT HERE2")
+            LOG.info(self.service_requests_being_handled)
 
         else:
             message_for_gk['error'] = 'Deployment result: ' + msg['request_status']
