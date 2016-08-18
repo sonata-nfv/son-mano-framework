@@ -50,6 +50,8 @@ LOG.setLevel(logging.DEBUG)
 # of the GK are published
 GK_INSTANCE_CREATE_TOPIC = "service.instances.create"
 
+GK_INSTANCE_UPDATE = 'service.instances.update'
+
 # The topic to which service instance deploy replies
 # of the Infrastructure Adaptor are published
 INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC = "infrastructure.service.deploy"
@@ -58,7 +60,8 @@ INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC = "infrastructure.service.deploy"
 INFRA_ADAPTOR_AVAILABLE_VIMS = 'infrastructure.management.compute.list'
 
 SRM_ONBOARD = 'smr.management.onboard'
-SRM_START = 'smr.management.start'
+SRM_START = 'smr.management.instantiate'
+SRM_UPDATE = 'smr.management.update'
 
 # The NSR Repository can be accessed through a RESTful
 # API. Links are red from ENV variables.
@@ -115,6 +118,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
             self.on_gk_service_instance_create, # function called when message received
             GK_INSTANCE_CREATE_TOPIC)           # topic to listen to
 
+        self.manoconn.register_async_endpoint(
+            self.on_gk_service_update,
+            GK_INSTANCE_UPDATE)
+
     def on_lifecycle_start(self, ch, method, properties, message):
         """
         This event is called when the plugin has successfully registered itself
@@ -131,6 +138,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         super(self.__class__, self).on_lifecycle_start(ch, method, properties, message)
         LOG.info("Lifecycle start event")
+
 
     def on_gk_service_instance_create(self, ch, method, properties, message):
         """
@@ -235,12 +243,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
 	    #SSM handling: if NSD has service_specific_managers field,
 	    #then SLM contacts the ssm manager with this NSD.
         if 'service_specific_managers' in service_request_from_gk['NSD'].keys():
-            if len(service_request_from_gk['NSD']['service_specific_managers'] > 0:
+            if len(service_request_from_gk['NSD']['service_specific_managers']) > 0:
                 corr_id_for_onboarding = uuid.uuid4().hex
-                self.service.requests_being_handled[properties.correlation_id]['corr_id_for_onboarding'] = corr_id_for_onboarding
+                self.service_requests_being_handled[properties.correlation_id]['corr_id_for_onboarding'] = corr_id_for_onboarding
                 self.manoconn.call_async(self.on_ssm_onboarding_return, SRM_ONBOARD, yaml.dump(service_request_from_gk['NSD']), correlation_id=corr_id_for_onboarding)
-                service_requests_being_handled[properties.correlation_id]['ssms_ready_to_start'] = False
-
+                self.service_requests_being_handled[properties.correlation_id]['ssms_ready_to_start'] = False
 
         #After the received request has been processed, we can start
         #handling it in a different thread.
@@ -256,24 +263,50 @@ class ServiceLifecycleManager(ManoBasePlugin):
         LOG.info('Response from SLM to GK on request: ' + str(response_for_gk))
         return yaml.dump(response_for_gk)
 
+    def on_gk_service_update(self, ch, method, properties, message):
+        """
+        This method handles a service update request
+        """
+
+        request = yaml.load(message)
+        
+        #get nsr
+        nsr = requests.get(NSR_REPOSITORY_URL + 'ns-instances', data=json.dumps(request['instance_id']), headers={'Content-Type':'application/json'}, timeout=10.0)
+        request_for_smr = {'NSD':request['NSD'], 'NSR':nsr.json()}
+
+        self.manoconn.call_async(self.on_update_request_reply, SRM_UPDATE, yaml.dump(request_for_smr))
+
+        return
+
+    def on_update_request_reply(self, ch, method, properties, message):
+        """
+        This method handles a response of the SMR on an update request
+        """
+
+        pass
+        
+
     def on_ssm_onboarding_return(self, ch, method, properties, message):
         """
         This method catches a reply on the ssm onboarding topic
         """
 
         LOG.info("Response from SRM regarding on-boarding received.")
-        for service_request in self.service.requests_being_handled:
+
+        for service_request in self.service_requests_being_handled:
+            service_request = self.service_requests_being_handled[service_request]
             if 'corr_id_for_onboarding' in service_request.keys():
                 if service_request['corr_id_for_onboarding'] == properties.correlation_id:
                     if service_request['ssms_ready_to_start'] == True:
                         LOG.info("Request to start SSMs sent.")
                         self.manoconn.call_async(self.on_ssm_start_return, SRM_START, yaml.dump(service_request['message_for_srm']))
                         self.service.requests_being_handled.pop(service_request)
+                        break
                     else:
                         LOG.info("Request to start SSMs is pending, waiting for service deployement to finish.")
                         service_request['ssms_ready_to_start'] = True
+                        break
                         
-
     def start_new_service_deployment(self, ch, method, properties, message):
         """
         This method initiates the deployment of a new service
@@ -414,7 +447,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 message_for_gk['error'] = None
 
                 if 'service_specific_managers' in self.service_requests_being_handled[properties.correlation_id]['NSD'].keys():
-                    if len(service_request_from_gk['NSD']['service_specific_managers'] > 0:
+                    if len(service_request_from_gk['NSD']['service_specific_managers']) > 0:
                         dict_for_srm = {'NSD':self.service_requests_being_handled[properties.correlation_id]['NSD'], 'NSR':nsr}
                         if service_requests_being_handled[properties.correlation_id]['ssms_ready_to_start'] == True:   
                             LOG.info("Informing SRM that SSMs can be started.")                                             
