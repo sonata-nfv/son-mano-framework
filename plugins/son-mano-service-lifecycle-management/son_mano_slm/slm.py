@@ -59,7 +59,7 @@ INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC = "infrastructure.service.deploy"
 # The topic to which available vims are published
 INFRA_ADAPTOR_AVAILABLE_VIMS = 'infrastructure.management.compute.list'
 
-# Topics for interaction with the specific manager registry
+# Topics for interaction with the specific manager registry 
 SRM_ONBOARD = 'specific.manager.registry.ssm.on-board'
 SRM_START = 'specific.manager.registry.ssm.instantiate'
 SRM_UPDATE = 'specific.manager.registry.ssm.update'
