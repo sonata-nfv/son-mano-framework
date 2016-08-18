@@ -626,7 +626,7 @@ class testSlmFunctionality(unittest.TestCase):
 
         #STEP3: load nsr_file, containing both NSR and the list of VNFRs
         message_from_ia = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml', 'r'))
-        nsr_file = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/nsr.yml', 'r'))
+        nsr_file = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-nsr.yml', 'r'))
         vnfrs_file = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-vnfrs.yml', 'r'))
 
         #STEP4: call real method
@@ -657,7 +657,7 @@ class testSlmFunctionality(unittest.TestCase):
 
         #STEP2: read IA response and the expected NSR
         ia_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml', 'r'))
-        expected_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/nsr.yml', 'r'))
+        expected_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-nsr.yml', 'r'))
 
         #STEP3: call real method
         message = tools.build_nsr(gk_request, ia_nsr)
