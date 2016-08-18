@@ -65,7 +65,7 @@ class fakeslm(object):
 
     def publish_nsd(self):
 
-        nsd = open(self.path_descriptors + 'nsd1.yaml', 'r')
+        nsd = open(self.path_descriptors + 'nsd1.yml', 'r')
         message = yaml.load(nsd)
         self.manoconn.call_async(self._on_publish_nsd_response,
                                  'specific.manager.registry.ssm.on-board',
@@ -84,8 +84,8 @@ class fakeslm(object):
 
     def publish_sid(self):
 
-        nsd = open(self.path_descriptors + 'nsd1.yaml', 'r')
-        nsr = open(self.path_descriptors + 'nsr.yaml', 'r')
+        nsd = open(self.path_descriptors + 'nsd1.yml', 'r')
+        nsr = open(self.path_descriptors + 'nsr.yml', 'r')
         message = {'NSD':yaml.load(nsd),'NSR':yaml.load(nsr)}
         self.manoconn.call_async(self._on_publish_sid_response,
                                  'specific.manager.registry.ssm.instantiate',

@@ -66,8 +66,8 @@ class fakeslmu(object):
 
     def publish_nsd(self):
 
-        nsd = open(self.path_descriptors + 'nsd2.yaml', 'r')
-        nsr = open(self.path_descriptors + 'nsr.yaml', 'r')
+        nsd = open(self.path_descriptors + 'nsd2.yml', 'r')
+        nsr = open(self.path_descriptors + 'nsr.yml', 'r')
         message = {'NSD':yaml.load(nsd),'NSR':yaml.load(nsr)}
         self.manoconn.call_async(self._on_publish_nsd_response,
                                  'specific.manager.registry.ssm.update',
