@@ -95,6 +95,7 @@ class SMREngine(object):
             img = self.dc.images(name=ssm_uri)
             if len(img) != 0:
                 LOG.error('Cannot pull: %r already exists' % ssm_uri)
+                response = {'on-board': 'failed'}
                 # self.dc.remove_image(force=True, image=ssm_uri)
             else:
                 try:
@@ -116,6 +117,7 @@ class SMREngine(object):
             img = self.dc.images(name=ssm_uri)
             if len(img) != 0:
                 LOG.error('Cannot pull: %r already exists' % ssm_uri)
+                response = {'on-board': 'failed'}
                 # self.dc.remove_image(force=True, image=ssm_uri)
             else:
                 try:
@@ -136,6 +138,7 @@ class SMREngine(object):
         con = self.dc.containers(all=True, filters={'name': ssm_name})
         if len(con) != 0:
             LOG.error('Cannot instantiate: %r already exists' % ssm_name)
+            response = {'instantiation': 'failed'}
             # self.dc.stop(ssm_name)
             # self.dc.remove_container(ssm_name)
         else:
@@ -150,11 +153,16 @@ class SMREngine(object):
         return response
 
     def stop(self, ssm_name):
-        try:
-            self.dc.kill(ssm_name)
-            response = 'done'
-            LOG.debug('kill ssm1 done')
-        except BaseException as ex:
-            LOG.exception('Cannot stop %s' % ssm_name)
+        con = self.dc.containers(filters={'name': ssm_name})
+        if con != []:
+            try:
+                self.dc.kill(ssm_name)
+                response = 'done'
+                LOG.debug('kill ssm1 done')
+            except BaseException as ex:
+                LOG.exception('Cannot stop container %s' % ssm_name)
+                response = 'failed'
+        else:
+            LOG.debug('Cannot stop container %s: No such container' % ssm_name)
             response = 'failed'
         return response

@@ -47,7 +47,7 @@ service_specific_managers:
         value: "myValue"
 
 ##
-## The NS connection points to the 
+## The NS connection points to the
 ## outside world.
 ##
 connection_points:
@@ -98,7 +98,7 @@ forwarding_graphs:
   - fg_id: "ns:fg01"
     number_of_endpoints: 2
     number_of_virtual_links: 4
-    constituent_virtual_links: 
+    constituent_virtual_links:
       - "mgmt"
       - "input-2-iperf"
       - "iperf-2-firewall"

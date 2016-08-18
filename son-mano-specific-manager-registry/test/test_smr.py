@@ -25,15 +25,13 @@ partner consortium (www.sonata-nfv.eu).
 import unittest
 import time
 import logging
-import json
 import threading
 import yaml
-import warnings
 from multiprocessing import Process
 from sonmanobase.messaging import ManoBrokerRequestResponseConnection
 from son_mano_specific_manager_registry.specificmanagerregistry import SpecificManagerRegistry
-from son_mano_specific_manager_registry.slm_nsd1 import fakeslm
-from son_mano_specific_manager_registry.slm_nsd2 import fakeslmU
+from test.fake_slm1 import fakeslm
+from test.fake_slm2 import fakeslmu
 from son_mano_specific_manager_registry.smr_engine import SMREngine
 
 logging.basicConfig(level=logging.INFO)
@@ -116,7 +114,7 @@ class test2SpecificManagerRegistry(unittest.TestCase):
         self.nsd1_proc = Process(target=fakeslm)
         self.nsd1_proc.daemon = True
 
-        self.nsd2_proc = Process(target=fakeslmU)
+        self.nsd2_proc = Process(target=fakeslmu)
         self.nsd2_proc.daemon = True
 
         self.manoconn = ManoBrokerRequestResponseConnection('son-plugin.SonPluginManager')
@@ -130,6 +128,14 @@ class test2SpecificManagerRegistry(unittest.TestCase):
         if self.srm_proc is not None:
             self.srm_proc.terminate()
         del self.srm_proc
+
+        if self.nsd1_proc is not None:
+            self.nsd1_proc.terminate()
+        del self.nsd1_proc
+
+        if self.nsd2_proc is not None:
+            self.nsd2_proc.terminate()
+        del self.nsd2_proc
 
         try:
             self.manoconn.stop_connection()
@@ -207,10 +213,13 @@ class test2SpecificManagerRegistry(unittest.TestCase):
         time.sleep(5)
         self.srm_proc.start()
 
+
         time.sleep(3)
         self.nsd1_proc.start()
 
         self.waitForEvent1(timeout=150, msg="message not received.")
+
+
 
 
 class testSMREngine(unittest.TestCase):

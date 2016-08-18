@@ -92,12 +92,21 @@ class SpecificManagerRegistry(ManoBasePlugin):
     def on_instantiate(self, ch, method, properties, message):
 
         message = yaml.load(message)
-        self.smrengine.start(image_name= message['service_specific_managers'][0]['image'],
-                                                  ssm_name= message['service_specific_managers'][0]['id'])
+        i_name = message['NSD']['service_specific_managers'][0]['image']
+        s_name = message['NSD']['service_specific_managers'][0]['id']
+        response = self.smrengine.start(image_name= i_name, ssm_name= s_name)
+        if response['instantiation'] == 'OK':
+            self._wait_for_ssm_registration(ssm_name= s_name)
+            if s_name in self.ssm_repo.keys():
+                return yaml.dump({'instantiation':'OK'})
+            else:
+                return yaml.dump({'instantiation':'failed'})
+        else:
+            return yaml.dump({'instantiation': 'failed'})
 
     def on_ssm_register(self, ch, method, properties, message):
 
-        message = yaml.load(str(message))  # , "utf-8"))
+        message = yaml.load(str(message))
         response = {}
         keys = self.ssm_repo.keys()
         if message['name'] in keys:
@@ -122,25 +131,19 @@ class SpecificManagerRegistry(ManoBasePlugin):
             except BaseException as ex:
                 response = {'status': 'failed'}
                 LOG.exception('Cannot register SSM: %r' % message['name'])
-        if response['status'] == 'OK':
-            self.manoconn.publish(topic= 'specific.manager.registry.ssm.instantiate',
-                                  message= yaml.dump({'instantiation':'OK'}))
-        else:
-            self.manoconn.publish(topic= 'specific.manager.registry.ssm.instantiate',
-                                  message= yaml.dump({'instantiation':'failed'}))
         return yaml.dump(response)
 
 
     def on_ssm_update(self, ch, method, properties, message):
 
         message = yaml.load(message)
-        ssm_uri = message['service_specific_managers'][0]['image']
-        ssm_name = message['service_specific_managers'][0]['id']
+        ssm_uri = message['NSD']['service_specific_managers'][0]['image']
+        ssm_name = message['NSD']['service_specific_managers'][0]['id']
         result = {}
         result.update(self.smrengine.pull(ssm_uri, ssm_name))
         result.update(self.smrengine.start(ssm_uri, ssm_name))
         LOG.info("Waiting for ssm1_new registration ...")
-        self._wait_for_ssm()
+        self._wait_for_ssm_registration(ssm_name=ssm_name)
         result.update(self.ssm_kill())
         if result['on-board'] == 'OK' and result['instantiation'] == 'OK' and result['status'] == 'killed':
             return yaml.dump({'update':'OK'})
@@ -155,11 +158,11 @@ class SpecificManagerRegistry(ManoBasePlugin):
             LOG.debug("%r" % self.ssm_repo)
         return {'status': self.ssm_repo['ssm1']['status']}
 
-    def _wait_for_ssm(self, timeout=5, sleep_interval=0.1):
+    def _wait_for_ssm_registration(self, ssm_name, timeout=5, sleep_interval=0.1):
 
         c = 0
         rep = str(self.ssm_repo)
-        while 'ssm1_new' not in rep and c < timeout:
+        while ssm_name not in rep and c < timeout:
             time.sleep(sleep_interval)
             c += sleep_interval
 
