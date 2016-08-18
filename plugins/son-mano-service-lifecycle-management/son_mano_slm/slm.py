@@ -467,7 +467,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
                 #Check if SSMs must be started with this service
                 if 'service_specific_managers' in self.service_requests_being_handled[properties.correlation_id]['NSD'].keys():
-                    if len(service_request_from_gk['NSD']['service_specific_managers']) > 0:
+                    if len(self.service_requests_being_handled[properties.correlation_id]['NSD']['service_specific_managers']) > 0:
                         dict_for_srm = {'NSD':self.service_requests_being_handled[properties.correlation_id]['NSD'], 'NSR':nsr}
                         #If onboarding is finished, the ssm start trigger can be sent.
                         if self.service_requests_being_handled[properties.correlation_id]['ssms_ready_to_start'] == True:   
