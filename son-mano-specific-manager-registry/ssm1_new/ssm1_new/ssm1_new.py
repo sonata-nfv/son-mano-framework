@@ -26,10 +26,10 @@ acknowledge the contributions of their colleagues of the SONATA
 partner consortium (www.sonata-nfv.eu).
 """
 import logging
-import json
 import time
 import yaml
-
+import paramiko
+import os
 from sonmanobase import messaging
 
 logging.basicConfig(level=logging.INFO)
@@ -50,7 +50,6 @@ class ManoSSM(object):
         LOG.info("Starting %r ..." % self.name)
         # create and initialize broker connection
         self.manoconn = messaging.ManoBrokerRequestResponseConnection(self.name)
-
         # register to Specific Manager Registry
         self.publish()
 
@@ -67,7 +66,14 @@ class ManoSSM(object):
     def on_registration_ok(self):
 
         LOG.debug("Received registration ok event.")
-        pass
+        try:
+            result= self.connect_nfv()
+            message = {'result': result}
+            self.manoconn.publish(topic= 'specific.manager.registry.ssm.result', message= yaml.dump(message))
+        except:
+            message = {'result': 'failed'}
+            self.manoconn.publish(topic='specific.manager.registry.ssm.result', message=yaml.dump(message))
+
 
     def publish(self):
 
@@ -85,19 +91,29 @@ class ManoSSM(object):
 
     def _on_publish_response(self, ch, method, props, response):
 
-        response = yaml.load(str(response))#, "utf-8"))
+        response = yaml.load(str(response))
 
-        if response.get("status") != "OK":
-            LOG.debug("Response %r" % response)
+        if response['status'] != "running":
             LOG.error("SSM registration failed. Exit.")
             exit(1)
+        else:
+            self.uuid = response['uuid']
+            LOG.info("SSM registered with uuid: %r" % self.uuid)
+            # jump to on_registration_ok()
+            self.on_registration_ok()
 
-        self.uuid = response.get("uuid")
+    def connect_nfv(self):
 
-        LOG.info("SSM registered with UUID: %r" % response.get("uuid"))
+        HOST_IP = os.environ['HOST']
+        COMMAND = 'date > test.txt'
 
-        # jump to on_registration_ok()
-        self.on_registration_ok()
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(hostname=HOST_IP, username= 'root', key_filename= '/root/.ssh/id_rsa')
+        stdin, stdout, stderr = ssh.exec_command(COMMAND)
+        result = stdout.readlines()
+        ssh.close()
+        return result
 
 
 def main():

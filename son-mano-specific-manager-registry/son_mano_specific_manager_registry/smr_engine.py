@@ -131,7 +131,7 @@ class SMREngine(object):
                     response = {'on-board': 'failed'}
         return response
 
-    def start(self, image_name, ssm_name):
+    def start(self, image_name, ssm_name, host_ip):
         response = {}
         container = None
         con = None
@@ -143,7 +143,8 @@ class SMREngine(object):
             # self.dc.remove_container(ssm_name)
         else:
             try:
-                container = self.dc.create_container(image=image_name, tty=True, name=ssm_name)
+                container = self.dc.create_container(image=image_name, tty=True, name=ssm_name,
+                                                     environment= {'HOST': host_ip})
                 try:
                     self.dc.start(container=container.get('Id'), links=[('broker', 'broker')])
                 except:

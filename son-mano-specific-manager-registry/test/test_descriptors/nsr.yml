@@ -32,6 +32,8 @@ network_functions:
 connection_points:
   - id: "ns:mgmt"
     type: interface
+    address: '10.31.13.231'
+
   - id: "ns:input"
     type: interface
   - id: "ns:output"

@@ -184,12 +184,12 @@ class test2SpecificManagerRegistry(unittest.TestCase):
             msg = yaml.load(str(message))  # , 'utf-8'))
             self.msg_receive_waiting(msg, 'status', 5)
             if 'status' in msg.keys():
-                self.assertEqual(msg['status'], 'OK')
+                self.assertEqual(msg['status'], 'running')
                 LOG.info('SSM registration into the SMR test: Passed')
                 self.nsd1_proc.terminate()
                 time.sleep(3)
                 self.nsd2_proc.start()
-                self.waitForEvent2(timeout=70, msg="message not received.")
+                self.waitForEvent2(timeout=170, msg="message not received.")
                 self.eventFinished1()
 
         def test_on_update_receive(ch, method, properties, message):
@@ -217,7 +217,7 @@ class test2SpecificManagerRegistry(unittest.TestCase):
         time.sleep(3)
         self.nsd1_proc.start()
 
-        self.waitForEvent1(timeout=150, msg="message not received.")
+        self.waitForEvent1(timeout=270, msg="message not received.")
 
 
 
@@ -247,17 +247,17 @@ class testSMREngine(unittest.TestCase):
         image_container_cleaner(ssm1=True,ssm1_new=False)
         e = SMREngine()
         e.pull(ssm_uri="hadik3r/ssm1", ssm_name='ssm1')
-        result = e.start(image_name="hadik3r/ssm1", ssm_name='ssm1')
+        result = e.start(image_name="hadik3r/ssm1", ssm_name='ssm1', host_ip= None)
         #self.assertEqual(result['instantiation'], 'OK')
         con = e.dc.containers(filters={'name': 'ssm1'})
         self.assertIsNotNone(con)
 
     def test_ssm_kill(self):
         # ensure that existing test images and containers are removed
-        #image_container_cleaner(ssm1=True,ssm1_new=False)
+        image_container_cleaner(ssm1=True,ssm1_new=False)
         e = SMREngine()
         e.pull(ssm_uri="hadik3r/ssm1_new", ssm_name='ssm1_new')
-        e.start(image_name="hadik3r/ssm1_new", ssm_name='ssm1_new')
+        e.start(image_name="hadik3r/ssm1_new", ssm_name='ssm1_new', host_ip= None)
         e.stop('ssm1_new')
         con = e.dc.containers(filters={'name': 'ssm1_new'})
         self.assertEqual(con, [])
