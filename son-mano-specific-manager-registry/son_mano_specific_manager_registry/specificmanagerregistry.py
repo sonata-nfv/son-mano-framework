@@ -140,7 +140,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
         message = yaml.load(message)
         ssm_uri = message['NSD']['service_specific_managers'][0]['image']
         ssm_name = message['NSD']['service_specific_managers'][0]['id']
-        host_ip = message['NSR']['connection_points'][0]['address']
+        host_ip = message['NSR'][1]['virtual_deployment_units'][1]['vnfc_instance'][0]['connection_points'][0]['type']['address']
         result = {}
         result.update(self.smrengine.pull(ssm_uri, ssm_name))
         result.update(self.smrengine.start(image_name= ssm_uri, ssm_name=ssm_name,  host_ip= host_ip))
