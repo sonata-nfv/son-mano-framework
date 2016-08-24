@@ -19,86 +19,221 @@
 ## acknowledge the contributions of their colleagues of the SONATA
 ## partner consortium (www.sonata-nfv.eu).
 
+
 ---
-id: 9df6a98f-9e11-4cb7-b3c0-InAdUnitTest-02
-descriptor_reference: 005606ed-be7d-4ce3-983c-847039e3a5a2
-descriptor_version: nsr-schema-01
-status: offline
-version: "1"
-network_functions:
-  - vnfr_id: 645db4fa-a714-4cba-9617-4001477d0000
-  - vnfr_id: 6a15313f-cb0a-4540-baa2-77cc6b3f0000
-  - vnfr_id: 8a0aa837-ec1c-44e5-9907-898f64010000
-connection_points:
-  - id: "ns:mgmt"
-    type: interface
-    address: '10.31.13.231'
-
-  - id: "ns:input"
-    type: interface
-  - id: "ns:output"
-    type: interface
-
-forwarding_graphs:
-  - constituent_virtual_links:
-      - mgmt
-      - input-2-iperf
-      - iperf-2-firewall
-      - firewall-2-tcpdump
-      - tcpdump-2-output
-    constituent_vnfs:
-      - vnf_iperf
-      - vnf_firewall
-      - vnf_tcpdump
-    fg_id: "ns:fg01"
-    network_forwarding_paths:
-      - connection_points:
-          - connection_point_ref: "ns:input"
-            position: 1
-          - connection_point_ref: "vnf_iperf:input"
-            position: 2
-          - connection_point_ref: "vnf_iperf:output"
-            position: 3
-          - connection_point_ref: "vnf_firewall:input"
-            position: 4
-          - connection_point_ref: "vnf_firewall:output"
-            position: 5
-          - connection_point_ref: "vnf_tcpdump:input"
-            position: 6
-          - connection_point_ref: "vnf_tcpdump:output"
-            position: 7
-          - connection_point_ref: "ns:output"
-            position: 8
-        fp_id: "ns:fg01:fp01"
-        policy: none
-    number_of_endpoints: 2
-    number_of_virtual_links: 4
-
-virtual_links:
+- connection_points:
+  - id: "consectetur in cillum officia"
+    type:
+      description: "The type of connection point, such as a virtual port, a virtual
+      NIC address, a physical port, a physcial NIC address, or the endpoint of a
+      VPN tunnel."
+  - id: "culpa dolor"
+    type:
+      description: "The type of connection point, such as a virtual port, a virtual
+       NIC address, a physical port, a physcial NIC address, or the endpoint of a
+       VPN tunnel."
+  - id: "sint irure labore"
+    type:
+      description: "The type of connection point, such as a virtual port, a virtual
+      NIC address, a physical port, a physcial NIC address, or the endpoint of a
+      VPN tunnel."
+  - id: "aliqua sed"
+    type:
+      description: "The type of connection point, such as a virtual port, a virtual
+        NIC address, a physical port, a physcial NIC address, or the endpoint of a
+        VPN tunnel."
+  created_at: "2016-08-19T08:28:42.556+00:00"
+  deployment_favour: "8h6myU:S_ALcV3_rj0Rn4TpcYkQZtgtkqhMvA:Ja64Glg:j92O:dJvPrrYrmSlnOBSMs_3SneoslpJCs"
+  descriptor_reference: "b9f3147e-384b-0213-1422-cf69f34d8cec"
+  descriptor_version: "btSVzpvi_Xmq40MQ-"
+  lifecycle_events:
+  - flavor_id_ref: "commodo"
+    authentication: "aliquip adipisicing sint"
+    events:
+      scale-in: {}
+      restart:
+        command: "id deserunt consequat in"
+  - vnf_container: "dolor"
+    authentication: "magna id cupidatat"
+    authentication_username: "nulla ullamco esse"
+  parent_ns: "fded99e9-b365-4276-11a6-992b3fc100b5"
+  status: "failed"
+  updated_at: "2016-08-19T08:28:42.556+00:00"
+  version: "936564568993950049048984280626677828498576362254047943761035059743829411823633863794114"
+  virtual_deployment_units:
+  - id: "ex exercitation pariatur ipsum"
+    resource_requirements:
+      cpu:
+        vcpus: "25801343"
+        cpu_clock_speed: "ex exercitation adipisicing"
+      memory:
+        size: "17593900.63391235"
+        size_unit: "GB"
+      vswitch_capabilities: {}
+      network:
+        network_interface_bandwidth: "50357854.511728585"
+    vnfc_instance:
+    - {}
+    - vim_id: "tempor"
+    - {}
+  - id: "Lorem minim mollit ullamco"
+    resource_requirements:
+      cpu:
+        vcpus: "70820067"
+        cpu_support_accelerator: "sed"
+      memory:
+        size: "68517831.91625677"
+      network:
+        network_interface_bandwidth: "42538129.08263446"
+        network_interface_bandwidth_unit: "bps"
+      hypervisor_parameters:
+        version: "07.780463-76.53_1.98701889942312.67_26_33__-9.68201_3_"
+    vnfc_instance:
+    - id: "deserunt do Lorem tempor"
+      vim_id: "ut quis"
+    - id: "quis enim Excepteur"
+      vim_id: "exercitation nostrud ipsum"
+    vm_image: "do anim"
+  - id: "qui mollit"
+    resource_requirements:
+      cpu:
+        vcpus: "2603921"
+        cpu_clock_speed: "ut ut cupidatat"
+      memory:
+        size: "38262635.144700386"
+      vswitch_capabilities:
+        overlay_tunnel: "proident amet"
+        type: "culpa"
+      network: {}
+  - id: "minim"
+    resource_requirements:
+      cpu:
+        vcpus: "91951622"
+        cpu_support_accelerator: "et"
+      memory:
+        size: "32016735.958074193"
+        numa_allocation_policy: "magna in ipsum"
+      pcie:
+        SR-IOV: true
+      vswitch_capabilities:
+        overlay_tunnel: "proident exercitation eu"
+      hypervisor_parameters:
+        version: "3022-7.783-494792-9.9.09002_608-2.-95.65458._66.1817_78860205.211.20985_.2.61__88_7578-3-976"
+    vnfc_instance:
+    - vc_id: "nisi"
+      id: "enim"
+    - {}
+    - {}
+    vm_image: "ut"
+    monitoring_parameters:
+    - name: "mnaYnhhDMDKjoGhJVQRbULWGtOYDRRjdMWUId-pbTbQyvwAawhvhCdAxSs_qFWPjCKNRLsFFOWoQCigguZxa-YnqLhL-QA"
+      unit: "bps"
+      frequency_unit: "kHz"
+    - name: "WkNybWUxWd_YQDVnJdaIhNhWbvzDzzdxTxdzrjcqWjtKQ-alvtsTsELkbsLdAlTmryzYhMkoqvcUYeVvDWYUASfAais-OYrxBcFG"
+      unit: "Tbps"
+      frequency_unit: "MHz"
+    - name: "WOOmADiWF_gVSbfXAGjtenWkzKPxsZuAtkCgtFKhNZSaFPSHt"
+      unit: "Gbps"
+      frequency: "99548406.8508741"
+    vdu_reference: "est dolor Ut"
+  vnf_address:
+  - address: "commodo mollit Duis anim"
+  - address: "ad fugiat"
+  - address: "in occaecat ea magna"
+  uuid: "c652e7ac-5126-8f79-bade-28a933fad4cf"
+- created_at: "2016-08-19T11:47:19.163+00:00"
+  descriptor_reference: "89441aab-bea5-4aed-a7b0-cee96afdd665"
+  descriptor_version: "vnfr-schema-01"
+  status: "offline"
+  updated_at: "2016-08-19T11:47:19.163+00:00'"
+  version: "1"
+  virtual_deployment_units:
+  - id: "vdu01"
+    monitoring_parameters:
+    - name: "vm_cpu_perc"
+      unit: "Percentage"
+    - name: "vm_mem_pers"
+      unit: "Percentage"
+    - name: "vm_net_rx_MB"
+      unit: "MB"
+    - name: "vm_net_tx_MB"
+      unit: "Mbps"
+    number_of_instances: "1"
+    resource_requirements:
+      cpu:
+        vcpus: "1"
+      memory:
+        size: "2"
+        size_unit: "GB"
+      storage:
+        size: "20"
+        size_unit: "GB"
+    vdu_reference: "vtc-vnf:vdu01"
+    vm_image: "vtc_dashboard"
+    vnfc_instance:
+    - connection_points:
+      - id: "vdu01:eth0"
+        type:
+          address: "10.31.13.229"
+      id: "ea29a13f-2e09-4551-bec2-5392936b1235"
+      vc_id: "aa1c92c3-716f-4f85-969e-75e954989042"
+      vim_id: "1111-22222222-33333333-4444"
+  - id: "vdu02"
+    monitoring_parameters:
+    - name: "vm_cpu_perc"
+      unit: "Percentage"
+    - name: "vm_mem_pers"
+      unit: "Percentage"
+    - name: "vm_net_rx_MB"
+      unit: "MB"
+    - name: "vm_net_tx_MB"
+      unit: "Mbps"
+    number_of_instances: "1"
+    resource_requirements:
+      cpu:
+        vcpus: "1"
+      memory:
+        size: "2"
+        size_unit: "GB"
+      storage:
+        size: "5"
+        size_unit: "GB"
+    vdu_reference: "vtc-vnf:vdu02"
+    vm_image: "pfring_api_module"
+    vnfc_instance:
+    - connection_points:
+      - id: "vdu02:eth0"
+        type:
+          address: "10.31.13.231"
+      - id: "vdu02:eth1"
+        type:
+          address: "192.0.0.34"
+          netmask: "255.255.255.248"
+      - id: "vdu02:eth2"
+        type:
+          address: "192.0.0.43"
+          netmask: "255.255.255.248"
+      id: "ea29a13f-2e09-4551-bec2-5392936b1235"
+      vc_id: "cd61b733-a214-4d54-933a-05b09307c2e4"
+      vim_id: "1111-22222222-33333333-4444"
+  virtual_links:
   - connection_points_reference:
-      - "vnf_iperf:mgmt"
-      - "vnf_firewall:mgmt"
-      - "vnf_tcpdump:mgmt"
-      - "ns:mgmt"
-    connectivity_type: E-LAN
-    id: mgmt
+    - "vdu01:eth0"
+    - "vdu02:eth0"
+    - "vnf:mgmt"
+    connectivity_type: "E-LAN"
+    dhcp: true
+    id: "mgmt"
   - connection_points_reference:
-      - "ns:input"
-      - "vnf_iperf:input"
-    connectivity_type: E-Line
-    id: input-2-iperf
+    - "vdu02:eth1"
+    - "vnf:input"
+    connectivity_type: "E-Line"
+    dhcp: true
+    id: "input"
   - connection_points_reference:
-      - "vnf_iperf:output"
-      - "vnf_firewall:input"
-    connectivity_type: E-Line
-    id: iperf-2-firewall
-  - connection_points_reference:
-      - "vnf_firewall:output"
-      - "vnf_tcpdump:input"
-    connectivity_type: E-Line
-    id: firewall-2-tcpdump
-  - connection_points_reference:
-      - "vnf_firewall:output"
-      - "ns:output"
-    connectivity_type: E-Line
-    id: tcpdump-2-output
+    - "vdu02:eth2"
+    - "vnf:output"
+    connectivity_type: "E-Line"
+    dhcp: true
+    id: "output"
+  uuid: "01ab72f0-a2ce-4dce-9755-244b8f30d0e0"
