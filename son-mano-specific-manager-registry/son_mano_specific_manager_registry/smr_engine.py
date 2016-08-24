@@ -131,7 +131,7 @@ class SMREngine(object):
                     response = {'on-board': 'failed'}
         return response
 
-    def start(self, image_name, ssm_name):
+    def start(self, image_name, ssm_name, host_ip):
         response = {}
         container = None
         con = None
@@ -143,8 +143,12 @@ class SMREngine(object):
             # self.dc.remove_container(ssm_name)
         else:
             try:
-                container = self.dc.create_container(image=image_name, tty=True, name=ssm_name)
-                self.dc.start(container=container.get('Id'), links=[('broker', 'broker')])
+                container = self.dc.create_container(image=image_name, tty=True, name=ssm_name,
+                                                     environment= {'HOST': host_ip})
+                try:
+                    self.dc.start(container=container.get('Id'), links=[('broker', 'broker')])
+                except:
+                    self.dc.start(container=container.get('Id'), links=[('son-broker', 'broker')])
                 LOG.debug("%r instantiation done" % ssm_name)
                 response = {'instantiation': 'OK', 'container': container.get('Id')}
             except BaseException as ex:

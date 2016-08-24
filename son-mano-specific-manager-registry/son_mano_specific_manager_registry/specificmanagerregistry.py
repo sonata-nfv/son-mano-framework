@@ -82,6 +82,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
         self.manoconn.register_async_endpoint(self.on_instantiate, "specific.manager.registry.ssm.instantiate")
         self.manoconn.register_async_endpoint(self.on_ssm_register, "specific.manager.registry.ssm.registration")
         self.manoconn.register_async_endpoint(self.on_ssm_update, "specific.manager.registry.ssm.update")
+        self.manoconn.subscribe(self.on_ssm_triger_result, "specific.manager.registry.ssm.result")
 
     def on_board(self, ch, method, properties, message):
 
@@ -94,7 +95,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
         message = yaml.load(message)
         i_name = message['NSD']['service_specific_managers'][0]['image']
         s_name = message['NSD']['service_specific_managers'][0]['id']
-        response = self.smrengine.start(image_name= i_name, ssm_name= s_name)
+        response = self.smrengine.start(image_name= i_name, ssm_name= s_name, host_ip= None)
         if response['instantiation'] == 'OK':
             self._wait_for_ssm_registration(ssm_name= s_name)
             if s_name in self.ssm_repo.keys():
@@ -107,11 +108,11 @@ class SpecificManagerRegistry(ManoBasePlugin):
     def on_ssm_register(self, ch, method, properties, message):
 
         message = yaml.load(str(message))
-        response = {}
+        result = {}
         keys = self.ssm_repo.keys()
         if message['name'] in keys:
             LOG.error('Cannot register SSM: %r, already exists' % message['name'])
-            response = {'status': 'failed'}
+            result = {'status': 'failed'}
         else:
 
             try:
@@ -127,11 +128,11 @@ class SpecificManagerRegistry(ManoBasePlugin):
                 }
                 self.ssm_repo.update({message['name']: response})
                 LOG.debug("SSM registration done %r" % self.ssm_repo)
-                response = {'status': 'OK', 'name': response['name']}
+                result = response
             except BaseException as ex:
-                response = {'status': 'failed'}
+                result = {'status': 'failed'}
                 LOG.exception('Cannot register SSM: %r' % message['name'])
-        return yaml.dump(response)
+        return yaml.dump(result)
 
 
     def on_ssm_update(self, ch, method, properties, message):
@@ -139,9 +140,10 @@ class SpecificManagerRegistry(ManoBasePlugin):
         message = yaml.load(message)
         ssm_uri = message['NSD']['service_specific_managers'][0]['image']
         ssm_name = message['NSD']['service_specific_managers'][0]['id']
+        host_ip = message['NSR']['connection_points'][0]['address']
         result = {}
         result.update(self.smrengine.pull(ssm_uri, ssm_name))
-        result.update(self.smrengine.start(ssm_uri, ssm_name))
+        result.update(self.smrengine.start(image_name= ssm_uri, ssm_name=ssm_name,  host_ip= host_ip))
         LOG.info("Waiting for ssm1_new registration ...")
         self._wait_for_ssm_registration(ssm_name=ssm_name)
         result.update(self.ssm_kill())
@@ -166,6 +168,9 @@ class SpecificManagerRegistry(ManoBasePlugin):
             time.sleep(sleep_interval)
             c += sleep_interval
 
+    def on_ssm_triger_result(self, ch, method, properties, message):
+        message = yaml.load(message)
+        LOG.info(message['result'])
 
 def main():
     SpecificManagerRegistry()
