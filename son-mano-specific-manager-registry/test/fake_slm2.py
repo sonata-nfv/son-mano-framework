@@ -77,11 +77,11 @@ class fakeslmu(object):
 
         response = yaml.load(str(response))
         if type(response) == dict:
-            if response['update'] == 'OK':
+            if response['status'] == 'Updated':
                 LOG.info("update done")
                 self.end = True
             else:
-                LOG.error("SSM update failed.")
+                LOG.error("SSM update failed.'{0}'".format(response['error']))
                 self.end = True
 def main():
     fakeslmu()

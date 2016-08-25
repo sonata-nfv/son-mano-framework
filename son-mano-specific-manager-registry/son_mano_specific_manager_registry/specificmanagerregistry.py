@@ -85,37 +85,49 @@ class SpecificManagerRegistry(ManoBasePlugin):
         self.manoconn.subscribe(self.on_ssm_triger_result, "specific.manager.registry.ssm.result")
 
     def on_board(self, ch, method, properties, message):
-
-        message = yaml.load(message)
-        return yaml.dump(self.smrengine.pull(ssm_uri=message['service_specific_managers'][0]['image'],
-                                              ssm_name=message['service_specific_managers'][0]['id']))
+        id = None
+        try:
+            message = yaml.load(message)
+            image = message['service_specific_managers'][0]['image']
+            id = message['service_specific_managers'][0]['id']
+            self.smrengine.pull(ssm_uri=image, ssm_name= id)
+            return yaml.dump({'status': 'On-boarded', 'error': 'None'})
+        except BaseException as err:
+            if id is not None:
+                LOG.error("'{0}' pull: failed ==> '{1}'".format(id, err))
+            else:
+                LOG.error("SSM pull: failed ==> '{0}'".format(err))
+            return yaml.dump({'status': 'Failed', 'error': str(err)})
 
     def on_instantiate(self, ch, method, properties, message):
-
-        message = yaml.load(message)
-        i_name = message['NSD']['service_specific_managers'][0]['image']
-        s_name = message['NSD']['service_specific_managers'][0]['id']
-        response = self.smrengine.start(image_name= i_name, ssm_name= s_name, host_ip= None)
-        if response['instantiation'] == 'OK':
-            self._wait_for_ssm_registration(ssm_name= s_name)
-            if s_name in self.ssm_repo.keys():
-                return yaml.dump({'instantiation':'OK'})
+        id = None
+        try:
+            message = yaml.load(message)
+            image = message['NSD']['service_specific_managers'][0]['image']
+            id = message['NSD']['service_specific_managers'][0]['id']
+            self.smrengine.start(image_name= image, ssm_name= id, host_ip= None)
+            self._wait_for_ssm_registration(ssm_name= id)
+            if id in self.ssm_repo.keys():
+                return yaml.dump({'status': 'Instantiated', 'error': 'None'})
             else:
-                return yaml.dump({'instantiation':'failed'})
-        else:
-            return yaml.dump({'instantiation': 'failed'})
+                LOG.error("'{0}' instantiation: failed ==> SSM registration in SMR failed'".format(id))
+                return yaml.dump({'status':'failed', 'error': 'SSM registration in SMR failed'})
+        except BaseException as err:
+            if id is not None:
+                LOG.error("'{0}' instantiation: failed ==> '{1}'".format(id, err))
+            else:
+                LOG.error("SSM instantiation: failed ==> '{0}'".format(err))
+            return yaml.dump({'status': 'Failed', 'error': str(err)})
 
     def on_ssm_register(self, ch, method, properties, message):
 
-        message = yaml.load(str(message))
-        result = {}
-        keys = self.ssm_repo.keys()
-        if message['name'] in keys:
-            LOG.error('Cannot register SSM: %r, already exists' % message['name'])
-            result = {'status': 'failed'}
-        else:
-
-            try:
+        try:
+            message = yaml.load(str(message))
+            keys = self.ssm_repo.keys()
+            if message['name'] in keys:
+                LOG.error("Cannot register '{0}', already exists".format(message['name']))
+                result = {'status': 'failed', 'error':"Cannot register '{0}', already exists".format(message['name'])}
+            else:
                 pid = str(uuid.uuid4())
                 self.ssm_repo.update({message['name']: message})
                 response = {
@@ -123,44 +135,50 @@ class SpecificManagerRegistry(ManoBasePlugin):
                     "name": message['name'],
                     "version": message['version'],
                     "description": message['description'],
-                    "uuid": pid,
-                    "error": None
+                     "uuid": pid,
+                     "error": None
                 }
                 self.ssm_repo.update({message['name']: response})
-                LOG.debug("SSM registration done %r" % self.ssm_repo)
+                LOG.debug("Registration: succeeded ==> '{0}' ".format(self.ssm_repo))
                 result = response
-            except BaseException as ex:
-                result = {'status': 'failed'}
-                LOG.exception('Cannot register SSM: %r' % message['name'])
+        except BaseException as err:
+            result = {'status': 'failed', 'error': str(err)}
+            LOG.exception("'{0}' registeration failed: ".format(message['name']))
         return yaml.dump(result)
 
 
     def on_ssm_update(self, ch, method, properties, message):
-
-        message = yaml.load(message)
-        ssm_uri = message['NSD']['service_specific_managers'][0]['image']
-        ssm_name = message['NSD']['service_specific_managers'][0]['id']
-        host_ip = message['NSR'][1]['virtual_deployment_units'][1]['vnfc_instance'][0]['connection_points'][0]['type']['address']
-        result = {}
-        result.update(self.smrengine.pull(ssm_uri, ssm_name))
-        result.update(self.smrengine.start(image_name= ssm_uri, ssm_name=ssm_name,  host_ip= host_ip))
-        LOG.info("Waiting for ssm1_new registration ...")
-        self._wait_for_ssm_registration(ssm_name=ssm_name)
-        result.update(self.ssm_kill())
-        if result['on-board'] == 'OK' and result['instantiation'] == 'OK' and result['status'] == 'killed':
-            return yaml.dump({'update':'OK'})
-        else:
-            return yaml.dump({'update':'failed'})
+        id = None
+        try:
+            message = yaml.load(message)
+            image = message['NSD']['service_specific_managers'][0]['image']
+            id = message['NSD']['service_specific_managers'][0]['id']
+            try:
+                host_ip = message['NSR'][1]['virtual_deployment_units'][1]['vnfc_instance'][0]['connection_points'][0]['type']['address']
+            except:
+                LOG.error("'{0}' Update: failed ==> Host IP address does not exist in the NSR")
+                return yaml.dump({'status': 'Failed', 'error': 'Host IP address does not exist in the NSR'})
+            self.smrengine.pull(image, id)
+            self.smrengine.start(image_name=image, ssm_name=id, host_ip=host_ip)
+            LOG.info("Waiting for '{0}' registration ...".format(id))
+            self._wait_for_ssm_registration(ssm_name=id)
+            if id in self.ssm_repo.keys():
+                self.ssm_kill()
+                LOG.debug("SSM update: succeeded ")
+                return yaml.dump({'status': 'Updated', 'error': 'None'})
+            else:
+                LOG.error("'{0}' Update: failed ==> SSM registration in SMR failed'".format(id))
+                return yaml.dump({'status':'Failed', 'error': 'SSM registration in SMR failed'})
+        except BaseException as err:
+            LOG.error("'{0}' Update: failed ==> '{1}'".format(id, err))
+            return yaml.dump({'status': 'Failed', 'error': str(err)})
 
     def ssm_kill(self):
+        self.smrengine.stop('ssm1')
+        self.ssm_repo['ssm1']['status'] = 'killed'
+        LOG.debug('SSM kill: succeeded')
 
-        result = self.smrengine.stop('ssm1')
-        if result == 'done':
-            self.ssm_repo['ssm1']['status'] = 'killed'
-            LOG.debug("%r" % self.ssm_repo)
-        return {'status': self.ssm_repo['ssm1']['status']}
-
-    def _wait_for_ssm_registration(self, ssm_name, timeout=5, sleep_interval=0.1):
+    def _wait_for_ssm_registration(self, ssm_name, timeout=20, sleep_interval=0.1):
 
         c = 0
         rep = str(self.ssm_repo)

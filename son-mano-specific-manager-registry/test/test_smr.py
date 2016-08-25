@@ -168,16 +168,16 @@ class test2SpecificManagerRegistry(unittest.TestCase):
 
         def test_on_onboard_receive(ch, method, properties, message):
             msg = yaml.load(str(message))  # , 'utf-8'))
-            self.msg_receive_waiting(msg, 'on-board', 5)
-            if 'on-board' in msg.keys():
-                self.assertEqual(msg['on-board'], 'OK')
+            self.msg_receive_waiting(msg, 'status', 5)
+            if 'status' in msg.keys():
+                self.assertEqual(msg['status'], 'On-boarded')
                 LOG.info('SSM on-board test: Passed')
 
         def test_on_instantiate_receive(ch, method, properties, message):
             msg = yaml.load(str(message))  # , 'utf-8'))
-            self.msg_receive_waiting(msg, 'instantiation', 5)
-            if 'instantiation' in msg.keys():
-                self.assertEqual(msg['instantiation'], 'OK')
+            self.msg_receive_waiting(msg, 'status', 5)
+            if 'status' in msg.keys():
+                self.assertEqual(msg['status'], 'Instantiated')
                 LOG.info('SSM instantiation test: Passed')
 
         def test_on_registration_receive(ch, method, properties, message):
@@ -195,8 +195,8 @@ class test2SpecificManagerRegistry(unittest.TestCase):
         def test_on_update_receive(ch, method, properties, message):
             msg = yaml.load(str(message))  # , 'utf-8'))
             self.msg_receive_waiting(msg, 'status', 5)
-            if 'update' in msg.keys():
-                self.assertEqual(msg['update'],'OK')
+            if 'status' in msg.keys():
+                self.assertEqual(msg['status'],'Updated')
                 #self.assertEqual(msg['on-board'], 'OK')
                 #self.assertEqual(msg['instantiation'], 'OK')
                 #self.assertEqual(msg['status'], 'killed')
@@ -227,39 +227,31 @@ class testSMREngine(unittest.TestCase):
         e = SMREngine()
         self.assertIsNotNone(e.dc.info().get("ServerVersion"))
 
-    def test_ssm_board(self):
-
-
-        # ensure that existing test images and containers are removed
-        image_container_cleaner(ssm1=True,ssm1_new=False)
-
-        e = SMREngine()
-
-        result = e.pull(ssm_uri="hadik3r/ssm1", ssm_name='ssm1')
-        self.assertEqual(result['on-board'], 'OK')
-        img = e.dc.get_image('hadik3r/ssm1')
-        self.assertIsNotNone(img)
-
-    def test_ssm_instantiate(self):
-
-
+    def test_ssm_onboard(self):
         # ensure that existing test images and containers are removed
         image_container_cleaner(ssm1=True,ssm1_new=False)
         e = SMREngine()
         e.pull(ssm_uri="hadik3r/ssm1", ssm_name='ssm1')
-        result = e.start(image_name="hadik3r/ssm1", ssm_name='ssm1', host_ip= None)
-        #self.assertEqual(result['instantiation'], 'OK')
+        img = e.dc.get_image('hadik3r/ssm1')
+        self.assertIsNotNone(img)
+
+    def test_ssm_instantiate(self):
+        # ensure that existing test images and containers are removed
+        image_container_cleaner(ssm1=True,ssm1_new=False)
+        e = SMREngine()
+        e.pull(ssm_uri="hadik3r/ssm1", ssm_name='ssm1')
+        e.start(image_name="hadik3r/ssm1", ssm_name='ssm1', host_ip= None)
         con = e.dc.containers(filters={'name': 'ssm1'})
         self.assertIsNotNone(con)
 
     def test_ssm_kill(self):
         # ensure that existing test images and containers are removed
-        image_container_cleaner(ssm1=True,ssm1_new=False)
+        image_container_cleaner(ssm1=True,ssm1_new=True)
         e = SMREngine()
-        e.pull(ssm_uri="hadik3r/ssm1_new", ssm_name='ssm1_new')
-        e.start(image_name="hadik3r/ssm1_new", ssm_name='ssm1_new', host_ip= None)
-        e.stop('ssm1_new')
-        con = e.dc.containers(filters={'name': 'ssm1_new'})
+        e.pull(ssm_uri="hadik3r/ssm1", ssm_name='ssm1')
+        e.start(image_name="hadik3r/ssm1", ssm_name='ssm1', host_ip= None)
+        e.stop('ssm1')
+        con = e.dc.containers(filters={'name': 'ssm1'})
         self.assertEqual(con, [])
 
 
