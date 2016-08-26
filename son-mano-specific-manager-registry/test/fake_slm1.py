@@ -75,11 +75,11 @@ class fakeslm(object):
 
         response = yaml.load(str(response))
         if type(response) == dict:
-            if response['on-board'] == 'OK':
+            if response['status'] == 'On-boarded':
                 LOG.info("Docker container on-boarded")
                 self.publish_sid()
             else:
-                LOG.error("SSM on-boarding failed. Exit.")
+                LOG.error("SSM on-boarding failed. ==> '{0}'".format(response['error']))
                 self.end = True
 
     def publish_sid(self):
@@ -95,11 +95,11 @@ class fakeslm(object):
 
         response = yaml.load(str(response))
         if type(response) == dict:
-            if response['instantiation'] == 'OK':
+            if response['status'] == 'Instantiated':
                 LOG.info("instantiation done")
                 self.end = True
             else:
-                LOG.error("SSM instantiation failed.")
+                LOG.error("SSM instantiation failed.==> '{0}'".format(response['error']))
                 self.end = True
 def main():
     fakeslm()

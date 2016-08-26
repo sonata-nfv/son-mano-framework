@@ -87,86 +87,26 @@ class SMREngine(object):
         - ssm_uri = "file://this/is/a/path/my-ssm.tar" -> Docker LOAD (opt A)
         :return: ssm_image_name
         """
-        response = {}
-        img = None
-
         if "file://" in ssm_uri:
             # opt A: file based import
+            ssm_path = ssm_uri.replace("file://", "")
+            ssm_image_name = os.path.splitext(os.path.basename(ssm_path))[0]
             img = self.dc.images(name=ssm_uri)
-            if len(img) != 0:
-                LOG.error('Cannot pull: %r already exists' % ssm_uri)
-                response = {'on-board': 'failed'}
-                # self.dc.remove_image(force=True, image=ssm_uri)
-            else:
-                try:
-                    ssm_path = ssm_uri.replace("file://", "")
-                    ssm_image_name = os.path.splitext(os.path.basename(ssm_path))[0]
-                    img = self.dc.images(name=ssm_uri)
-                    if len(img) != 0:
-                        self.dc.remove_image(force=True, image=ssm_uri)
-                    r = self.dc.import_image(ssm_path, repository=ssm_image_name)
-                    if "error" in r:
-                        raise SsmNotFoundException("Import error: %r" % r)
-                    LOG.debug("%r pull done" % ssm_name)
-                    response = {'on-board': 'OK'}
-                except BaseException as ex:
-                    LOG.exception("Cannot import SSM from %r" % ssm_uri)
-                    response = {'on-board': 'failed'}
+            self.dc.import_image(ssm_path, repository=ssm_image_name)
+            LOG.debug('%r pull: succeeded' % ssm_name)
         else:
             # opt B: repository pull
-            img = self.dc.images(name=ssm_uri)
-            if len(img) != 0:
-                LOG.error('Cannot pull: %r already exists' % ssm_uri)
-                response = {'on-board': 'failed'}
-                # self.dc.remove_image(force=True, image=ssm_uri)
-            else:
-                try:
-                    r = self.dc.pull(ssm_uri)
-                    if "error" in r:
-                        raise SsmNotFoundException("Pull error: %r" % r)
-                    LOG.info("%r pull done" % ssm_name)
-                    response = {'on-board': 'OK'}  # image name and uri are the same
-                except BaseException as ex:
-                    LOG.exception("Cannot pull SSM from %r" % ssm_uri)
-                    response = {'on-board': 'failed'}
-        return response
+            self.dc.pull(ssm_uri) # image name and uri are the same
+            LOG.debug('%r pull: succeeded' % ssm_name)
 
     def start(self, image_name, ssm_name, host_ip):
-        response = {}
-        container = None
-        con = None
-        con = self.dc.containers(all=True, filters={'name': ssm_name})
-        if len(con) != 0:
-            LOG.error('Cannot instantiate: %r already exists' % ssm_name)
-            response = {'instantiation': 'failed'}
-            # self.dc.stop(ssm_name)
-            # self.dc.remove_container(ssm_name)
-        else:
-            try:
-                container = self.dc.create_container(image=image_name, tty=True, name=ssm_name,
-                                                     environment= {'HOST': host_ip})
-                try:
-                    self.dc.start(container=container.get('Id'), links=[('broker', 'broker')])
-                except:
-                    self.dc.start(container=container.get('Id'), links=[('son-broker', 'broker')])
-                LOG.debug("%r instantiation done" % ssm_name)
-                response = {'instantiation': 'OK', 'container': container.get('Id')}
-            except BaseException as ex:
-                LOG.exception("Cannot instantiate SSM: %r" % image_name)
-                response = {'instantiation': 'failed'}
-        return response
+        container = self.dc.create_container(image=image_name, tty=True, name=ssm_name, environment={'HOST': host_ip})
+        try:
+            self.dc.start(container=container.get('Id'), links=[('broker', 'broker')])
+        except:
+            self.dc.start(container=container.get('Id'), links=[('son-broker', 'broker')])
+        LOG.debug("%r instantiation: succeeded" % ssm_name)
 
     def stop(self, ssm_name):
-        con = self.dc.containers(filters={'name': ssm_name})
-        if con != []:
-            try:
-                self.dc.kill(ssm_name)
-                response = 'done'
-                LOG.debug('kill ssm1 done')
-            except BaseException as ex:
-                LOG.exception('Cannot stop container %s' % ssm_name)
-                response = 'failed'
-        else:
-            LOG.debug('Cannot stop container %s: No such container' % ssm_name)
-            response = 'failed'
-        return response
+        self.dc.kill(ssm_name)
+
