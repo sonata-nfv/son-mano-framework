@@ -66,14 +66,14 @@ class SMREngine(object):
         # lets check if Docker ENV information is set and use local socket as fallback
         if os.environ.get("DOCKER_HOST") is None:
             os.environ["DOCKER_HOST"] = "unix://var/run/docker.sock"
-            LOG.warning("ENV variable 'DOCKER_HOST' not set. Using %r as fallback." % os.environ["DOCKER_HOST"])
+            LOG.warning("ENV variable 'DOCKER_HOST' not set. Using {0} as fallback.".format(os.environ["DOCKER_HOST"]))
 
         # lets connect to the Docker instance specified in current ENV
         # cf.: http://docker-py.readthedocs.io/en/stable/machine/
         dc = docker.from_env(assert_hostname=False)
         # do a call to ensure that we are connected
         dc.info()
-        LOG.info("Connected to Docker host: %r" % dc.base_url)
+        LOG.info("Connected to Docker host: {0}".format(dc.base_url))
         return dc
 
     def pull(self, ssm_uri, ssm_name):
@@ -93,11 +93,11 @@ class SMREngine(object):
             ssm_image_name = os.path.splitext(os.path.basename(ssm_path))[0]
             img = self.dc.images(name=ssm_uri)
             self.dc.import_image(ssm_path, repository=ssm_image_name)
-            LOG.debug('%r pull: succeeded' % ssm_name)
+            LOG.debug('{0} pull: succeeded'.format( ssm_name))
         else:
             # opt B: repository pull
             self.dc.pull(ssm_uri) # image name and uri are the same
-            LOG.debug('%r pull: succeeded' % ssm_name)
+            LOG.debug('{0} pull: succeeded'.format(ssm_name))
 
     def start(self, image_name, ssm_name, host_ip):
         container = self.dc.create_container(image=image_name, tty=True, name=ssm_name, environment={'HOST': host_ip})
@@ -105,7 +105,7 @@ class SMREngine(object):
             self.dc.start(container=container.get('Id'), links=[('broker', 'broker')])
         except:
             self.dc.start(container=container.get('Id'), links=[('son-broker', 'broker')])
-        LOG.debug("%r instantiation: succeeded" % ssm_name)
+        LOG.debug("{0} instantiation: succeeded".format(ssm_name))
 
     def stop(self, ssm_name):
         self.dc.kill(ssm_name)

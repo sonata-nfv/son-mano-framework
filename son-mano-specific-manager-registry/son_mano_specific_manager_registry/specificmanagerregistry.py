@@ -29,7 +29,6 @@ partner consortium (www.sonata-nfv.eu).
 This is the main module of the Specific Manager Registry component.
 """
 import logging
-import json
 import time
 import uuid
 import yaml
@@ -90,6 +89,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
             message = yaml.load(message)
             image = message['service_specific_managers'][0]['image']
             id = message['service_specific_managers'][0]['id']
+            LOG.info('Onboarding request received for SSM id: {0}'.format(id))
             self.smrengine.pull(ssm_uri=image, ssm_name= id)
             return yaml.dump({'status': 'On-boarded', 'error': 'None'})
         except BaseException as err:
@@ -105,6 +105,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
             message = yaml.load(message)
             image = message['NSD']['service_specific_managers'][0]['image']
             id = message['NSD']['service_specific_managers'][0]['id']
+            LOG.info('Instantiation request received for SSM id: {0}'.format(id))
             self.smrengine.start(image_name= image, ssm_name= id, host_ip= None)
             self._wait_for_ssm_registration(ssm_name= id)
             if id in self.ssm_repo.keys():
@@ -153,6 +154,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
             message = yaml.load(message)
             image = message['NSD']['service_specific_managers'][0]['image']
             id = message['NSD']['service_specific_managers'][0]['id']
+            LOG.info('Update request received for SSM id: {0}'.format(id))
             try:
                 host_ip = message['NSR'][1]['virtual_deployment_units'][1]['vnfc_instance'][0]['connection_points'][0]['type']['address']
             except:
