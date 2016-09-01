@@ -100,13 +100,17 @@ class SMREngine(object):
             LOG.debug('{0} pull: succeeded'.format(ssm_name))
 
     def start(self, image_name, ssm_name, host_ip):
+        broker = self.retrieve_broker_name()
         container = self.dc.create_container(image=image_name, tty=True, name=ssm_name, environment={'HOST': host_ip})
-        try:
-            self.dc.start(container=container.get('Id'), links=[('broker', 'broker')])
-        except:
-            self.dc.start(container=container.get('Id'), links=[('son-broker', 'broker')])
+        self.dc.start(container=container.get('Id'), links=[(broker['name'], broker['alias'])])
         LOG.debug("{0} instantiation: succeeded".format(ssm_name))
 
     def stop(self, ssm_name):
         self.dc.kill(ssm_name)
 
+    def retrieve_broker_name(self):
+        broker = os.environ['broker_name']
+        mid = broker.find(',')
+        name = broker[:mid]
+        alias = broker[mid+1:]
+        return {'name':name, 'alias':alias}
