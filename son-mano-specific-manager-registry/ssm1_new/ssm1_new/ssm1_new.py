@@ -29,6 +29,7 @@ import logging
 import time
 import yaml
 import paramiko
+import requests
 import os
 from sonmanobase import messaging
 
@@ -43,8 +44,8 @@ class ManoSSM(object):
     def __init__(self):
 
         self.name = 'ssm1_new'
-        self.version = '0.1-dev'
-        self.description = 'description'
+        self.version = 'v0.2'
+        self.description = 'Reconfigures the vFW'
         self.uuid = None
 
         LOG.info("Starting %r ..." % self.name)
@@ -66,14 +67,29 @@ class ManoSSM(object):
     def on_registration_ok(self):
 
         LOG.debug("Received registration ok event.")
-        try:
-            result= self.connect_nfv()
-            message = {'result': result}
-            self.manoconn.publish(topic= 'specific.manager.registry.ssm.result', message= yaml.dump(message))
-        except:
-            message = {'result': 'failed'}
-            self.manoconn.publish(topic='specific.manager.registry.ssm.result', message=yaml.dump(message))
+        self.manoconn.subscribe(self.on_alert_recieved,'')
 
+    def on_alert_recieved(self, ch, method, props, response):
+
+        LOG.info('Alert message received')
+        LOG.info('Start reconfiguring vFW ...')
+
+        # retrieve vFW IP address
+        endpoint = os.environ['HOST']
+
+        # add flow entries to block ports 9999 and 5001
+        entry1 = requests.post(url='http://'+endpoint+':8080',
+                               json= {"dpid": 1, "cookie": 200, "priority": 1000,
+                                      "match": {"dl_type": 0x0800, "nw_proto": 6,"tcp_dst": 9999}})
+        entry2 = requests.post(url='http://'+ endpoint + ':8080',
+                               json={"dpid": 1, "cookie": 200, "priority": 1000,
+                                     "match": {"dl_type": 0x0800, "nw_proto": 17, "udp_dst": 5001}})
+
+        #check if the call was successful
+        if (entry1.status_code == 200 and entry2.status_code == 200):
+            LOG.info('vFW reconfiguration succeeded')
+        else:
+            LOG.info('vFW reconfiguration failed')
 
     def publish(self):
 
@@ -81,9 +97,9 @@ class ManoSSM(object):
         Send a register request to the Specific Manager registry to announce this SSM.
         """
 
-        message = {'name': 'ssm1_new',
-                   'version': '0.1-dev',
-                   'description': 'description'}
+        message = {'name': self.name,
+                   'version': self.version,
+                   'description': self.description}
 
         self.manoconn.call_async(self._on_publish_response,
                                  'specific.manager.registry.ssm.registration',
@@ -101,20 +117,6 @@ class ManoSSM(object):
             LOG.info("SSM registered with uuid: %r" % self.uuid)
             # jump to on_registration_ok()
             self.on_registration_ok()
-
-    def connect_nfv(self):
-
-        HOST_IP = os.environ['HOST']
-        COMMAND = 'date > test.txt'
-
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(hostname=HOST_IP, username= 'root', key_filename= '/root/.ssh/id_rsa')
-        stdin, stdout, stderr = ssh.exec_command(COMMAND)
-        result = stdout.readlines()
-        ssh.close()
-        return result
-
 
 def main():
     ManoSSM()

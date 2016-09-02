@@ -43,8 +43,8 @@ class ManoSSM(object):
     def __init__(self):
 
         self.name = 'ssm1'
-        self.version = '0.1-dev'
-        self.description = 'description'
+        self.version = 'v0.1'
+        self.description = 'An empty SSM'
         self.uuid = None
 
         LOG.info(
@@ -77,9 +77,9 @@ class ManoSSM(object):
         Send a register request to the Specific Manager registry to announce this SSM.
         """
 
-        message = {'name': 'ssm1',
-                   'version': '0.0',
-                   'description': 'description'}
+        message = {'name': self.name,
+                   'version': self.version,
+                   'description': self.description}
 
         self.manoconn.call_async(self._on_publish_response,
                                  'specific.manager.registry.ssm.registration',
@@ -87,7 +87,7 @@ class ManoSSM(object):
 
     def _on_publish_response(self, ch, method, props, response):
 
-        response = yaml.load(str(response))#, "utf-8"))
+        response = yaml.load(str(response))
 
         if response.get("status") != "OK":
             LOG.debug("Response %r" % response)
