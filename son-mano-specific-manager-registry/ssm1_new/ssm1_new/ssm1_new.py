@@ -28,9 +28,9 @@ partner consortium (www.sonata-nfv.eu).
 import logging
 import time
 import yaml
-import paramiko
 import requests
 import os
+import json
 from sonmanobase import messaging
 
 logging.basicConfig(level=logging.INFO)
@@ -67,7 +67,7 @@ class ManoSSM(object):
     def on_registration_ok(self):
 
         LOG.debug("Received registration ok event.")
-        self.manoconn.subscribe(self.on_alert_recieved,'')
+        self.manoconn.subscribe(self.on_alert_recieved,'topic.for.alert')
 
     def on_alert_recieved(self, ch, method, props, response):
 
@@ -78,13 +78,12 @@ class ManoSSM(object):
         endpoint = os.environ['HOST']
 
         # add flow entries to block ports 9999 and 5001
-        entry1 = requests.post(url='http://'+endpoint+':8080',
-                               json= {"dpid": 1, "cookie": 200, "priority": 1000,
-                                      "match": {"dl_type": 0x0800, "nw_proto": 6,"tcp_dst": 9999}})
-        entry2 = requests.post(url='http://'+ endpoint + ':8080',
-                               json={"dpid": 1, "cookie": 200, "priority": 1000,
-                                     "match": {"dl_type": 0x0800, "nw_proto": 17, "udp_dst": 5001}})
-
+        entry1 = requests.post(url='http://'+endpoint+':8080/stats/flowentry/add',
+                               data= json.dumps({"dpid": 1, "cookie": 200, "priority": 1000,
+                                      "match": {"dl_type": 0x0800, "nw_proto": 6,"tcp_dst": 9999}}))
+        entry2 = requests.post(url='http://'+ endpoint + ':8080/stats/flowentry/add',
+                               data=json.dumps({"dpid": 1, "cookie": 200, "priority": 1000,
+                                     "match": {"dl_type": 0x0800, "nw_proto": 17, "udp_dst": 5001}}))
         #check if the call was successful
         if (entry1.status_code == 200 and entry2.status_code == 200):
             LOG.info('vFW reconfiguration succeeded')
