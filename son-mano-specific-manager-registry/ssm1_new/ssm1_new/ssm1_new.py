@@ -67,7 +67,7 @@ class ManoSSM(object):
     def on_registration_ok(self):
 
         LOG.debug("Received registration ok event.")
-        self.manoconn.subscribe(self.on_alert_recieved,'topic.for.alert')
+        self.manoconn.subscribe(self.on_alert_recieved,'son.monitoring')
 
     def on_alert_recieved(self, ch, method, props, response):
 
