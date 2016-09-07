@@ -156,10 +156,11 @@ class SpecificManagerRegistry(ManoBasePlugin):
             id = message['NSD']['service_specific_managers'][0]['id']
             LOG.info('Update request received for SSM id: {0}'.format(id))
             try:
-                host_ip = message['NSR'][1]['virtual_deployment_units'][1]['vnfc_instance'][0]['connection_points'][0]['type']['address']
+                host_ip = message['VNFR'][0]['virtual_deployment_units'][0]['vnfc_instance'][0]['connection_points'][0]['type']['address']
+                    #message['NSR'][1]['virtual_deployment_units'][1]['vnfc_instance'][0]['connection_points'][0]['type']['address']
             except:
-                LOG.error("'{0}' Update: failed ==> Host IP address does not exist in the NSR")
-                return yaml.dump({'status': 'Failed', 'error': 'Host IP address does not exist in the NSR'})
+                LOG.error("'{0}' Update: failed ==> Host IP address does not exist in the VNFR")
+                return yaml.dump({'status': 'Failed', 'error': 'Host IP address does not exist in the VNFR'})
             self.smrengine.pull(image, id)
             self.smrengine.start(image_name=image, ssm_name=id, host_ip=host_ip)
             LOG.info("Waiting for '{0}' registration ...".format(id))

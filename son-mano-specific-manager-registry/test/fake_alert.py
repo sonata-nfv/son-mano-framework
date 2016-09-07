@@ -29,6 +29,7 @@ partner consortium (www.sonata-nfv.eu).
 import logging
 import yaml
 import time
+import os
 from sonmanobase import messaging
 
 logging.basicConfig(level=logging.INFO)
@@ -37,14 +38,14 @@ LOG.setLevel(logging.DEBUG)
 logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
 
-class fakeslmu(object):
+class fakealert(object):
     def __init__(self):
 
-        self.name = 'fake-slm'
+        self.name = 'fake-alert'
         self.version = '0.1-dev'
         self.description = 'description'
 
-        LOG.info("Starting SLM2:...")
+        LOG.info("Starting alert:...")
 
         # create and initialize broker connection
         self.manoconn = messaging.ManoBrokerRequestResponseConnection(self.name)
@@ -63,30 +64,22 @@ class fakeslmu(object):
         while self.end == False:
             time.sleep(1)
 
-
     def publish_nsd(self):
 
-        LOG.info("sending update request")
-        nsd = open(self.path_descriptors + 'nsd2.yml', 'r')
-        nsr = open(self.path_descriptors + 'nsr.yml', 'r')
-        vnfr = open(self.path_descriptors + 'vnfr.yml', 'r')
-        message = {'NSD':yaml.load(nsd),'NSR':yaml.load(nsr),'VNFR':yaml.load(vnfr)}
-        self.manoconn.call_async(self._on_publish_nsd_response,
-                                 'specific.manager.registry.ssm.update',
+        LOG.info("Sending alert request")
+
+        message = {"exported_instance": "NEW_VNF_PROBE", "core": "cpu",
+                   "group": "development", "exported_job": "vnf", "image": "None",
+                   "image_name": "None", "value": "0", "name": "None", "instance": "pushgateway:9091",
+                   "job": "sonata", "alertname": "vnf_cpu_usage", "time": "2016-09-03T23:56:08.314Z",
+                   "alertstate": "pending", "id": "a4ad435f-c3cd-4c22-bcad-61989d9d784d", "monitor": "sonata-monitor"}
+
+        self.manoconn.publish('son.monitoring',
                                  yaml.dump(message))
 
-    def _on_publish_nsd_response(self, ch, method, props, response):
 
-        response = yaml.load(str(response))
-        if type(response) == dict:
-            if response['status'] == 'Updated':
-                LOG.info("update done")
-                self.end = True
-            else:
-                LOG.error("SSM update failed.'{0}'".format(response['error']))
-                self.end = True
 def main():
-    fakeslmu()
+    fakealert()
 
 
 if __name__ == '__main__':

@@ -18,8 +18,6 @@ RUN python setup.py install
 
 
 WORKDIR /ssm1_new
-RUN apt-get update
-RUN apt-get install -y build-essential libssl-dev libffi-dev python-dev
 RUN python setup.py develop
 RUN chmod 600 /root/.ssh/id_rsa
 
