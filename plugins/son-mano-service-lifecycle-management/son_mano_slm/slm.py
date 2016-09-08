@@ -93,6 +93,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         :return:
         """
         self.service_requests_being_handled = {}
+        self.service_updates_being_handled = {}
 
         # call super class (will automatically connect to
         # broker and register the SLM to the plugin manger)
@@ -249,7 +250,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         if 'service_specific_managers' in service_request_from_gk['NSD'].keys():
             if len(service_request_from_gk['NSD']['service_specific_managers']) > 0:
                 LOG.info('SSMs needed for this service, trigger on-boarding process in SMR.')
-                corr_id_for_onboarding = uuid.uuid4().hex
+                corr_id_for_onboarding = str(uuid.uuid4())
                 self.service_requests_being_handled[properties.correlation_id]['corr_id_for_onboarding'] = corr_id_for_onboarding
                 self.manoconn.call_async(self.on_ssm_onboarding_return, SRM_ONBOARD, yaml.dump(service_request_from_gk['NSD']), correlation_id=corr_id_for_onboarding)
                 self.service_requests_being_handled[properties.correlation_id]['ssms_ready_to_start'] = False
@@ -277,17 +278,42 @@ class ServiceLifecycleManager(ManoBasePlugin):
         LOG.info('Update request received for instance ' + request['Instance_id'])
 
         #get nsr from repository
-        #TODO: this has not been tested!
-        nsr = requests.get(NSR_REPOSITORY_URL + 'ns-instances', data=json.dumps(request['Instance_id']), headers={'Content-Type':'application/json'}, timeout=10.0)
+        nsr_response = requests.get(NSR_REPOSITORY_URL + 'ns-instances/' + request['Instance_id'], timeout=10.0)
+
+        if (nsr_response.status_code == 200):
+            nsr = nsr_response.json()
+
+            #get the vnfrs from repository
+            vnfrs = []            
+            for vnfr_obj in nsr['network_functions']:
+                vnfr_id = vnfr_obj['vnfr_id']
+                vnfr_response = request.get(VNFR_REPOSITORY_URL + 'vnf-instances/' + vnfr_id, timeout=10.0)
+                
+                if (vnfr_response.status_code == 200):
+                    vnfr = vnfr_response.json()
+                    vnfrs.append(vnfr)
+
+                else:
+                    LOG.info('retrieving vnfr failed, aborting...')
+                    error_message = {'status':'ERROR', 'error':'Updating failed, could not retrieve vnfr.'}
+                    return yaml.dump(error_message)
+        else:
+            LOG.info('retrieving nsr failed, aborting...')
+            error_message = {'status':'ERROR', 'error':'Updating failed, could not retrieve nsr.'}
+            return yaml.dump(error_message)
+        
+        #create corr_id for interation with SMR to use as reference one response is received.
+        corr_id = str(uuid.uuid4())
+        #keep track of running updates, so we can update the records after the response is received.
+        self.service_updates_being_handled[corr_id] = {'nsr':nsr, 'instance_id':request['Instance_id'], 'orig_corr_id':properties.correlation_id}
 
         #Build request for SMR
-        request_for_smr = {'NSD':request['NSD'], 'NSR':nsr.json()}
-        self.manoconn.call_async(self.on_update_request_reply, SRM_UPDATE, yaml.dump(request_for_smr))
+        LOG.info('retrieving nsr and vnfrs succeeded, building message for SMR...')
+        request_for_smr = {'NSD':request['NSD'], 'NSR':nsr, 'VNFR':vnfrs}
+        self.manoconn.call_async(self.on_update_request_reply, SRM_UPDATE, yaml.dump(request_for_smr), correlation_id=corr_id)
+        LOG.info('SMR contacted, awaiting response...')
 
-        LOG.info('Update request forwarded to SMR.')
-        #TODO: this shouldn't be hardcoded
         response_for_gk = {'status':'UPDATING', 'error':None}
-
         LOG.info('Inform GK that update process is started.')        
         return yaml.dump(response_for_gk)
 
@@ -296,9 +322,16 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method handles a response of the SMR on an update request
         """
 
-        LOG.info('Update report received from SMR, forwarding towards GK.')
+        LOG.info('Update report received from SMR, updating the records...')
+        #updating the records
+        nsr = self.service_updates_being_handled[properties.correlation_id]['nsr']
+        instance_id = self.service_updates_being_handled[properties.correlation_id]['instance_id']
+
+        #TODO: the update itself. What needs to be updated.
+
+        LOG.info('Records updated, informing the gatekeeper of result.')
         #The SLM just takes the message from the SMR and forwards it towards the GK
-        self.manoconn.notify(GK_INSTANCE_UPDATE, message)        
+        self.manoconn.notify(GK_INSTANCE_UPDATE, message, correlation_id=self.service_updates_being_handled[instance_id]['orig_corr_id'])        
 
     def on_ssm_onboarding_return(self, ch, method, properties, message):
         """
