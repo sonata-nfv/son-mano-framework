@@ -39,6 +39,7 @@ logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
 
 class fakeslm(object):
+    
     def __init__(self):
 
         self.name = 'fake-slm'
