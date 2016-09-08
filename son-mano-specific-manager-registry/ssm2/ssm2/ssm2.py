@@ -34,7 +34,7 @@ import json
 from sonmanobase import messaging
 
 logging.basicConfig(level=logging.INFO)
-LOG = logging.getLogger("ssm1_new")
+LOG = logging.getLogger("ssm2")
 LOG.setLevel(logging.DEBUG)
 logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
@@ -43,7 +43,7 @@ class ManoSSM(object):
 
     def __init__(self):
 
-        self.name = 'ssm1_new'
+        self.name = 'ssm2'
         self.version = 'v0.2'
         self.description = 'Reconfigures the vFW'
         self.uuid = None
