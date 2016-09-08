@@ -33,7 +33,7 @@ import  time
 from sonmanobase import messaging
 
 logging.basicConfig(level=logging.INFO)
-LOG = logging.getLogger("ssm1")
+LOG = logging.getLogger("ssmdumb")
 LOG.setLevel(logging.DEBUG)
 logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
@@ -42,7 +42,7 @@ class ManoSSM(object):
 
     def __init__(self):
 
-        self.name = 'ssm1'
+        self.name = 'ssmdumb'
         self.version = 'v0.1'
         self.description = 'An empty SSM'
         self.uuid = None

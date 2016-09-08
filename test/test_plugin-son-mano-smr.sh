@@ -39,7 +39,7 @@
 #
 
 # setup cleanup mechanism
-trap "set +e; docker rm -fv test.broker; docker rm -fv test.mongo; docker rm -fv test.pluginmanager; docker rm -fv test.smr; docker rm -fv ssm1; docker rm -fv ssm2" INT TERM EXIT
+trap "set +e; docker rm -fv test.broker; docker rm -fv test.mongo; docker rm -fv test.pluginmanager; docker rm -fv test.smr; docker rm -fv ssmdumb; docker rm -fv ssmsmart" INT TERM EXIT
 
 # ensure cleanup
 set +e
@@ -47,8 +47,8 @@ docker rm -fv test.broker
 docker rm -fv test.mongo
 docker rm -fv test.pluginmanager
 docker rm -fv test.smr
-docker rm -fv ssm1
-docker rm -fv ssm2
+docker rm -fv ssmdumb
+docker rm -fv ssmsmart
 
 #  always abort if an error occurs
 set -e

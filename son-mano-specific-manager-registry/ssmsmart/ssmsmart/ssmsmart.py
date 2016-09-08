@@ -34,7 +34,7 @@ import json
 from sonmanobase import messaging
 
 logging.basicConfig(level=logging.INFO)
-LOG = logging.getLogger("ssm2")
+LOG = logging.getLogger("ssmsmart")
 LOG.setLevel(logging.DEBUG)
 logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
@@ -43,7 +43,7 @@ class ManoSSM(object):
 
     def __init__(self):
 
-        self.name = 'ssm2'
+        self.name = 'ssmsmart'
         self.version = 'v0.2'
         self.description = 'Reconfigures the vFW'
         self.uuid = None
@@ -86,7 +86,7 @@ class ManoSSM(object):
         entry2 = requests.post(url='http://'+ endpoint + ':8080/stats/flowentry/add',
                                data=json.dumps({"dpid": 1, "cookie": 200, "priority": 1000,
                                      "match": {"dl_type": 0x0800, "nw_proto": 17, "udp_dst": 5001}}))
-        
+
         #check if the call was successful
         if (entry1.status_code == 200 and entry2.status_code == 200):
             LOG.info('vFW reconfiguration succeeded')
