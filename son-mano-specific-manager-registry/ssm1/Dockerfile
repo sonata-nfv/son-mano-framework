@@ -11,7 +11,6 @@ ADD son-mano-base /son-mano-base
 ADD son-mano-specific-manager-registry/ssm1 /ssm1
 ADD utils/delayedstart.sh /delayedstart.sh
 
-
 WORKDIR /son-mano-base
 RUN python setup.py install
 
