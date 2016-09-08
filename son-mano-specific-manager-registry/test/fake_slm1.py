@@ -39,6 +39,7 @@ logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
 
 class fakeslm(object):
+
     def __init__(self):
 
         self.name = 'fake-slm'
@@ -51,6 +52,7 @@ class fakeslm(object):
         self.manoconn = messaging.ManoBrokerRequestResponseConnection(self.name)
 
         self.path_descriptors = 'test/test_descriptors/'
+        
         self.end = False
 
         self.publish_nsd()

@@ -1,8 +1,8 @@
-from ssm2 import ssm2
+from ssmsmart import ssmsmart
 
 
 def main():
-    ssm2.main()
+    ssmsmart.main()
 
 if __name__ == '__main__':
     main()

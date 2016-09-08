@@ -39,7 +39,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name='ssm1',
+    name='ssmdumb',
 
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
@@ -62,7 +62,7 @@ setup(
     # What does your project relate to?
     keywords='NFV orchestrator',
 
-    packages=find_packages("ssm1"),
+    packages=find_packages("ssmdumb"),
     install_requires=['pika', 'pytest', 'mongoengine', 'Flask>=0.10.1', 'flask-restful', 'requests'],
     setup_requires=['pytest-runner'],
 
@@ -70,6 +70,6 @@ setup(
     # "scripts" keyword. Entry points provide cross-platform support and allow
     # pip to create the appropriate form of executable for the target platform.
     entry_points={
-        'console_scripts': ['ssm1=ssm1.__main__:main'],
+        'console_scripts': ['ssmdumb=ssmdumb.__main__:main'],
     },
 )

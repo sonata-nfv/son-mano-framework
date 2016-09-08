@@ -177,9 +177,9 @@ class SpecificManagerRegistry(ManoBasePlugin):
             return yaml.dump({'status': 'Failed', 'error': str(err)})
 
     def ssm_kill(self):
-        self.smrengine.stop('ssm1')
-        self.ssm_repo['ssm1']['status'] = 'killed'
-        LOG.debug('SSM kill: succeeded')
+        self.smrengine.stop('ssmdumb')
+        self.ssm_repo['ssmdumb']['status'] = 'killed'
+        LOG.debug('ssmdumb kill: succeeded')
 
     def _wait_for_ssm_registration(self, ssm_name, timeout=20, sleep_interval=0.1):
 

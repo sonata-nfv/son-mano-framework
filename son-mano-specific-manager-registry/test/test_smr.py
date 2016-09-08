@@ -106,7 +106,7 @@ class test2SpecificManagerRegistry(unittest.TestCase):
 
         # ensure that existing test images and containers are removed
 
-        image_container_cleaner(ssm1=True,ssm2=True)
+        image_container_cleaner(ssmdumb=True,ssmsmart=True)
 
         self.srm_proc = Process(target=SpecificManagerRegistry)
         self.srm_proc.daemon = True
@@ -229,54 +229,54 @@ class testSMREngine(unittest.TestCase):
 
     def test_ssm_onboard(self):
         # ensure that existing test images and containers are removed
-        image_container_cleaner(ssm1=True,ssm2=False)
+        image_container_cleaner(ssmdumb=True,ssmsmart=False)
         e = SMREngine()
-        e.pull(ssm_uri="hadik3r/ssm1", ssm_name='ssm1')
-        img = e.dc.get_image('hadik3r/ssm1')
+        e.pull(ssm_uri="sonatanfv/ssmdumb", ssm_name='ssmdumb')
+        img = e.dc.get_image('sonatanfv/ssmdumb')
         self.assertIsNotNone(img)
 
     def test_ssm_instantiate(self):
         # ensure that existing test images and containers are removed
-        image_container_cleaner(ssm1=True,ssm2=False)
+        image_container_cleaner(ssmdumb=True,ssmsmart=False)
         e = SMREngine()
-        e.pull(ssm_uri="hadik3r/ssm1", ssm_name='ssm1')
-        e.start(image_name="hadik3r/ssm1", ssm_name='ssm1', host_ip= None)
-        con = e.dc.containers(filters={'name': 'ssm1'})
+        e.pull(ssm_uri="sonatanfv/ssmdumb", ssm_name='ssmdumb')
+        e.start(image_name="sonatanfv/ssmdumb", ssm_name='ssmdumb', host_ip= None)
+        con = e.dc.containers(filters={'name': 'ssmdumb'})
         self.assertIsNotNone(con)
 
     def test_ssm_kill(self):
         # ensure that existing test images and containers are removed
-        image_container_cleaner(ssm1=True,ssm2=True)
+        image_container_cleaner(ssmdumb=True,ssmsmart=True)
         e = SMREngine()
-        e.pull(ssm_uri="hadik3r/ssm1", ssm_name='ssm1')
-        e.start(image_name="hadik3r/ssm1", ssm_name='ssm1', host_ip= None)
-        e.stop('ssm1')
-        con = e.dc.containers(filters={'name': 'ssm1'})
+        e.pull(ssm_uri="sonatanfv/ssmdumb", ssm_name='ssmdumb')
+        e.start(image_name="sonatanfv/ssmdumb", ssm_name='ssmdumb', host_ip= None)
+        e.stop('ssmdumb')
+        con = e.dc.containers(filters={'name': 'ssmdumb'})
         self.assertEqual(con, [])
 
 
-def image_container_cleaner(ssm1, ssm2):
+def image_container_cleaner(ssmdumb, ssmsmart):
     e = SMREngine()
-    if ssm1:
+    if ssmdumb:
         try:
-            e.dc.stop('ssm1')
-            e.dc.remove_container('ssm1')
+            e.dc.stop('ssmdumb')
+            e.dc.remove_container('ssmdumb')
         except BaseException as ex:
             pass
         try:
-            e.dc.remove_image(force=True, image='hadik3r/ssm1')
-        except BaseException as ex:
-            pass
-
-    if ssm2:
-        try:
-            e.dc.stop('ssm2')
-            e.dc.remove_container('ssm2')
+            e.dc.remove_image(force=True, image='sonatanfv/ssmdumb')
         except BaseException as ex:
             pass
 
+    if ssmsmart:
         try:
-            e.dc.remove_image(force=True, image='hadik3r/ssm2')
+            e.dc.stop('ssmsmart')
+            e.dc.remove_container('ssmsmart')
+        except BaseException as ex:
+            pass
+
+        try:
+            e.dc.remove_image(force=True, image='sonatanfv/ssmsmart')
         except BaseException as ex:
             pass
 

@@ -25,15 +25,16 @@ the Horizon 2020 and 5G-PPP programmes. The authors would like to
 acknowledge the contributions of their colleagues of the SONATA
 partner consortium (www.sonata-nfv.eu).
 """
-
 import logging
-import json
+import time
 import yaml
-import  time
+import requests
+import os
+import json
 from sonmanobase import messaging
 
 logging.basicConfig(level=logging.INFO)
-LOG = logging.getLogger("ssm1")
+LOG = logging.getLogger("ssmsmart")
 LOG.setLevel(logging.DEBUG)
 logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
@@ -42,13 +43,13 @@ class ManoSSM(object):
 
     def __init__(self):
 
-        self.name = 'ssm1'
-        self.version = 'v0.1'
-        self.description = 'An empty SSM'
+        self.name = 'ssmsmart'
+        self.version = 'v0.2'
+        self.description = 'Reconfigures the vFW'
         self.uuid = None
 
-        LOG.info(
-            "Starting %r ..." % self.name)
+        LOG.info("Starting %r ..." % self.name)
+
         # create and initialize broker connection
         self.manoconn = messaging.ManoBrokerRequestResponseConnection(self.name)
 
@@ -68,8 +69,29 @@ class ManoSSM(object):
     def on_registration_ok(self):
 
         LOG.debug("Received registration ok event.")
-        pass
+        self.manoconn.subscribe(self.on_alert_recieved,'son.monitoring')
 
+    def on_alert_recieved(self, ch, method, props, response):
+
+        LOG.info('Alert message received')
+        LOG.info('Start reconfiguring vFW ...')
+
+        # retrieve vFW IP address
+        endpoint = os.environ['HOST']
+
+        # add flow entries to block ports 9999 and 5001
+        entry1 = requests.post(url='http://'+endpoint+':8080/stats/flowentry/add',
+                               data= json.dumps({"dpid": 1, "cookie": 200, "priority": 1000,
+                                      "match": {"dl_type": 0x0800, "nw_proto": 6,"tcp_dst": 9999}}))
+        entry2 = requests.post(url='http://'+ endpoint + ':8080/stats/flowentry/add',
+                               data=json.dumps({"dpid": 1, "cookie": 200, "priority": 1000,
+                                     "match": {"dl_type": 0x0800, "nw_proto": 17, "udp_dst": 5001}}))
+
+        #check if the call was successful
+        if (entry1.status_code == 200 and entry2.status_code == 200):
+            LOG.info('vFW reconfiguration succeeded')
+        else:
+            LOG.info('vFW reconfiguration failed')
 
     def publish(self):
 
@@ -89,18 +111,14 @@ class ManoSSM(object):
 
         response = yaml.load(str(response))
 
-        if response.get("status") != "OK":
-            LOG.debug("Response %r" % response)
+        if response['status'] != "running":
             LOG.error("SSM registration failed. Exit.")
             exit(1)
-
-        self.uuid = response.get("uuid")
-
-        LOG.info("SSM registered with UUID: %r" % response.get("uuid"))
-
-        # jump to on_registration_ok()
-        self.on_registration_ok()
-
+        else:
+            self.uuid = response['uuid']
+            LOG.info("SSM registered with uuid: %r" % self.uuid)
+            # jump to on_registration_ok()
+            self.on_registration_ok()
 
 def main():
     ManoSSM()
