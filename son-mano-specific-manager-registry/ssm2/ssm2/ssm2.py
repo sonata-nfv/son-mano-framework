@@ -49,7 +49,7 @@ class ManoSSM(object):
         self.uuid = None
 
         LOG.info("Starting %r ..." % self.name)
-        
+
         # create and initialize broker connection
         self.manoconn = messaging.ManoBrokerRequestResponseConnection(self.name)
 

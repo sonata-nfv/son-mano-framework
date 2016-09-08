@@ -41,7 +41,7 @@ network_functions:
 service_specific_managers:
   - id: "ssm1"
     description: "An empty example SSM."
-    image: "hadik3r/ssm1"
+    image: "sonatanfv/ssm1"
     options:
       - key: "myKey"
         value: "myValue"

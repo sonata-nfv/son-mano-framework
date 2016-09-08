@@ -231,16 +231,16 @@ class testSMREngine(unittest.TestCase):
         # ensure that existing test images and containers are removed
         image_container_cleaner(ssm1=True,ssm2=False)
         e = SMREngine()
-        e.pull(ssm_uri="hadik3r/ssm1", ssm_name='ssm1')
-        img = e.dc.get_image('hadik3r/ssm1')
+        e.pull(ssm_uri="sonatanfv/ssm1", ssm_name='ssm1')
+        img = e.dc.get_image('sonatanfv/ssm1')
         self.assertIsNotNone(img)
 
     def test_ssm_instantiate(self):
         # ensure that existing test images and containers are removed
         image_container_cleaner(ssm1=True,ssm2=False)
         e = SMREngine()
-        e.pull(ssm_uri="hadik3r/ssm1", ssm_name='ssm1')
-        e.start(image_name="hadik3r/ssm1", ssm_name='ssm1', host_ip= None)
+        e.pull(ssm_uri="sonatanfv/ssm1", ssm_name='ssm1')
+        e.start(image_name="sonatanfv/ssm1", ssm_name='ssm1', host_ip= None)
         con = e.dc.containers(filters={'name': 'ssm1'})
         self.assertIsNotNone(con)
 
@@ -248,8 +248,8 @@ class testSMREngine(unittest.TestCase):
         # ensure that existing test images and containers are removed
         image_container_cleaner(ssm1=True,ssm2=True)
         e = SMREngine()
-        e.pull(ssm_uri="hadik3r/ssm1", ssm_name='ssm1')
-        e.start(image_name="hadik3r/ssm1", ssm_name='ssm1', host_ip= None)
+        e.pull(ssm_uri="sonatanfv/ssm1", ssm_name='ssm1')
+        e.start(image_name="sonatanfv/ssm1", ssm_name='ssm1', host_ip= None)
         e.stop('ssm1')
         con = e.dc.containers(filters={'name': 'ssm1'})
         self.assertEqual(con, [])
@@ -264,7 +264,7 @@ def image_container_cleaner(ssm1, ssm2):
         except BaseException as ex:
             pass
         try:
-            e.dc.remove_image(force=True, image='hadik3r/ssm1')
+            e.dc.remove_image(force=True, image='sonatanfv/ssm1')
         except BaseException as ex:
             pass
 
@@ -276,7 +276,7 @@ def image_container_cleaner(ssm1, ssm2):
             pass
 
         try:
-            e.dc.remove_image(force=True, image='hadik3r/ssm2')
+            e.dc.remove_image(force=True, image='sonatanfv/ssm2')
         except BaseException as ex:
             pass
 
