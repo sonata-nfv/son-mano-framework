@@ -18,7 +18,7 @@ RUN python setup.py install
 
 WORKDIR /ssm2
 RUN python setup.py develop
-RUN chmod 600 /root/.ssh/id_rsa
+
 
 CMD ["ssm2"]
 
