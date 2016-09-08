@@ -419,7 +419,7 @@ def build_monitoring_message(gk_request, message_from_ia, nsr, vnfrs):
 
                 # TODO add condition
                 vdu_id = mr['condition'].split(":")[0]
-                host_id = vdu_hostid[vdu_id]
+                host_id = vdu_hostid[vdu_name]
                 rule['condition'] = host_id + ":" + mr['condition'].split(":")[1]
 
                 # we add a rule for each notification type
