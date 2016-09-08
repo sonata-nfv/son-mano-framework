@@ -86,6 +86,7 @@ class ManoSSM(object):
         entry2 = requests.post(url='http://'+ endpoint + ':8080/stats/flowentry/add',
                                data=json.dumps({"dpid": 1, "cookie": 200, "priority": 1000,
                                      "match": {"dl_type": 0x0800, "nw_proto": 17, "udp_dst": 5001}}))
+        
         #check if the call was successful
         if (entry1.status_code == 200 and entry2.status_code == 200):
             LOG.info('vFW reconfiguration succeeded')
