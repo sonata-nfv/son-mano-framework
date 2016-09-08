@@ -48,7 +48,7 @@ docker rm -fv test.mongo
 docker rm -fv test.pluginmanager
 docker rm -fv test.smr
 docker rm -fv ssm1
-docker rm -fv ssm1_new
+docker rm -fv ssm2
 
 #  always abort if an error occurs
 set -e

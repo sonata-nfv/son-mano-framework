@@ -106,7 +106,7 @@ class test2SpecificManagerRegistry(unittest.TestCase):
 
         # ensure that existing test images and containers are removed
 
-        image_container_cleaner(ssm1=True,ssm1_new=True)
+        image_container_cleaner(ssm1=True,ssm2=True)
 
         self.srm_proc = Process(target=SpecificManagerRegistry)
         self.srm_proc.daemon = True
@@ -229,7 +229,7 @@ class testSMREngine(unittest.TestCase):
 
     def test_ssm_onboard(self):
         # ensure that existing test images and containers are removed
-        image_container_cleaner(ssm1=True,ssm1_new=False)
+        image_container_cleaner(ssm1=True,ssm2=False)
         e = SMREngine()
         e.pull(ssm_uri="hadik3r/ssm1", ssm_name='ssm1')
         img = e.dc.get_image('hadik3r/ssm1')
@@ -237,7 +237,7 @@ class testSMREngine(unittest.TestCase):
 
     def test_ssm_instantiate(self):
         # ensure that existing test images and containers are removed
-        image_container_cleaner(ssm1=True,ssm1_new=False)
+        image_container_cleaner(ssm1=True,ssm2=False)
         e = SMREngine()
         e.pull(ssm_uri="hadik3r/ssm1", ssm_name='ssm1')
         e.start(image_name="hadik3r/ssm1", ssm_name='ssm1', host_ip= None)
@@ -246,7 +246,7 @@ class testSMREngine(unittest.TestCase):
 
     def test_ssm_kill(self):
         # ensure that existing test images and containers are removed
-        image_container_cleaner(ssm1=True,ssm1_new=True)
+        image_container_cleaner(ssm1=True,ssm2=True)
         e = SMREngine()
         e.pull(ssm_uri="hadik3r/ssm1", ssm_name='ssm1')
         e.start(image_name="hadik3r/ssm1", ssm_name='ssm1', host_ip= None)
@@ -255,7 +255,7 @@ class testSMREngine(unittest.TestCase):
         self.assertEqual(con, [])
 
 
-def image_container_cleaner(ssm1, ssm1_new):
+def image_container_cleaner(ssm1, ssm2):
     e = SMREngine()
     if ssm1:
         try:
@@ -268,15 +268,15 @@ def image_container_cleaner(ssm1, ssm1_new):
         except BaseException as ex:
             pass
 
-    if ssm1_new:
+    if ssm2:
         try:
-            e.dc.stop('ssm1_new')
-            e.dc.remove_container('ssm1_new')
+            e.dc.stop('ssm2')
+            e.dc.remove_container('ssm2')
         except BaseException as ex:
             pass
 
         try:
-            e.dc.remove_image(force=True, image='hadik3r/ssm1_new')
+            e.dc.remove_image(force=True, image='hadik3r/ssm2')
         except BaseException as ex:
             pass
 
