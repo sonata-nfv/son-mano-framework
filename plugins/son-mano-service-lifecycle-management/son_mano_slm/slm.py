@@ -457,6 +457,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         message_for_gk['error'] = {}
         message_for_gk['vnfrs'] = []
 
+        message_for_gk['timestamp'] = time.time()
+
         if msg['request_status'][:8] == 'DEPLOYED':
             nsr = tools.build_nsr(self.service_requests_being_handled[properties.correlation_id], msg)
             LOG.info('nsr built: ' + yaml.dump(nsr, indent=4))
@@ -532,9 +534,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
                             self.service_requests_being_handled[properties.correlation_id]['message_for_srm'] = dict_for_srm
 
         else:
+            LOG.info("inform gk of result of deployment for service with uuid " + self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'])
+            LOG.info("Message for gk: " + yaml.dump(message_for_gk, indent=4))
             message_for_gk['error'] = 'Deployment result: ' + msg['request_status']
-
-        message_for_gk['timestamp'] = time.time()
+            self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(message_for_gk), correlation_id=self.service_requests_being_handled[properties.correlation_id]['original_corr_id'])
+            return
 
         #Inform the gk of the result.
         LOG.info("inform gk of result of deployment for service with uuid " + self.service_requests_being_handled[properties.correlation_id]['NSD']['instance_uuid'])
