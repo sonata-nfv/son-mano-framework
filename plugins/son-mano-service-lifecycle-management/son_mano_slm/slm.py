@@ -308,7 +308,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #create corr_id for interation with SMR to use as reference one response is received.
         corr_id = str(uuid.uuid4())
         #keep track of running updates, so we can update the records after the response is received.
-        self.service_updates_being_handled[corr_id] = {'nsr':nsr, 'instance_id':request['Instance_id'], 'orig_corr_id':properties.correlation_id, 'vnfrs':vnfr_dict}
+        self.service_updates_being_handled[corr_id] = {'nsd':request['NSD'], 'nsr':nsr, 'instance_id':request['Instance_id'], 'orig_corr_id':properties.correlation_id, 'vnfrs':vnfr_dict}
 
         #Build request for SMR
         LOG.info('retrieving nsr and vnfrs succeeded, building message for SMR...')
@@ -326,26 +326,20 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
 
         LOG.info('Update report received from SMR, updating the records...')
-        #updating the records
+        #updating the records. As only the nsr changes in the demo, we only update the nsr for now.
         nsr = self.service_updates_being_handled[properties.correlation_id]['nsr']
         instance_id = self.service_updates_being_handled[properties.correlation_id]['instance_id']
-        vnfrs = self.service_updates_being_handled[properties.correlation_id]['vnfrs']
+        nsd = self.service_updates_being_handled[properties.correlation_id]['nsd']
 
         nsr['version'] = str(int(nsr['version']) + 1)
+        nsr['descriptor_reference'] = nsd['uuid']
+
         nsr_response = requests.put(NSR_REPOSITORY_URL + 'ns-instances/' + instance_id, data=json.dumps(nsr), headers={'Content-Type':'application/json'}, timeout=10.0)
         
         if nsr_response.statuscode is not 200:
             message = {'status':'ERROR', 'error':'could not update records.'}
             self.manoconn.notify(GK_INSTANCE_UPDATE, message, correlation_id=self.service_updates_being_handled[instance_id]['orig_corr_id']) 
             return       
-
-        for key in vnfrs.keys():
-            vnfrs[key]['version'] = str(int(vnfrs[key]['version']) + 1)
-            vnfr_response = requests.put(VNFR_REPOSITORY_URL + 'vnf-instances/' + instance_id, data=json.dumps(vnfrs[key]), headers={'Content-Type':'application/json'}, timeout=10.0) 
-
-            if vnfr_response.statuscode is not 200:
-                message = {'status':'ERROR', 'error':'could not update records.'}
-                return
 
         LOG.info('Records updated, informing the gatekeeper of result.')
         #The SLM just takes the message from the SMR and forwards it towards the GK
