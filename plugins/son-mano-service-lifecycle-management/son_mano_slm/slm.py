@@ -141,7 +141,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         super(self.__class__, self).on_lifecycle_start(ch, method, properties, message)
         LOG.info("Lifecycle start event")
 
-
     def on_gk_service_instance_create(self, ch, method, properties, message):
         """
         This is our first SLM specific event method. It is called when the SLM
@@ -278,20 +277,24 @@ class ServiceLifecycleManager(ManoBasePlugin):
         LOG.info('Update request received for instance ' + request['Instance_id'])
 
         #get nsr from repository
-        nsr_response = requests.get(NSR_REPOSITORY_URL + 'ns-instances/' + request['Instance_id'], timeout=10.0)
+        appendix_nsr_link = 'ns-instances/' + request['Instance_id']
+        nsr_response = requests.get(NSR_REPOSITORY_URL + appendix_nsr_link, timeout=10.0)
 
         if (nsr_response.status_code == 200):
+            LOG.info("NSR retrieved successfully")
             nsr = nsr_response.json()
 
             #get the vnfrs from repository
-            vnfrs = []            
+            vnfrs = [] 
+            vnfr_dict = {}           
             for vnfr_obj in nsr['network_functions']:
                 vnfr_id = vnfr_obj['vnfr_id']
-                vnfr_response = request.get(VNFR_REPOSITORY_URL + 'vnf-instances/' + vnfr_id, timeout=10.0)
+                vnfr_response = requests.get(VNFR_REPOSITORY_URL + 'vnf-instances/' + vnfr_id, timeout=10.0)
                 
                 if (vnfr_response.status_code == 200):
                     vnfr = vnfr_response.json()
                     vnfrs.append(vnfr)
+                    vnfr_dict[vnfr_id] = vnfr
 
                 else:
                     LOG.info('retrieving vnfr failed, aborting...')
@@ -305,7 +308,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #create corr_id for interation with SMR to use as reference one response is received.
         corr_id = str(uuid.uuid4())
         #keep track of running updates, so we can update the records after the response is received.
-        self.service_updates_being_handled[corr_id] = {'nsr':nsr, 'instance_id':request['Instance_id'], 'orig_corr_id':properties.correlation_id}
+        self.service_updates_being_handled[corr_id] = {'nsr':nsr, 'instance_id':request['Instance_id'], 'orig_corr_id':properties.correlation_id, 'vnfrs':vnfr_dict}
 
         #Build request for SMR
         LOG.info('retrieving nsr and vnfrs succeeded, building message for SMR...')
@@ -326,8 +329,23 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #updating the records
         nsr = self.service_updates_being_handled[properties.correlation_id]['nsr']
         instance_id = self.service_updates_being_handled[properties.correlation_id]['instance_id']
+        vnfrs = self.service_updates_being_handled[properties.correlation_id]['vnfrs']
 
-        #TODO: the update itself. What needs to be updated.
+        nsr['version'] = str(int(nsr['version']) + 1)
+        nsr_response = requests.put(NSR_REPOSITORY_URL + 'ns-instances/' + instance_id, data=json.dumps(nsr), headers={'Content-Type':'application/json'}, timeout=10.0)
+        
+        if nsr_response.statuscode is not 200:
+            message = {'status':'ERROR', 'error':'could not update records.'}
+            self.manoconn.notify(GK_INSTANCE_UPDATE, message, correlation_id=self.service_updates_being_handled[instance_id]['orig_corr_id']) 
+            return       
+
+        for key in vnfrs.keys():
+            vnfrs[key]['version'] = str(int(vnfrs[key]['version']) + 1)
+            vnfr_response = requests.put(VNFR_REPOSITORY_URL + 'vnf-instances/' + instance_id, data=json.dumps(vnfrs[key]), headers={'Content-Type':'application/json'}, timeout=10.0) 
+
+            if vnfr_response.statuscode is not 200:
+                message = {'status':'ERROR', 'error':'could not update records.'}
+                return
 
         LOG.info('Records updated, informing the gatekeeper of result.')
         #The SLM just takes the message from the SMR and forwards it towards the GK
@@ -523,7 +541,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         LOG.info("Message for gk: " + yaml.dump(message_for_gk, indent=4))
         self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, yaml.dump(message_for_gk), correlation_id=self.service_requests_being_handled[properties.correlation_id]['original_corr_id'])
         #Delete service request from handling dictionary, as handling is completed.
-        if service_requests_being_handled[properties.correlation_id]['completed']:
+        if self.service_requests_being_handled[properties.correlation_id]['completed']:
             self.service_requests_being_handled.pop(properties.correlation_id, None)
 
     def on_ssm_start_return(self, ch, method, properties, message):
