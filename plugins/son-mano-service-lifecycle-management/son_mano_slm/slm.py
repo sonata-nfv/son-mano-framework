@@ -326,6 +326,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
 
         LOG.info('Update report received from SMR, updating the records...')
+        LOG.info('Response from SMR: ' + yaml.dump(message, indent=4))
         #updating the records. As only the nsr changes in the demo, we only update the nsr for now.
         nsr = self.service_updates_being_handled[properties.correlation_id]['nsr']
         instance_id = self.service_updates_being_handled[properties.correlation_id]['instance_id']
@@ -336,14 +337,15 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         nsr_response = requests.put(NSR_REPOSITORY_URL + 'ns-instances/' + instance_id, data=json.dumps(nsr), headers={'Content-Type':'application/json'}, timeout=10.0)
         
-        if nsr_response.statuscode is not 200:
+        if nsr_response.status_code is not 200:
             message = {'status':'ERROR', 'error':'could not update records.'}
             self.manoconn.notify(GK_INSTANCE_UPDATE, message, correlation_id=self.service_updates_being_handled[instance_id]['orig_corr_id']) 
             return       
 
         LOG.info('Records updated, informing the gatekeeper of result.')
+        message_for_gk = {'status':'UPDATE_COMPLETED', 'error':None, 'nsr':nsr}
         #The SLM just takes the message from the SMR and forwards it towards the GK
-        self.manoconn.notify(GK_INSTANCE_UPDATE, message, correlation_id=self.service_updates_being_handled[instance_id]['orig_corr_id'])        
+        self.manoconn.notify(GK_INSTANCE_UPDATE, yaml.dump(message_for_gk), correlation_id=self.service_updates_being_handled[instance_id]['orig_corr_id'])        
 
     def on_ssm_onboarding_return(self, ch, method, properties, message):
         """
@@ -494,16 +496,28 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
             #TODO: put this in an if clause, so it is only done when nsr and
             #vnfrs are accepted by repository.
-            #TODO: Build try/except around this
             LOG.info('nsr and vnfrs stored in Repositories, starting montitoring process.')
             monitoring_message = tools.build_monitoring_message(self.service_requests_being_handled[properties.correlation_id], msg, nsr, vnfrs)
             LOG.info('Monitoring message built: ' + json.dumps(monitoring_message, indent=4))
-            monitoring_response = requests.post(MONITORING_REPOSITORY_URL + 'service/new', data=json.dumps(monitoring_message), headers={'Content-Type':'application/json'}, timeout=10.0)
-            LOG.info('Monitoring response: ' + str(monitoring_response))
-            monitoring_json = monitoring_response.json()
-            LOG.info('Monitoring json: ' + str(monitoring_json))
-            if ('status' not in monitoring_json.keys()) or (monitoring_json['status'] != 'success'):
-                message_for_gk['error']['monitoring'] = monitoring_json
+
+            try:
+                monitoring_response = requests.post(MONITORING_REPOSITORY_URL + 'service/new', data=json.dumps(monitoring_message), headers={'Content-Type':'application/json'}, timeout=10.0)
+
+                if (monitoring_response.status_code == 200):
+                    LOG.info('Monitoring response: ' + str(monitoring_response))
+                    monitoring_json = monitoring_response.json()
+                    LOG.info('Monitoring json: ' + str(monitoring_json))
+        
+                    if ('status' not in monitoring_json.keys()) or (monitoring_json['status'] != 'success'):
+                        message_for_gk['error']['monitoring'] = monitoring_json
+
+                else:
+                    message_for_gk['error']['monitoring'] = {'http_code': monitoring_response.status_code, 'message': monitoring_response.json()}
+
+            except:
+                message_for_gk['error']['monitoring'] = {'http_code': '0', 'message': 'Timeout when contacting server'}
+                LOG.info('time-out on monitoring manager.')
+
 
             #If no errors occured, return message fields are set accordingly 
             #And SRM is informed to start ssms if needed.
