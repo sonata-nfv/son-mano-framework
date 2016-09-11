@@ -2,6 +2,7 @@ FROM python:3.4-slim
 MAINTAINER SONATA
 
 # configrurations
+
 ENV mongo_host mongo
 ENV mongo_port 27017
 ENV broker_host amqp://guest:guest@broker:5672/%2F
