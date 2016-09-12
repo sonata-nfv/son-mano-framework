@@ -102,7 +102,10 @@ class SMREngine(object):
     def start(self, image_name, ssm_name, host_ip):
         broker = self.retrieve_broker_name()
         broker_host = os.environ['broker_host']
-        container = self.dc.create_container(image=image_name, tty=True, name=ssm_name, environment={'HOST': host_ip,'broker_host':broker_host})
+
+        container = self.dc.create_container(image=image_name, tty=True, name=ssm_name,
+                                             environment={'HOST': host_ip,'broker_host':broker_host})
+
         self.dc.start(container=container.get('Id'), links=[(broker['name'], broker['alias'])])
         LOG.debug("{0} instantiation: succeeded".format(ssm_name))
 

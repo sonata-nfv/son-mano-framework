@@ -23,7 +23,8 @@ WORKDIR /son-mano-base
 RUN python setup.py install
 
 WORKDIR /son-mano-specific-manager-registry
-RUN pip3 install docker-py
+
+#RUN pip3 install docker-py==1.9.0
 RUN python setup.py develop
 
 CMD ["son_mano_specific_manager_registry"]
