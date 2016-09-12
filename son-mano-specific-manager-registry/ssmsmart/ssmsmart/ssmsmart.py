@@ -76,6 +76,7 @@ class ManoSSM(object):
 
         LOG.info('Alert message received')
         LOG.info('Start reconfiguring vFW ...')
+        
         self.manoconn.publish(topic='specific.manager.registry.ssm.status',
                                 message=yaml.dump({'status': 'Alert message received, start reconfiguring vFW'}))
 
