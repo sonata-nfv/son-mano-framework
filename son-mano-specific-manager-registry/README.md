@@ -21,7 +21,7 @@ Specific Manager Registry (SMR) is a special plugin that connects to the message
 
 * Or: run the SMR (in a Docker container):
  * (do in `son-mano-framework/`)
- * `docker build -t registry.sonata-nfv.eu:5000/specificmanagerregistry -f son-mano-specific-manager-registry/Dockerfile .`
+ * `sudo docker run -it --rm --link broker:broker -e broker_name:broker,broker -v '/var/run/docker.sock:/var/run/docker.sock' --name specificmanagerregistry registry.sonata-nfv.eu:5000/specificmanagerregistry`
  * `docker run -it -rm -v '/var/run/docker.sock:/var/run/docker.sock' --link broker:broker --name smr registry.sonata-nfv.eu:5000/specificmanagerregistry`
  
 ## Output

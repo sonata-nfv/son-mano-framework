@@ -39,9 +39,9 @@ network_functions:
 ## image: Specifies the DockerHub URI (user/image name) to fetch the SSM image from.
 ##
 service_specific_managers:
-  - id: "ssm1_new"
+  - id: "ssmsmart"
     description: "An empty example SSM."
-    image: "hadik3r/ssm1_new"
+    image: "sonatanfv/ssmsmart"
     options:
       - key: "myKey"
         value: "myValue"

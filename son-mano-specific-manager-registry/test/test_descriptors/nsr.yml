@@ -204,7 +204,7 @@
     - connection_points:
       - id: "vdu02:eth0"
         type:
-          address: "10.31.13.231"
+          address: "10.100.32.238"
       - id: "vdu02:eth1"
         type:
           address: "192.0.0.34"

@@ -69,7 +69,8 @@ class fakeslmu(object):
         LOG.info("sending update request")
         nsd = open(self.path_descriptors + 'nsd2.yml', 'r')
         nsr = open(self.path_descriptors + 'nsr.yml', 'r')
-        message = {'NSD':yaml.load(nsd),'NSR':yaml.load(nsr)}
+        vnfr = open(self.path_descriptors + 'vnfr.yml', 'r')
+        message = {'NSD':yaml.load(nsd),'NSR':yaml.load(nsr),'VNFR':yaml.load(vnfr)}
         self.manoconn.call_async(self._on_publish_nsd_response,
                                  'specific.manager.registry.ssm.update',
                                  yaml.dump(message))

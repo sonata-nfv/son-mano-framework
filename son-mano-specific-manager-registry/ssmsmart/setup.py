@@ -6,7 +6,9 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
+
     http://www.apache.org/licenses/LICENSE-2.0
+
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -39,7 +41,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name='ssm1',
+    name='ssmsmart',
 
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
@@ -49,12 +51,12 @@ setup(
     description='Service specific manager',
     long_description=long_description,
 
-    # The project's main homepage.
-    url='https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-specific-manager-registry',
-
     # Author details
     author='Hadi Razzaghi Kouchaksaraei',
     author_email='hadi.razzaghi@upb.de',
+
+    # The project's main homepage.
+    url='https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-specific-manager-registry',
 
     # Choose your license
     license='Apache 2.0',
@@ -62,7 +64,7 @@ setup(
     # What does your project relate to?
     keywords='NFV orchestrator',
 
-    packages=find_packages("ssm1"),
+    packages=find_packages("ssmsmart"),
     install_requires=['pika', 'pytest', 'mongoengine', 'Flask>=0.10.1', 'flask-restful', 'requests'],
     setup_requires=['pytest-runner'],
 
@@ -70,6 +72,6 @@ setup(
     # "scripts" keyword. Entry points provide cross-platform support and allow
     # pip to create the appropriate form of executable for the target platform.
     entry_points={
-        'console_scripts': ['ssm1=ssm1.__main__:main'],
+        'console_scripts': ['ssmsmart=ssmsmart.__main__:main'],
     },
 )

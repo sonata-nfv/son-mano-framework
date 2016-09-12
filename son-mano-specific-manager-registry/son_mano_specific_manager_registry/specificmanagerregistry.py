@@ -81,7 +81,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
         self.manoconn.register_async_endpoint(self.on_instantiate, "specific.manager.registry.ssm.instantiate")
         self.manoconn.register_async_endpoint(self.on_ssm_register, "specific.manager.registry.ssm.registration")
         self.manoconn.register_async_endpoint(self.on_ssm_update, "specific.manager.registry.ssm.update")
-        self.manoconn.subscribe(self.on_ssm_triger_result, "specific.manager.registry.ssm.result")
+        self.manoconn.subscribe(self.on_ssm_status, "specific.manager.registry.ssm.status")
 
     def on_board(self, ch, method, properties, message):
         id = None
@@ -156,10 +156,12 @@ class SpecificManagerRegistry(ManoBasePlugin):
             id = message['NSD']['service_specific_managers'][0]['id']
             LOG.info('Update request received for SSM id: {0}'.format(id))
             try:
-                host_ip = message['NSR'][1]['virtual_deployment_units'][1]['vnfc_instance'][0]['connection_points'][0]['type']['address']
+                host_ip = message['VNFR'][0]['virtual_deployment_units'][0]['vnfc_instance'][0]['connection_points'][0]['type']['address']
+                LOG.info('vFW IP address "{0}"'.format(host_ip))
+                    #message['NSR'][1]['virtual_deployment_units'][1]['vnfc_instance'][0]['connection_points'][0]['type']['address']
             except:
-                LOG.error("'{0}' Update: failed ==> Host IP address does not exist in the NSR")
-                return yaml.dump({'status': 'Failed', 'error': 'Host IP address does not exist in the NSR'})
+                LOG.error("'{0}' Update: failed ==> Host IP address does not exist in the VNFR")
+                return yaml.dump({'status': 'Failed', 'error': 'Host IP address does not exist in the VNFR'})
             self.smrengine.pull(image, id)
             self.smrengine.start(image_name=image, ssm_name=id, host_ip=host_ip)
             LOG.info("Waiting for '{0}' registration ...".format(id))
@@ -176,9 +178,9 @@ class SpecificManagerRegistry(ManoBasePlugin):
             return yaml.dump({'status': 'Failed', 'error': str(err)})
 
     def ssm_kill(self):
-        self.smrengine.stop('ssm1')
-        self.ssm_repo['ssm1']['status'] = 'killed'
-        LOG.debug('SSM kill: succeeded')
+        self.smrengine.stop('ssmdumb')
+        self.ssm_repo['ssmdumb']['status'] = 'killed'
+        LOG.debug('ssmdumb kill: succeeded')
 
     def _wait_for_ssm_registration(self, ssm_name, timeout=20, sleep_interval=0.1):
 
@@ -188,9 +190,9 @@ class SpecificManagerRegistry(ManoBasePlugin):
             time.sleep(sleep_interval)
             c += sleep_interval
 
-    def on_ssm_triger_result(self, ch, method, properties, message):
+    def on_ssm_status(self, ch, method, properties, message):
         message = yaml.load(message)
-        LOG.info(message['result'])
+        LOG.info(message['status'])
 
 def main():
     SpecificManagerRegistry()

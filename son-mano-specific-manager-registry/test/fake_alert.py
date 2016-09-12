@@ -27,83 +27,60 @@ partner consortium (www.sonata-nfv.eu).
 """
 
 import logging
-import json
 import yaml
-import  time
+import time
+import os
 from sonmanobase import messaging
 
 logging.basicConfig(level=logging.INFO)
-LOG = logging.getLogger("ssm1")
+LOG = logging.getLogger("son-mano-fakeslm")
 LOG.setLevel(logging.DEBUG)
 logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
 
-class ManoSSM(object):
-
+class fakealert(object):
     def __init__(self):
 
-        self.name = 'ssm1'
+        self.name = 'fake-alert'
         self.version = '0.1-dev'
         self.description = 'description'
-        self.uuid = None
 
-        LOG.info(
-            "Starting %r ..." % self.name)
+        LOG.info("Starting alert:...")
+
         # create and initialize broker connection
         self.manoconn = messaging.ManoBrokerRequestResponseConnection(self.name)
 
-        # register to Specific Manager Registry
-        self.publish()
+        self.path_descriptors = 'test/test_descriptors/'
+        self.end = False
 
-        # jump to run
+        self.publish_nsd()
+
         self.run()
 
     def run(self):
 
         # go into infinity loop
 
-        while True:
+        while self.end == False:
             time.sleep(1)
 
-    def on_registration_ok(self):
+    def publish_nsd(self):
 
-        LOG.debug("Received registration ok event.")
-        pass
+        LOG.info("Sending alert request")
 
+        message = {"exported_instance": "NEW_VNF_PROBE", "core": "cpu",
+                   "group": "development", "exported_job": "vnf", "image": "None",
+                   "image_name": "None", "value": "0", "name": "None", "instance": "pushgateway:9091",
+                   "job": "sonata", "alertname": "vnf_cpu_usage", "time": "2016-09-03T23:56:08.314Z",
+                   "alertstate": "pending", "id": "a4ad435f-c3cd-4c22-bcad-61989d9d784d", "monitor": "sonata-monitor"}
 
-    def publish(self):
-
-        """
-        Send a register request to the Specific Manager registry to announce this SSM.
-        """
-
-        message = {'name': 'ssm1',
-                   'version': '0.0',
-                   'description': 'description'}
-
-        self.manoconn.call_async(self._on_publish_response,
-                                 'specific.manager.registry.ssm.registration',
+        self.manoconn.publish('son.monitoring',
                                  yaml.dump(message))
-
-    def _on_publish_response(self, ch, method, props, response):
-
-        response = yaml.load(str(response))#, "utf-8"))
-
-        if response.get("status") != "OK":
-            LOG.debug("Response %r" % response)
-            LOG.error("SSM registration failed. Exit.")
-            exit(1)
-
-        self.uuid = response.get("uuid")
-
-        LOG.info("SSM registered with UUID: %r" % response.get("uuid"))
-
-        # jump to on_registration_ok()
-        self.on_registration_ok()
 
 
 def main():
-    ManoSSM()
+    fakealert()
+
 
 if __name__ == '__main__':
     main()
