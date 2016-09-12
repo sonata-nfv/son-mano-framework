@@ -45,7 +45,7 @@ class ManoSSM(object):
 
         self.name = 'ssmsmart'
         self.version = 'v0.2'
-        self.description = 'Reconfigures the vFW'
+        self.description = 'Reconfigures vFW'
         self.uuid = None
 
         LOG.info("Starting %r ..." % self.name)
@@ -70,11 +70,15 @@ class ManoSSM(object):
 
         LOG.debug("Received registration ok event.")
         self.manoconn.subscribe(self.on_alert_recieved,'son.monitoring')
-
+        self.manoconn.publish(topic='specific.manager.registry.ssm.status',
+                                message=yaml.dump({'status':'Subscribed to son.monitoring topic, waiting for alert message'}))
     def on_alert_recieved(self, ch, method, props, response):
 
         LOG.info('Alert message received')
         LOG.info('Start reconfiguring vFW ...')
+        
+        self.manoconn.publish(topic='specific.manager.registry.ssm.status',
+                                message=yaml.dump({'status': 'Alert message received, start reconfiguring vFW'}))
 
         # retrieve vFW IP address
         endpoint = os.environ['HOST']
@@ -90,8 +94,13 @@ class ManoSSM(object):
         #check if the call was successful
         if (entry1.status_code == 200 and entry2.status_code == 200):
             LOG.info('vFW reconfiguration succeeded')
+            self.manoconn.publish(topic='specific.manager.registry.ssm.status',
+                                    message=yaml.dump({'status': 'vFW reconfiguration succeeded'}))
         else:
             LOG.info('vFW reconfiguration failed')
+            self.manoconn.publish(topic='specific.manager.registry.ssm.status',
+                                    message=yaml.dump({'status': 'vFW reconfiguration failed ==> "{0}"-"{1}"'
+                                                      .format(str(entry1),str(entry2))}))
 
     def publish(self):
 
