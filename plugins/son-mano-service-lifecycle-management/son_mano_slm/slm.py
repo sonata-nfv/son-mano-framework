@@ -306,6 +306,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
             return yaml.dump(error_message)
 
         nsr['status'] = 'updating'
+        try:
+            nsr['id'] = nsr['uuid']
+        except:
+            pass
         nsr['version'] = str(int(nsr['version']) + 1)
         
         #create corr_id for interation with SMR to use as reference one response is received.
@@ -327,6 +331,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         nsr_response = requests.put(link_for_put, data=json.dumps(second_nsr_dict), headers={'Content-Type':'application/json'}, timeout=10.0)
         
         if nsr_response.status_code is not 200:
+            LOG.info('nsr updated failed, request denied.')
             message = {'status':'ERROR', 'error':'could not update records.'}
             return yaml.dump(message)
 
