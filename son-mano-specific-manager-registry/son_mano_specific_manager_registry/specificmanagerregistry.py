@@ -155,13 +155,19 @@ class SpecificManagerRegistry(ManoBasePlugin):
             image = message['NSD']['service_specific_managers'][0]['image']
             id = message['NSD']['service_specific_managers'][0]['id']
             LOG.info('Update request received for SSM id: {0}'.format(id))
+            host_ip = ''
             try:
-                host_ip = message['VNFR'][0]['virtual_deployment_units'][0]['vnfc_instance'][0]['connection_points'][0]['type']['address']
-                LOG.info('vFW IP address "{0}"'.format(host_ip))
-                    #message['NSR'][1]['virtual_deployment_units'][1]['vnfc_instance'][0]['connection_points'][0]['type']['address']
-            except:
+                list = message['VNFR']
+                for x in range(len(list)):
+                    if message['VNFR'][x]['virtual_deployment_units'][0]['vm_image'] == 'sonata-vfw':
+                        host_ip =(message['VNFR'][x]['virtual_deployment_units'][0]['vnfc_instance'][0]['connection_points'][0][
+                            'type']['address'])
+                #host_ip = message['VNFR'][0]['virtual_deployment_units'][0]['vnfc_instance'][0]['connection_points'][0]['type']['address']
+                #message['NSR'][1]['virtual_deployment_units'][1]['vnfc_instance'][0]['connection_points'][0]['type']['address']
+            except BaseException as err:
                 LOG.error("'{0}' Update: failed ==> Host IP address does not exist in the VNFR")
                 return yaml.dump({'status': 'Failed', 'error': 'Host IP address does not exist in the VNFR'})
+            LOG.info('vFW IP address "{0}"'.format(host_ip))
             self.smrengine.pull(image, id)
             self.smrengine.start(image_name=image, ssm_name=id, host_ip=host_ip)
             LOG.info("Waiting for '{0}' registration ...".format(id))

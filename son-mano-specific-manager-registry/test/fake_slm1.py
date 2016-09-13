@@ -34,6 +34,7 @@ from sonmanobase import messaging
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("son-mano-fakeslm")
+
 LOG.setLevel(logging.DEBUG)
 logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
