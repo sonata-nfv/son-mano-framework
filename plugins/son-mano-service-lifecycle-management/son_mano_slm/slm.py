@@ -356,44 +356,51 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         This method handles a response of the SMR on an update request
         """
+        message_from_srm = yaml.load(message)
 
         LOG.info('Update report received from SMR, updating the records...')
         LOG.info('Response from SMR: ' + yaml.dump(message, indent=4))
-        #updating the records. As only the nsr changes in the demo, we only update the nsr for now.
-        nsr = self.service_updates_being_handled[properties.correlation_id]['nsr']
-        instance_id = self.service_updates_being_handled[properties.correlation_id]['instance_id']
-        nsd = self.service_updates_being_handled[properties.correlation_id]['nsd']
 
-        nsr['version'] = str(int(nsr['version']) + 1)
-        nsr['descriptor_reference'] = nsd['uuid']
-        nsr['status'] = 'normal operation'
-        #id can be stored as 'id' or 'uuid'
-        try:
-            nsr['id'] = nsr['uuid']
-        except:
-            pass
+        if message_from_srm['status'] == 'Updated':
+            message_from_srm['status'] = 'UPDATE_COMPLETED'
+            #updating the records. As only the nsr changes in the demo, we only update the nsr for now.
+            nsr = self.service_updates_being_handled[properties.correlation_id]['nsr']
+            instance_id = self.service_updates_being_handled[properties.correlation_id]['instance_id']
+            nsd = self.service_updates_being_handled[properties.correlation_id]['nsd']
 
-        second_nsr_dict = {}
+            nsr['version'] = str(int(nsr['version']) + 1)
+            nsr['descriptor_reference'] = nsd['uuid']
+            nsr['status'] = 'normal operation'
+            #id can be stored as 'id' or 'uuid'
+            try:
+                nsr['id'] = nsr['uuid']
+            except:
+                pass
 
-        #remove fields that SLM is not allowed to set.
-        for key in nsr.keys():  
-            if key not in ['uuid', 'created_at', 'updated_at']:
-                second_nsr_dict[key] = nsr[key]
+            second_nsr_dict = {}
 
-        try:
-            nsr_response = requests.put(NSR_REPOSITORY_URL + 'ns-instances/' + str(instance_id), data=json.dumps(second_nsr_dict), headers={'Content-Type':'application/json'}, timeout=10.0)
-            
-            if nsr_response.status_code is not 200:
-                message = {'status':'ERROR', 'error':'could not update records.'}
+            #remove fields that SLM is not allowed to set.
+            for key in nsr.keys():  
+                if key not in ['uuid', 'created_at', 'updated_at']:
+                    second_nsr_dict[key] = nsr[key]
+
+            try:
+                nsr_response = requests.put(NSR_REPOSITORY_URL + 'ns-instances/' + str(instance_id), data=json.dumps(second_nsr_dict), headers={'Content-Type':'application/json'}, timeout=10.0)
+                
+                if nsr_response.status_code is not 200:
+                    message = {'status':'ERROR', 'error':'could not update records.'}
+                    self.manoconn.notify(GK_INSTANCE_UPDATE, yaml.dump(message), correlation_id=self.service_updates_being_handled[properties.correlation_id]['orig_corr_id']) 
+                    return       
+            except:
+                message = {'status':'ERROR', 'error':'time-out on storing the record.'}
                 self.manoconn.notify(GK_INSTANCE_UPDATE, yaml.dump(message), correlation_id=self.service_updates_being_handled[properties.correlation_id]['orig_corr_id']) 
                 return       
-        except:
-            message = {'status':'ERROR', 'error':'time-out on storing the record.'}
-            self.manoconn.notify(GK_INSTANCE_UPDATE, yaml.dump(message), correlation_id=self.service_updates_being_handled[properties.correlation_id]['orig_corr_id']) 
-            return       
             
-        LOG.info('Records updated, informing the gatekeeper of result.')
-        message_for_gk = {'status':'UPDATE_COMPLETED', 'error':None, 'nsr':second_nsr_dict}
+            message_from_srm['nsr'] = second_nsr_dict
+            LOG.info('Records updated.')
+
+        LOG.info('Reporting back to GK.')
+        message_for_gk = message_from_srm
         #The SLM just takes the message from the SMR and forwards it towards the GK
         self.manoconn.notify(GK_INSTANCE_UPDATE, yaml.dump(message_for_gk), correlation_id=self.service_updates_being_handled[properties.correlation_id]['orig_corr_id'])        
 
