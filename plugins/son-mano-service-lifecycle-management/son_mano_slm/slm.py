@@ -306,6 +306,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
             return yaml.dump(error_message)
 
         nsr['status'] = 'updating'
+        try:
+            nsr['id'] = nsr['uuid']
+        except:
+            pass
         nsr['version'] = str(int(nsr['version']) + 1)
         
         #create corr_id for interation with SMR to use as reference one response is received.
@@ -321,16 +325,21 @@ class ServiceLifecycleManager(ManoBasePlugin):
             if key not in ['uuid', 'created_at', 'updated_at']:
                 second_nsr_dict[key] = nsr[key]
 
-        try:
-            nsr_response = requests.put(NSR_REPOSITORY_URL + 'ns-instances/' + instance_id, data=json.dumps(second_nsr_dict), headers={'Content-Type':'application/json'}, timeout=10.0)
-            
-            if nsr_response.status_code is not 200:
-                message = {'status':'ERROR', 'error':'could not update records.'}
-                return yaml.dump(message)
-     
-        except:
-            message = {'status':'ERROR', 'error':'time-out on storing the record.'}
+#        try:
+        link_for_put = NSR_REPOSITORY_URL + 'ns-instances/' + str(request['Instance_id'])
+        LOG.info("making put request to change status of NSR to updating")
+        nsr_response = requests.put(link_for_put, data=json.dumps(second_nsr_dict), headers={'Content-Type':'application/json'}, timeout=10.0)
+        
+        if nsr_response.status_code is not 200:
+            LOG.info('nsr updated failed, request denied.')
+            message = {'status':'ERROR', 'error':'could not update records.'}
             return yaml.dump(message)
+
+        LOG.info(nsr_response.json())
+     
+#        except:
+#            message = {'status':'ERROR', 'error':'time-out on storing the record.'}
+#            return yaml.dump(message)
             
 
         #Build request for SMR
@@ -372,21 +381,21 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 second_nsr_dict[key] = nsr[key]
 
         try:
-            nsr_response = requests.put(NSR_REPOSITORY_URL + 'ns-instances/' + instance_id, data=json.dumps(second_nsr_dict), headers={'Content-Type':'application/json'}, timeout=10.0)
+            nsr_response = requests.put(NSR_REPOSITORY_URL + 'ns-instances/' + str(instance_id), data=json.dumps(second_nsr_dict), headers={'Content-Type':'application/json'}, timeout=10.0)
             
             if nsr_response.status_code is not 200:
                 message = {'status':'ERROR', 'error':'could not update records.'}
-                self.manoconn.notify(GK_INSTANCE_UPDATE, yaml.dump(message), correlation_id=self.service_updates_being_handled[instance_id]['orig_corr_id']) 
+                self.manoconn.notify(GK_INSTANCE_UPDATE, yaml.dump(message), correlation_id=self.service_updates_being_handled[properties.correlation_id]['orig_corr_id']) 
                 return       
         except:
             message = {'status':'ERROR', 'error':'time-out on storing the record.'}
-            self.manoconn.notify(GK_INSTANCE_UPDATE, yaml.dump(message), correlation_id=self.service_updates_being_handled[instance_id]['orig_corr_id']) 
+            self.manoconn.notify(GK_INSTANCE_UPDATE, yaml.dump(message), correlation_id=self.service_updates_being_handled[properties.correlation_id]['orig_corr_id']) 
             return       
             
         LOG.info('Records updated, informing the gatekeeper of result.')
         message_for_gk = {'status':'UPDATE_COMPLETED', 'error':None, 'nsr':second_nsr_dict}
         #The SLM just takes the message from the SMR and forwards it towards the GK
-        self.manoconn.notify(GK_INSTANCE_UPDATE, yaml.dump(message_for_gk), correlation_id=self.service_updates_being_handled[instance_id]['orig_corr_id'])        
+        self.manoconn.notify(GK_INSTANCE_UPDATE, yaml.dump(message_for_gk), correlation_id=self.service_updates_being_handled[properties.correlation_id]['orig_corr_id'])        
 
     def on_ssm_onboarding_return(self, ch, method, properties, message):
         """
