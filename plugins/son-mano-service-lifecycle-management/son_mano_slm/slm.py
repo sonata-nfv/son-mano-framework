@@ -322,7 +322,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 second_nsr_dict[key] = nsr[key]
 
 #        try:
-        link_for_put = NSR_REPOSITORY_URL + 'ns-instances/' + str(instance_id)
+        link_for_put = NSR_REPOSITORY_URL + 'ns-instances/' + str(request['Instance_id'])
         LOG.info("making put request to change status of NSR to updating")
         nsr_response = requests.put(link_for_put, data=json.dumps(second_nsr_dict), headers={'Content-Type':'application/json'}, timeout=10.0)
         
