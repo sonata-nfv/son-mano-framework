@@ -304,11 +304,34 @@ class ServiceLifecycleManager(ManoBasePlugin):
             LOG.info('retrieving nsr failed, aborting...')
             error_message = {'status':'ERROR', 'error':'Updating failed, could not retrieve nsr.'}
             return yaml.dump(error_message)
+
+        nsr['status'] = 'updating'
+        nsr['version'] = str(int(nsr['version']) + 1)
         
         #create corr_id for interation with SMR to use as reference one response is received.
         corr_id = str(uuid.uuid4())
         #keep track of running updates, so we can update the records after the response is received.
         self.service_updates_being_handled[corr_id] = {'nsd':request['NSD'], 'nsr':nsr, 'instance_id':request['Instance_id'], 'orig_corr_id':properties.correlation_id, 'vnfrs':vnfr_dict}
+
+        #Change status of NSR to updating.
+        second_nsr_dict = {}
+
+        #remove fields that SLM is not allowed to set.
+        for key in nsr.keys():  
+            if key not in ['uuid', 'created_at', 'updated_at']:
+                second_nsr_dict[key] = nsr[key]
+
+        try:
+            nsr_response = requests.put(NSR_REPOSITORY_URL + 'ns-instances/' + instance_id, data=json.dumps(second_nsr_dict), headers={'Content-Type':'application/json'}, timeout=10.0)
+            
+            if nsr_response.status_code is not 200:
+                message = {'status':'ERROR', 'error':'could not update records.'}
+                return yaml.dump(message)
+     
+        except:
+            message = {'status':'ERROR', 'error':'time-out on storing the record.'}
+            return yaml.dump(message)
+            
 
         #Build request for SMR
         LOG.info('retrieving nsr and vnfrs succeeded, building message for SMR...')
@@ -334,6 +357,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         nsr['version'] = str(int(nsr['version']) + 1)
         nsr['descriptor_reference'] = nsd['uuid']
+        nsr['status'] = 'normal operation'
+        #id can be stored as 'id' or 'uuid'
         try:
             nsr['id'] = nsr['uuid']
         except:
@@ -341,7 +366,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         second_nsr_dict = {}
 
-        for key in nsr.keys():
+        #remove fields that SLM is not allowed to set.
+        for key in nsr.keys():  
             if key not in ['uuid', 'created_at', 'updated_at']:
                 second_nsr_dict[key] = nsr[key]
 
