@@ -321,16 +321,20 @@ class ServiceLifecycleManager(ManoBasePlugin):
             if key not in ['uuid', 'created_at', 'updated_at']:
                 second_nsr_dict[key] = nsr[key]
 
-        try:
-            nsr_response = requests.put(NSR_REPOSITORY_URL + 'ns-instances/' + instance_id, data=json.dumps(second_nsr_dict), headers={'Content-Type':'application/json'}, timeout=10.0)
-            
-            if nsr_response.status_code is not 200:
-                message = {'status':'ERROR', 'error':'could not update records.'}
-                return yaml.dump(message)
-     
-        except:
-            message = {'status':'ERROR', 'error':'time-out on storing the record.'}
+#        try:
+        link_for_put = NSR_REPOSITORY_URL + 'ns-instances/' + str(instance_id)
+        LOG.info("making put request to change status of NSR to updating")
+        nsr_response = requests.put(link_for_put, data=json.dumps(second_nsr_dict), headers={'Content-Type':'application/json'}, timeout=10.0)
+        
+        if nsr_response.status_code is not 200:
+            message = {'status':'ERROR', 'error':'could not update records.'}
             return yaml.dump(message)
+
+        LOG.info(nsr_response.json())
+     
+#        except:
+#            message = {'status':'ERROR', 'error':'time-out on storing the record.'}
+#            return yaml.dump(message)
             
 
         #Build request for SMR
@@ -372,7 +376,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 second_nsr_dict[key] = nsr[key]
 
         try:
-            nsr_response = requests.put(NSR_REPOSITORY_URL + 'ns-instances/' + instance_id, data=json.dumps(second_nsr_dict), headers={'Content-Type':'application/json'}, timeout=10.0)
+            nsr_response = requests.put(NSR_REPOSITORY_URL + 'ns-instances/' + str(instance_id), data=json.dumps(second_nsr_dict), headers={'Content-Type':'application/json'}, timeout=10.0)
             
             if nsr_response.status_code is not 200:
                 message = {'status':'ERROR', 'error':'could not update records.'}
