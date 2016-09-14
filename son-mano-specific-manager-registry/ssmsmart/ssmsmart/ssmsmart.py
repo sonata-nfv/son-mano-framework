@@ -31,6 +31,7 @@ import yaml
 import requests
 import os
 import json
+import time
 from sonmanobase import messaging
 
 logging.basicConfig(level=logging.INFO)
@@ -53,6 +54,7 @@ class ManoSSM(object):
         # create and initialize broker connection
         self.manoconn = messaging.ManoBrokerRequestResponseConnection(self.name)
 
+        self.timeout = 0
         # register to Specific Manager Registry
         self.publish()
 
@@ -72,51 +74,50 @@ class ManoSSM(object):
         self.manoconn.subscribe(self.on_alert_recieved,'son.monitoring')
         self.manoconn.publish(topic='specific.manager.registry.ssm.status',
                                 message=yaml.dump({'status':'Subscribed to son.monitoring topic, waiting for alert message'}))
+
     def on_alert_recieved(self, ch, method, props, response):
-        self.manoconn.publish(topic='specific.manager.registry.ssm.status',
-                              message=yaml.dump({'status': 'SSM received an alert message '}))
 
         alert = json.loads(response)
-        if alert['alertname'] == 'mon_rule_vm_cpu_usage_85_perc' and alert['exported_job'] == "vnf":
+        if time.time() > self.timeout:
 
-            LOG.info('Alert message received')
-            LOG.info('Start reconfiguring vFW ...')
-        
-            self.manoconn.publish(topic='specific.manager.registry.ssm.status',
-                                message=yaml.dump({'status': 'cpu usage 85% alert message received, start reconfiguring vFW'}))
-            try:
+            if alert['alertname'] == 'mon_rule_vm_cpu_usage_85_perc' and alert['exported_job'] == "vnf":
+
+                LOG.info('Alert message received')
+                LOG.info('Start reconfiguring vFW ...')
+
+                self.manoconn.publish(topic='specific.manager.registry.ssm.status',
+                                  message=yaml.dump({'status': 'cpu usage 85% alert message received, start reconfiguring vFW'}))
 
                 # retrieve vFW IP address
                 endpoint = os.environ['HOST']
-
-                # add flow entries to block ports 9999 and 5001
-                entry1 = requests.post(url='http://'+endpoint+':8080/stats/flowentry/add',
-                               data= json.dumps({"dpid": 1, "cookie": 200, "priority": 1000,
-                                      "match": {"dl_type": 0x0800, "nw_proto": 6,"tcp_dst": 9999}}))
-                entry2 = requests.post(url='http://'+ endpoint + ':8080/stats/flowentry/add',
-                               data=json.dumps({"dpid": 1, "cookie": 200, "priority": 1000,
-                                     "match": {"dl_type": 0x0800, "nw_proto": 17, "udp_dst": 5001}}))
-                LOG.info('vFW reconfiguration succeeded')
                 self.manoconn.publish(topic='specific.manager.registry.ssm.status',
-                                      message=yaml.dump({'status': 'vFW reconfiguration succeeded'}))
-            except BaseException as err:
-                LOG.info('vFW reconfiguration failed')
-                self.manoconn.publish(topic='specific.manager.registry.ssm.status',
-                                      message=yaml.dump({'status': 'vFW reconfiguration failed ==> "{0}"'.format(err)}))
+                                  message=yaml.dump({'status': 'vFW IP address ==> "{0}"'.format(str(endpoint))}))
 
+                entry1 = ''
+                try:
+                    self.timeout = time.time() + 60 * 5
+                    entry1 = requests.post(url='http://' + endpoint + ':8080/stats/flowentry/add',
+                                   data=json.dumps({"dpid": 1, "cookie": 200, "priority": 1000,
+                                                    "match": {"dl_type": 0x0800, "nw_proto": 17, "udp_dst": 5001}}))
+                    if (entry1.status_code == 200):
 
-                # #check if the call was successful
-                # if (entry1.status_code == 200 and entry2.status_code == 200):
-                #     LOG.info('vFW reconfiguration succeeded')
-                #     self.manoconn.publish(topic='specific.manager.registry.ssm.status',
-                #                     message=yaml.dump({'status': 'vFW reconfiguration succeeded'}))
-                # else:
-                #     LOG.info('vFW reconfiguration failed')
-                #     self.manoconn.publish(topic='specific.manager.registry.ssm.status',
-                #                     message=yaml.dump({'status': 'vFW reconfiguration failed ==> "{0}"-"{1}"'
-                #                                       .format(str(entry1),str(entry2))}))
+                        LOG.info('vFW reconfiguration succeeded')
+                        self.manoconn.publish(topic='specific.manager.registry.ssm.status',
+                                              message=yaml.dump({'status': 'vFW reconfiguration succeeded'}))
+                    else:
+                        LOG.info('vFW reconfiguration failed')
+                        self.manoconn.publish(topic='specific.manager.registry.ssm.status',
+                                              message=yaml.dump({'status': 'vFW reconfiguration failed ==> "{0}"'.format(str(entry1))}))
+                except BaseException as err:
+                    LOG.info('vFW reconfiguration failed')
+                    self.manoconn.publish(topic='specific.manager.registry.ssm.status',
+                                          message=yaml.dump(
+                                              {'status': 'vFW reconfiguration failed ==> "{0}"'.format(str(err))}))
 
-
+        else:
+            LOG.info('repetitive alert')
+            self.manoconn.publish(topic='specific.manager.registry.ssm.status',
+                                  message=yaml.dump({'status': 'repetitive alert'}))
 
     def publish(self):
 
