@@ -27,7 +27,7 @@ partner consortium (www.sonata-nfv.eu).
 """
 
 import logging
-import yaml
+import json
 import time
 import os
 from sonmanobase import messaging
@@ -68,14 +68,13 @@ class fakealert(object):
 
         LOG.info("Sending alert request")
 
-        message = {"exported_instance": "NEW_VNF_PROBE", "core": "cpu",
-                   "group": "development", "exported_job": "vnf", "image": "None",
-                   "image_name": "None", "value": "0", "name": "None", "instance": "pushgateway:9091",
-                   "job": "sonata", "alertname": "vnf_cpu_usage", "time": "2016-09-03T23:56:08.314Z",
-                   "alertstate": "pending", "id": "a4ad435f-c3cd-4c22-bcad-61989d9d784d", "monitor": "sonata-monitor"}
+        message = {"exported_instance": "fw-vnf","core": "cpu","group": "development","exported_job": "vnf","value": "1",
+                   "instance": "pushgateway:9091","job": "sonata","serviceID": "263fd6b7-8cfb-4149-b6c1-fb082553ca71",
+                   "alertname": "mon_rule_vm_cpu_usage_85_perc","time": "2016-09-13T17:29:22.807Z","inf": "None","alertstate": "firing",
+                   "id": "01ccc69f-c925-42f5-9418-e1adb075527e","monitor": "sonata-monitor"}
 
-        self.manoconn.publish('son.monitoring',
-                                 yaml.dump(message))
+
+        self.manoconn.publish('son.monitoring',json.dumps(message))
 
 
 def main():

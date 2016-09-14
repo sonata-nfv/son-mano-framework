@@ -160,8 +160,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
                 list = message['VNFR']
                 for x in range(len(list)):
                     if message['VNFR'][x]['virtual_deployment_units'][0]['vm_image'] == 'sonata-vfw':
-                        host_ip =(message['VNFR'][x]['virtual_deployment_units'][0]['vnfc_instance'][0]['connection_points'][0][
-                            'type']['address'])
+                        host_ip =message['VNFR'][x]['virtual_deployment_units'][0]['vnfc_instance'][0]['connection_points'][0]['type']['address']
                 #host_ip = message['VNFR'][0]['virtual_deployment_units'][0]['vnfc_instance'][0]['connection_points'][0]['type']['address']
                 #message['NSR'][1]['virtual_deployment_units'][1]['vnfc_instance'][0]['connection_points'][0]['type']['address']
             except BaseException as err:
