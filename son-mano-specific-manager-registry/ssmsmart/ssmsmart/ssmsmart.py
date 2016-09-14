@@ -114,11 +114,6 @@ class ManoSSM(object):
                                           message=yaml.dump(
                                               {'status': 'vFW reconfiguration failed ==> "{0}"'.format(str(err))}))
 
-        else:
-            LOG.info('repetitive alert')
-            self.manoconn.publish(topic='specific.manager.registry.ssm.status',
-                                  message=yaml.dump({'status': 'repetitive alert'}))
-
     def publish(self):
 
         """
