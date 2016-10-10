@@ -29,6 +29,41 @@ import uuid
 import yaml
 
 
+def serv_id_from_corr_id(ledger, corr_id):
+    """
+    This method returns the service uuid based on a correlation id.
+    It is used for responses from different modules that use the
+    correlation id as reference instead of the service id.
+
+    :param serv_dict: The ledger of services
+    :param corr_id: The correlation id
+    """
+
+    for serv_id in ledger.keys():
+        if ledger[serv_id]['act_corr_id'] == str(corr_id):
+            break
+
+    return serv_id
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def build_message_for_IA(request_dictionary):
     """
     This method converts the deploy request from the gk to a messsaga for the

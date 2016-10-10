@@ -31,7 +31,9 @@ import requests
 import uuid
 import threading
 import json
-import os
+import concurrent.futures as pool
+import slm_topics as t
+import slm_helpers as h
 
 from sonmanobase.plugin import ManoBasePlugin
 try:
@@ -42,36 +44,6 @@ except:
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("plugin:slm")
 LOG.setLevel(logging.DEBUG)
-
-#
-# Configurations
-#
-# The topic to which service instantiation requests
-# of the GK are published
-GK_INSTANCE_CREATE_TOPIC = "service.instances.create"
-
-GK_INSTANCE_UPDATE = 'service.instances.update'
-
-# The topic to which service instance deploy replies
-# of the Infrastructure Adaptor are published
-INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC = "infrastructure.service.deploy"
-
-# The topic to which available vims are published
-INFRA_ADAPTOR_AVAILABLE_VIMS = 'infrastructure.management.compute.list'
-
-# Topics for interaction with the specific manager registry 
-SRM_ONBOARD = 'specific.manager.registry.ssm.on-board'
-SRM_START = 'specific.manager.registry.ssm.instantiate'
-SRM_UPDATE = 'specific.manager.registry.ssm.update'
-
-# The NSR Repository can be accessed through a RESTful
-# API. Links are red from ENV variables.
-NSR_REPOSITORY_URL = os.environ.get("url_nsr_repository")
-VNFR_REPOSITORY_URL = os.environ.get("url_vnfr_repository")
-
-# Monitoring repository, can be accessed throught a RESTful
-# API. Link is red from ENV variable.
-MONITORING_REPOSITORY_URL = os.environ.get("url_monitoring_server")
 
 
 class ServiceLifecycleManager(ManoBasePlugin):
@@ -92,12 +64,21 @@ class ServiceLifecycleManager(ManoBasePlugin):
         'on_lifecycle_start' method is called.
         :return:
         """
+
+        # Create the ledger
+        self.services = {}
+
+        self.thrd_pool = pool.ThreadPoolExecutor(max_workers=10)
+
+        # The following can be removed once transition is done
         self.service_requests_being_handled = {}
         self.service_updates_being_handled = {}
 
         # call super class (will automatically connect to
         # broker and register the SLM to the plugin manger)
-        super(self.__class__, self).__init__(version="0.1-dev", description="This is the SLM plugin")
+        ver = "0.1-dev"
+        des = "This is the SLM plugin"
+        super(self.__class__, self).__init__(version=ver, description=des)
 
     def __del__(self):
         """
@@ -116,21 +97,18 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # GK <-> SLM interface
         #
         # We want to subscribe SERVICE.INSTANCE.CREATE to react on GK messages
-        self.manoconn.register_async_endpoint(
-            self.on_gk_service_instance_create, # function called when message received
-            GK_INSTANCE_CREATE_TOPIC)           # topic to listen to
+        self.manoconn.subscribe(self.service_instance_create,
+                                t.GK_CREATE)
 
         self.manoconn.register_async_endpoint(
             self.on_gk_service_update,
-            GK_INSTANCE_UPDATE)
+            t.GK_INSTANCE_UPDATE)
 
-    def on_lifecycle_start(self, ch, method, properties, message):
+    def on_lifecycle_start(self, ch, mthd, prop, msg):
         """
         This event is called when the plugin has successfully registered itself
         to the plugin manager and received its lifecycle.start event from the
         plugin manager. The plugin is expected to do its work after this event.
-
-        This is a default method each plugin should implement.
 
         :param ch: RabbitMQ channel
         :param method: RabbitMQ method
@@ -138,8 +116,330 @@ class ServiceLifecycleManager(ManoBasePlugin):
         :param message: RabbitMQ message content
         :return:
         """
-        super(self.__class__, self).on_lifecycle_start(ch, method, properties, message)
+        super(self.__class__, self).on_lifecycle_start(ch, mthd, prop, msg)
         LOG.info("Lifecycle start event")
+
+
+##########################
+# SLM Threading management
+##########################
+
+    def start_next_task(self, serv_id):
+        """
+        This method makes sure that the next task in the schedule is started
+        when a task is finished, or when the first task should begin.
+
+        :param serv_id: the instance uuid of the service that is being handled.
+        :param first: indicates whether this is the first task in a chain.
+        """
+
+        # Select the next task
+        next_task = self.services[serv_id]['schedule'].pop(0)
+
+        # Push the next task to the threadingpool
+        task = self.thrd_pool.submit(next_task, serv_id)
+
+        # Log the result of the task, for future reference
+        new_log = [next_task, task.result()]
+        self.services[serv_id]['task_log'].append(new_log)
+
+        # Log if a task fails
+        if task.exception() is not None:
+            print(task.result())
+
+        # When the task is done, the next task should be started if no flag
+        # is set to pause the chain, and if one is available.
+        if not self.services[serv_id]['pause_chain']:
+            if len(self.services[serv_id]['schedule']) > 0:
+                self.start_next_task(serv_id)
+
+        # Reset pause falg
+        self.services[serv_id]['pause_chain'] = False
+
+####################
+# SLM input - output
+####################
+
+    def service_instance_create(self, ch, method, properties, payload):
+        """
+        This function handles a received message on the service.instance.create
+        topic.
+        """
+
+        if properties.app_id != 'son-plugin.ServiceLifecycleManager':
+
+            message = yaml.load(payload)
+            corr_id = properties.correlation_id
+
+            # Add the service to the ledger
+            serv_id = self.add_service_to_ledger(message, corr_id)
+
+            # Schedule the tasks that the SLM should do for this request.
+            add_schedule = []
+            add_schedule.append(self.validate_deploy_request)
+            add_schedule.append(self.contact_gk)
+            add_schedule.append(self.request_topology)
+            add_schedule.append(self.placement)
+
+            self.services[serv_id]['schedule'].extend(add_schedule)
+
+            # Start the chain of tasks
+            self.start_next_task(serv_id)
+
+    def resp_topo(self, ch, method, prop, payload):
+        """
+        This function handles responses to topology requests made to the
+        infrastructure adaptor.
+        """
+
+        topology = yaml.load(payload)
+
+        # Retrieve the service uuid
+        serv_id = h.serv_id_from_corr_id(self.services, prop.correlation_id)
+
+        # Add topology to ledger
+        self.services[serv_id]['topology'] = topology
+
+        # Continue with the scheduled tasks
+        self.start_next_task(serv_id)
+
+    def contact_gk(self, serv_id):
+        """
+        This method handles communication towards the gatekeeper.`
+
+        :param serv_id: the instance uuid of the service
+        """
+
+        # Get the message for the gk
+        message = self.services[serv_id]['msg_gk']
+
+        # Get the correlation_id for the message
+        corr_id = self.services[serv_id]['corr_id']
+
+        # Add a timestamp to the message.
+        message['timestamp'] = time.time()
+
+        payload = yaml.dump(message)
+        self.manoconn.notify(t.GK_CREATE, payload, correlation_id=corr_id)
+
+        return
+
+    def request_topology(self, serv_id):
+        """
+        This method is used to request the topology of the available
+        infrastructure from the Infrastructure Adaptor.
+
+        :param serv_id: The instance uuid of the service
+        """
+
+        # Generate correlation_id for the call, for future reference
+        corr_id = str(uuid.uuid4())
+        self.services[serv_id]['act_corr_id'] = corr_id
+
+        self.manoconn.call_async(self.resp_topo,
+                                 t.IA_TOPO,
+                                 None,
+                                 correlation_id=corr_id)
+
+        # Pause the chain of tasks to wait for response
+        self.services[serv_id]['pause_chain'] = True
+
+    def placement(self, serv_id):
+        """
+        This method manages the placement of the service.
+
+        :param serv_id: The instance uuid of the service
+        """
+
+###########
+# SLM tasks
+###########
+
+    def add_service_to_ledger(self, payload, corr_id):
+        """
+        This method adds new services with their specifics to the ledger,
+        so other functions can use this information.
+
+        :param payload: the payload of the received message
+        :param corr_id: the correlation id of the received message
+        """
+
+        # Generate an istance uuid for the service
+        serv_id = str(uuid.uuid4())
+
+        # Add the service to the ledger
+        self.services[serv_id] = payload
+
+        # Add instance ids for service and vnfs
+        self.services[serv_id]['NSD']['instance_uuid'] = serv_id
+        for key in payload.keys():
+            if key[:4] == 'VNFD':
+                vnf_id = str(uuid.uuid4())
+                self.services[serv_id][key]['instance_uuid'] = vnf_id
+
+        # Add to correlation id to the ledger
+        self.services[serv_id]['corr_id'] = corr_id
+
+        # Add payload to the ledger
+        self.services[serv_id]['payload'] = payload
+
+        # Create the service schedule
+        self.services[serv_id]['schedule'] = []
+
+        # Create a log for the task results
+        self.services[serv_id]['task_log'] = []
+
+        # Create the chain pause flag
+
+        self.services[serv_id]['pause_chain'] = False
+
+        return serv_id
+
+    def validate_deploy_request(self, serv_id):
+        """
+        This metod checks the format of a received request. All neccesary
+        fields should be present, and the available fields should not be
+        conflicting with each other.
+
+        :param serv_id: the instance id of the service
+        """
+
+        payload = self.services[serv_id]['payload']
+        corr_id = self.services[serv_id]['corr_id']
+
+        # TODO: check whether correlation_id is already being used.
+
+        # The service request in the yaml file should be a dictionary
+        if not isinstance(payload, dict):
+            response = "Request " + corr_id + ": payload is not a dict."
+            message = {'status': 'ERROR', 'error': response}
+            self.services[serv_id]['msg_gk'] = message
+            return
+
+        # The dictionary should contain a 'NSD' key
+        if 'NSD' not in payload.keys():
+            response = "Request " + corr_id + ": NSD is not a dict."
+            message = {'status': 'ERROR', 'error': response}
+            self.services[serv_id]['msg_gk'] = message
+            return
+
+        # Their should be as many VNFD keys in the dictionary as their
+        # are network functions listed to the NSD.
+        number_of_vnfds = 0
+        for key in payload.keys():
+            if key[:4] == 'VNFD':
+                number_of_vnfds = number_of_vnfds + 1
+
+        if len(payload['NSD']['network_functions']) != number_of_vnfds:
+            response = "Request " + corr_id + ": # of VNFDs doesn't match NSD."
+            message = {'status': 'ERROR', 'error': response}
+            self.services[serv_id]['msg_gk'] = message
+            return
+
+        # Check whether VNFDs are empty.
+        for key in payload.keys():
+            if key[:4] == 'VNFD':
+                if payload[key] is None:
+                    response = "Request " + corr_id + ": empty VNFD."
+                    message = {'status': 'ERROR', 'error': response}
+                    self.services[serv_id]['msg_gk'] = message
+                    return
+
+        # If all tests succeed, the status changes to 'INSTANTIATING'
+        message = {'status': 'INSTANTIATING', 'error': None}
+        self.services[serv_id]['msg_gk'] = message
+        return
+
+#        except Exception as e:
+#            tracebackString = traceback.format_exc(e)
+#            self.services[serv_id]['traceback'] = tracebackString
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     def on_gk_service_instance_create(self, ch, method, properties, message):
         """
