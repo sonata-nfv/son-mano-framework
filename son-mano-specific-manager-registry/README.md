@@ -27,12 +27,12 @@ Specific Manager Registry (SMR) is a special plugin that connects to the message
 ## Output
 The output of the SMR should look like this:
 ```
-WARNING:son-mano-specific-manager-registry-engine:ENV variable 'DOCKER_HOST' not set. Using 'unix://var/run/docker.sock' as fallback.
-INFO:son-mano-specific-manager-registry-engine:Connected to Docker host: 'http+docker://localunixsocket'
-INFO:son-mano-base:plugin:Starting MANO Plugin: 'smr.SpecificManagerRegistry' ...
+INFO:son-mano-specific-manager-registry-engine:Connected to Docker host: http+docker://localunixsocket
+INFO:son-mano-base:plugin:Starting MANO Plugin: 'SMR.SpecificManagerRegistry' ...
 DEBUG:son-mano-base:plugin:Waiting for registration (timeout=5) ...
-INFO:son-mano-base:plugin:Plugin registered with UUID: 'ab7219d6-07f1-422a-90da-73992e56197f'
+INFO:son-mano-base:plugin:Plugin registered with UUID: 'd3643d2a-1e91-4d19-9c46-4ec3f18b30be'
 DEBUG:son-mano-base:plugin:Received registration ok event.
+DEBUG:son-mano-base:plugin:Received lifecycle.start event.
 ```
 
 
