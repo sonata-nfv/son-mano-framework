@@ -29,7 +29,6 @@ import yaml
 import time
 import requests
 import uuid
-import threading
 import json
 import concurrent.futures as pool
 import slm_topics as t
@@ -133,28 +132,28 @@ class ServiceLifecycleManager(ManoBasePlugin):
         :param first: indicates whether this is the first task in a chain.
         """
 
-        # Select the next task
-        next_task = self.services[serv_id]['schedule'].pop(0)
+        # Select the next task, only if task list is not empty
+        if len(self.services[serv_id]['schedule']) > 0:
+            next_task = self.services[serv_id]['schedule'].pop(0)
 
-        # Push the next task to the threadingpool
-        task = self.thrd_pool.submit(next_task, serv_id)
+            # Push the next task to the threadingpool
+            task = self.thrd_pool.submit(next_task, serv_id)
 
-        # Log the result of the task, for future reference
-        new_log = [next_task, task.result()]
-        self.services[serv_id]['task_log'].append(new_log)
+            # Log the result of the task, for future reference
+            new_log = [next_task, task.result()]
+            self.services[serv_id]['task_log'].append(new_log)
 
-        # Log if a task fails
-        if task.exception() is not None:
-            print(task.result())
+            # Log if a task fails
+            if task.exception() is not None:
+                print(task.result())
 
-        # When the task is done, the next task should be started if no flag
-        # is set to pause the chain, and if one is available.
-        if not self.services[serv_id]['pause_chain']:
-            if len(self.services[serv_id]['schedule']) > 0:
+            # When the task is done, the next task should be started if no flag
+            # is set to pause the chain.
+            if not self.services[serv_id]['pause_chain']:
                 self.start_next_task(serv_id)
 
-        # Reset pause falg
-        self.services[serv_id]['pause_chain'] = False
+            # Reset pause flag
+            self.services[serv_id]['pause_chain'] = False
 
 ####################
 # SLM input - output
@@ -178,7 +177,15 @@ class ServiceLifecycleManager(ManoBasePlugin):
             add_schedule = []
             add_schedule.append(self.validate_deploy_request)
             add_schedule.append(self.contact_gk)
+
+            if 'service_specific_managers' in self.services[serv_id]['NSD']:
+                add_schedule.append(self.onboard_ssms)
+
             add_schedule.append(self.request_topology)
+
+            if 'service_specific_managers' in self.services[serv_id]['NSD']:
+                add_schedule.append(self.trigger_master_ssm)
+
             add_schedule.append(self.placement)
 
             self.services[serv_id]['schedule'].extend(add_schedule)
@@ -192,15 +199,64 @@ class ServiceLifecycleManager(ManoBasePlugin):
         infrastructure adaptor.
         """
 
-        topology = yaml.load(payload)
+        message = yaml.load(payload)
 
         # Retrieve the service uuid
         serv_id = h.serv_id_from_corr_id(self.services, prop.correlation_id)
 
         # Add topology to ledger
-        self.services[serv_id]['topology'] = topology
+        self.services[serv_id]['topology'] = message['topology']
 
         # Continue with the scheduled tasks
+        self.start_next_task(serv_id)
+
+    def resp_onboard(self, ch, method, prop, payload):
+        """
+        This function handles responses to a request to onboard the ssms
+        of a new service.
+        """
+
+        # Retrieve the service uuid
+        serv_id = h.serv_id_from_corr_id(self.services, prop.correlation_id)
+
+        # The response contains a list of instance uuids of the SSMs.
+        # These uuids are used to reference specific SSMs.
+        # They are listed in the same order as in the NSD, master SSM first.
+        message = yaml.load(payload)
+        self.services[serv_id]['SSMs'] = message['SSMs']
+
+        # Continue with the scheduled tasks
+        self.start_next_task(serv_id)
+
+    def resp_task(self, ch, method, prop, payload):
+        """
+        This method handles updates of the task schedule by the an SSM.
+        """
+
+        message = yaml.load(payload)
+
+        # Retrieve the service uuid
+        serv_id = h.serv_id_from_corr_id(self.services, prop.correlation_id)
+
+        # Convert method string names into method pointers and add to ledger
+        schedule = [getattr(self, x) for x in message['schedule']]
+        self.services[serv_id]['schedule'] = schedule
+
+        self.start_next_task(serv_id)
+
+    def resp_place(self, ch, method, prop, payload):
+        """
+        This method handles a placement performed by an SSM.
+        """
+
+        message = yaml.load(payload)
+
+        # Retrieve the service uuid
+        serv_id = h.serv_id_from_corr_id(self.services, prop.correlation_id)
+
+        # Add placement information to the ledger
+        self.services[serv_id]['placement'] = message['placement']
+
         self.start_next_task(serv_id)
 
     def contact_gk(self, serv_id):
@@ -244,12 +300,87 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Pause the chain of tasks to wait for response
         self.services[serv_id]['pause_chain'] = True
 
-    def placement(self, serv_id):
+    def onboard_ssms(self, serv_id):
         """
-        This method manages the placement of the service.
+        This method instructs the ssm registry manager to onboard the
+        required SSMs.
 
         :param serv_id: The instance uuid of the service
         """
+
+        corr_id = str(uuid.uuid4())
+        # Sending the NSD to the SRM triggers it to onboard the ssms
+        pyld = yaml.dump(self.services[serv_id]['NSD'])
+        self.manoconn.call_async(self.resp_onboard,
+                                 t.SRM_ONBOARD,
+                                 pyld,
+                                 correlation_id=corr_id)
+
+        # Add correlation id to the ledger for future reference
+        self.services[serv_id]['act_corr_id'] = corr_id
+
+        # Pause the chain of tasks to wait for response
+        self.services[serv_id]['pause_chain'] = True
+
+    def trigger_master_ssm(self, serv_id):
+        """
+        This method contacts the master SSM and allows it to update
+        the task schedule.
+
+        :param serv_id: the instance uuid of the service
+        """
+
+        corr_id = str(uuid.uuid4())
+        self.services[serv_id]['act_corr_id'] = corr_id
+
+        # Select the master SSM and create topic to reach it on
+        master_ssm = self.services[serv_id]['SSMs'][0]
+        topic = 'ssm.management.' + str(master_ssm) + '.task'
+
+        # Convert schedule of method pointers into list of method string names
+        schedule_pointer = self.services[serv_id]['schedule']
+        schedule_string = [x.__name__ for x in schedule_pointer]
+        message = {'schedule': schedule_string}
+
+        # Contact SSM
+        payload = yaml.dump(message)
+        self.manoconn.call_async(self.resp_task,
+                                 topic,
+                                 payload,
+                                 correlation_id=corr_id)
+
+        # Pause the chain of tasks to wait for response
+        self.services[serv_id]['pause_chain'] = True
+
+    def req_placement_from_ssm(self, serv_id):
+        """
+        This method requests the placement by an ssm.
+
+        :param serv_id: The instance uuid of the service.
+        """
+
+        corr_id = str(uuid.uuid4())
+        self.services[serv_id]['act_corr_id'] = corr_id
+
+        # build message for placement SSM
+        nsd = self.services[serv_id]['NSD']
+        top = self.services[serv_id]['topology']
+        message = {'NSD': nsd, 'Topology': top}
+
+        # Create topic to reach placement SSM on
+        ssm = self.services[serv_id]['SSMs'][0]
+        topic = 'ssm.management.' + str(ssm) + '.place'
+
+        # Contact SSM
+        payload = yaml.dump(message)
+        self.manoconn.call_async(self.resp_place,
+                                 topic,
+                                 payload,
+                                 correlation_id=corr_id)
+
+        # Pause the chain of tasks to wait for response
+        self.services[serv_id]['pause_chain'] = True
+
 
 ###########
 # SLM tasks
@@ -354,10 +485,18 @@ class ServiceLifecycleManager(ManoBasePlugin):
 #            tracebackString = traceback.format_exc(e)
 #            self.services[serv_id]['traceback'] = tracebackString
 
+    def placement(self, serv_id):
+        """
+        This method manages the placement of the service.
 
+        :param serv_id: The instance uuid of the service
+        """
 
+        placement = ['test']
 
+        self.services[serv_id]['placement'] = placement
 
+        return
 
 
 
