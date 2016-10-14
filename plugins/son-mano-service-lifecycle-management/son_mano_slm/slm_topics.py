@@ -32,6 +32,7 @@ import os
 # The topic to which service instantiation requests
 # of the GK are published
 GK_CREATE = "service.instances.create"
+VNF_CREATE = "function.instances.create"
 
 GK_INSTANCE_UPDATE = 'service.instances.update'
 
@@ -47,7 +48,7 @@ IA_TOPO = 'infrastructure.management.topology'
 
 # Topics for interaction with the specific manager registry
 SRM_ONBOARD = 'specific.manager.registry.ssm.on-board'
-SRM_START = 'specific.manager.registry.ssm.instantiate'
+SRM_INSTANT = 'specific.manager.registry.ssm.instantiate'
 SRM_UPDATE = 'specific.manager.registry.ssm.update'
 
 # The NSR Repository can be accessed through a RESTful

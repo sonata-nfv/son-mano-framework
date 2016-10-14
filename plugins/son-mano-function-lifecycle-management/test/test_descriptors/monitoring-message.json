@@ -1,0 +1,107 @@
+{
+   "service":{
+      "sonata_usr_id":null,
+      "description":"\"The network service descriptor for the SONATA demo,\n comprising iperf, a firewall, and tcpdump.\"\n",
+      "host_id":"4003b02c-2515-48ee-a2a0-cdf85894ccdb",
+      "sonata_srv_id":"9df6a98f-9e11-4cb7-b3c0-InAdUnitTest-02",
+      "name":"sonata-demo",
+      "pop_id":null
+   },
+   "functions":[
+      {
+         "sonata_func_id":"645db4fa-a714-4cba-9617-4001477d0000",
+         "host_id":"1772a2ce-3bbb-4dca-b39d-42980bd7bc1c",
+         "pop_id":"",
+         "name":"iperf-vnf",
+         "description":"\"A first iperf VNF descriptor. The iperf VNF\n acts as a traffic source.\"\n",
+         "metrics": [
+
+         ]
+      },
+      {
+         "description":"\"A first firewall VNF descriptor\"\n",
+         "host_id":"0cd43432-f6ea-49ab-8d36-6f025f4b8e67",
+         "name":"firewall-vnf",
+         "sonata_func_id":"6a15313f-cb0a-4540-baa2-77cc6b3f0000",
+         "metrics":[
+            {
+               "cmd":null,
+               "description":"",
+               "interval":null,
+               "name":"vm_cpu_perc",
+               "unit":"Percentage",
+               "threshold":null
+            },
+            {
+               "cmd":null,
+               "description":"",
+               "interval":null,
+               "name":"vm_mem_perc",
+               "unit":"Percentage",
+               "threshold":null
+            },
+            {
+               "cmd":null,
+               "description":"",
+               "interval":null,
+               "name":"vm_net_rx_MB",
+               "unit":"MB",
+               "threshold":null
+            },
+            {
+               "cmd":null,
+               "description":"",
+               "interval":null,
+               "name":"vm_net_tx_MB",
+               "unit":"Mbps",
+               "threshold":null
+            }
+         ],
+         "pop_id":""
+      },
+      {
+         "sonata_func_id":"8a0aa837-ec1c-44e5-9907-898f64010000",
+         "host_id":"dc62df11-18e8-45b5-a869-e3828b9e93fe",
+         "pop_id":"",
+         "name":"tcpdump-vnf",
+         "description":"\"A first tcpdump VNF descriptor. The tcpdump\n VNF acts as a traffic sink.\"\n",
+         "metrics": [
+
+         ]
+      }
+   ],
+   "rules":[
+      {
+         "description":"Trigger events if CPU load is above 10 percent.",
+         "notification_type":2,
+         "summary":"",
+         "name":"mon:rule:vm_cpu_perc",
+         "duration":"10s",
+         "condition":"0cd43432-f6ea-49ab-8d36-6f025f4b8e67:vm_cpu_perc > 10"
+      },
+      {
+         "description":"Trigger events if memory consumption is above 10 percent.",
+         "notification_type":2,
+         "summary":"",
+         "name":"mon:rule:vm_mem_perc",
+         "duration":"10s",
+         "condition":"0cd43432-f6ea-49ab-8d36-6f025f4b8e67:vm_mem_perc > 10"
+      },
+      {
+         "description":"",
+         "notification_type":2,
+         "summary":"",
+         "name":"mon:rule:rx",
+         "duration":"10s",
+         "condition":"0cd43432-f6ea-49ab-8d36-6f025f4b8e67:vm_net_rx_MB > 10"
+      },
+      {
+         "description":"",
+         "notification_type":2,
+         "summary":"",
+         "name":"mon:rule:tx",
+         "duration":"10s",
+         "condition":"0cd43432-f6ea-49ab-8d36-6f025f4b8e67:vm_net_tx_MB > 10"
+      }
+   ]
+}

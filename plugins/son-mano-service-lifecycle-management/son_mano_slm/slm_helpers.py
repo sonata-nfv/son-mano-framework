@@ -40,27 +40,14 @@ def serv_id_from_corr_id(ledger, corr_id):
     """
 
     for serv_id in ledger.keys():
-        if ledger[serv_id]['act_corr_id'] == str(corr_id):
-            break
+        if isinstance(ledger[serv_id]['act_corr_id'], list):
+            if str(corr_id) in ledger[serv_id]['act_corr_id']:
+                break
+        else:
+            if ledger[serv_id]['act_corr_id'] == str(corr_id):
+                break
 
     return serv_id
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

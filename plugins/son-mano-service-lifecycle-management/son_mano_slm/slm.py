@@ -30,6 +30,7 @@ import time
 import requests
 import uuid
 import json
+import sys
 import concurrent.futures as pool
 import slm_topics as t
 import slm_helpers as h
@@ -152,7 +153,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
             if not self.services[serv_id]['pause_chain']:
                 self.start_next_task(serv_id)
 
-            # Reset pause flag
             self.services[serv_id]['pause_chain'] = False
 
 ####################
@@ -180,13 +180,17 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
             if 'service_specific_managers' in self.services[serv_id]['NSD']:
                 add_schedule.append(self.onboard_ssms)
-
-            add_schedule.append(self.request_topology)
+                add_schedule.append(self.instant_ssms)
 
             if 'service_specific_managers' in self.services[serv_id]['NSD']:
                 add_schedule.append(self.trigger_master_ssm)
 
+            add_schedule.append(self.request_topology)
             add_schedule.append(self.placement)
+
+            add_schedule.append(self.req_vnfs_deployment)
+
+            add_schedule.append(self.dummy)
 
             self.services[serv_id]['schedule'].extend(add_schedule)
 
@@ -219,11 +223,37 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Retrieve the service uuid
         serv_id = h.serv_id_from_corr_id(self.services, prop.correlation_id)
 
-        # The response contains a list of instance uuids of the SSMs.
-        # These uuids are used to reference specific SSMs.
-        # They are listed in the same order as in the NSD, master SSM first.
         message = yaml.load(payload)
-        self.services[serv_id]['SSMs'] = message['SSMs']
+
+        # TODO: What to do if onboarding fails?
+
+        # Continue with the scheduled tasks
+        self.start_next_task(serv_id)
+
+    def resp_instant(self, ch, method, prop, payload):
+        """
+        This function handles responses to a request to onboard the ssms
+        of a new service.
+        """
+
+        # Retrieve the service uuid
+        serv_id = h.serv_id_from_corr_id(self.services, prop.correlation_id)
+
+        message = yaml.load(payload)
+
+        # TODO: What to do inf instantiation of SSM fails?
+        # TODO: SRM should respond with a list of SSM uuids, so the SLM
+        # knows which topics to use to contact the SSMs
+
+#        self.services[serv_id]['SSMs'] = [message['uuid']]
+        # Currently hardcoded due to issues with the SRM
+        message = ['e8dbb67e-076c-4fa5-bf3c-b614887038bd', 'e8dbb67e-076c-4fa5-bf3c-b614887038be']
+
+        # Add SSM uuids to ledger with their names.
+        ssm_list = self.services[serv_id]['NSD']['service_specific_managers']
+
+        for i in range(0, len(ssm_list)):
+            self.services[serv_id]['SSMs'][ssm_list[i]['id']] = message[i]
 
         # Continue with the scheduled tasks
         self.start_next_task(serv_id)
@@ -239,9 +269,15 @@ class ServiceLifecycleManager(ManoBasePlugin):
         serv_id = h.serv_id_from_corr_id(self.services, prop.correlation_id)
 
         # Convert method string names into method pointers and add to ledger
-        schedule = [getattr(self, x) for x in message['schedule']]
+        schedule = [getattr(self, x['task']) for x in message]
         self.services[serv_id]['schedule'] = schedule
 
+        # Add attributes for these methods to the ledger.
+        for task in message:
+            if task['attributes'] != None:
+                self.services[serv_id][task['task']] = task['attributes']
+
+        # Continue with the scheduled tasks
         self.start_next_task(serv_id)
 
     def resp_place(self, ch, method, prop, payload):
@@ -258,6 +294,28 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['placement'] = message['placement']
 
         self.start_next_task(serv_id)
+
+    def resp_vnf_depl(self, ch, method, prop, payload):
+        """
+        This method handles a response from the FLM to a vnf deploy request.
+        """
+
+        message = yaml.load(payload)
+
+        # Retrieve the service uuid
+        serv_id = h.serv_id_from_corr_id(self.services, prop.correlation_id)
+
+        
+        # TODO: implement what to do if deployment failed
+        # TODO: store the instance uuids of the vnfs for future reference
+
+        vnfs_to_depl = self.services[serv_id]['vnfs_to_deploy'] - 1 
+        self.services[serv_id]['vnfs_to_deploy'] = vnfs_to_depl
+
+        # Only continue if all vnfs are deployed
+        if vnfs_to_depl == 0:
+            self.services[serv_id]['act_corr_id'] = None
+            self.start_next_task(serv_id)
 
     def contact_gk(self, serv_id):
         """
@@ -322,6 +380,31 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Pause the chain of tasks to wait for response
         self.services[serv_id]['pause_chain'] = True
 
+    def instant_ssms(self, serv_id):
+        """
+        This method instructs the ssm registry manager to instantiate the
+        required SSMs.
+
+        :param serv_id: The instance uuid of the service
+        """
+
+        corr_id = str(uuid.uuid4())        
+        # Instantiating all the SSMs by sending 'NSD' to the SRM
+        # TODO: Is this the correct workflow? SRM already has 'NSD'
+        # Maybe we should use another trigger.
+        pyld = yaml.dump(self.services[serv_id]['NSD'])
+
+        self.manoconn.call_async(self.resp_instant,
+                                 t.SRM_INSTANT,
+                                 pyld,
+                                 correlation_id=corr_id)
+
+        # Add correlation id to the ledger for future reference
+        self.services[serv_id]['act_corr_id'] = corr_id
+
+        # Pause the chain of tasks to wait for response
+        self.services[serv_id]['pause_chain'] = True
+
     def trigger_master_ssm(self, serv_id):
         """
         This method contacts the master SSM and allows it to update
@@ -334,8 +417,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['act_corr_id'] = corr_id
 
         # Select the master SSM and create topic to reach it on
-        master_ssm = self.services[serv_id]['SSMs'][0]
-        topic = 'ssm.management.' + str(master_ssm) + '.task'
+        nsd = self.services[serv_id]['NSD']
+        master_ssm = nsd['service_specific_managers'][0]['id']
+        master_ssm_uuid = self.services[serv_id]['SSMs'][master_ssm]
+        topic = 'ssm.management.' + str(master_ssm_uuid) + '.task'
 
         # Convert schedule of method pointers into list of method string names
         schedule_pointer = self.services[serv_id]['schedule']
@@ -367,9 +452,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
         top = self.services[serv_id]['topology']
         message = {'NSD': nsd, 'Topology': top}
 
-        # Create topic to reach placement SSM on
-        ssm = self.services[serv_id]['SSMs'][0]
-        topic = 'ssm.management.' + str(ssm) + '.place'
+        # Create topic to reach placement SSM on. This topic is set
+        # by the master ssm
+        func_name = sys._getframe().f_code.co_name
+        ssm = self.services[serv_id][func_name]['ssm']
+        ssm_uuid = str(self.services[serv_id]['SSMs'][ssm])
+        topic = 'ssm.management.' + ssm_uuid + '.place'
 
         # Contact SSM
         payload = yaml.dump(message)
@@ -381,6 +469,38 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Pause the chain of tasks to wait for response
         self.services[serv_id]['pause_chain'] = True
 
+    def req_vnfs_deployment(self, serv_id):
+        """
+        This method triggeres the deployment of all the vnfs.
+        """
+
+        self.services[serv_id]['act_corr_id'] = []
+        for key in self.services[serv_id]:
+            if key[:4] == 'VNFD':
+                vnfd = self.services[serv_id][key]
+                # TODO: get mapping for this vnf
+                mapping = []
+
+                corr_id = str(uuid.uuid4())
+                self.services[serv_id]['act_corr_id'].append(corr_id)
+
+                self.req_vnf_deployment(vnfd, mapping, corr_id)
+                amount_vnfs = self.services[serv_id]['vnfs_to_deploy']
+                self.services[serv_id]['vnfs_to_deploy'] = amount_vnfs + 1
+
+        self.services[serv_id]['pause_chain'] = True
+
+    def req_vnf_deployment(self, vnfd, mapping, corr_id):
+        """
+        This method triggers the deployment of one vnf.
+        """
+
+        message = {'vnfd':vnfd, 'mapping':mapping}
+        payload = yaml.dump(message)
+        self.manoconn.call_async(self.resp_vnf_depl,
+                                 t.VNF_CREATE, 
+                                 payload, 
+                                 correlation_id=corr_id)
 
 ###########
 # SLM tasks
@@ -419,6 +539,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Create a log for the task results
         self.services[serv_id]['task_log'] = []
+
+        # Create the SSM dict
+        self.services[serv_id]['SSMs'] = {}
+
+        # Create counter for vnfs
+        self.services[serv_id]['vnfs_to_deploy'] = 0
 
         # Create the chain pause flag
 
@@ -498,6 +624,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         return
 
+    def dummy(self, serv_id):
+
+        print('GOT HERE')
 
 
 
