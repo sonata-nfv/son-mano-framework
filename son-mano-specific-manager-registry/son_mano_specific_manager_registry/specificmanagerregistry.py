@@ -34,7 +34,10 @@ import uuid
 import yaml
 from sonmanobase.plugin import ManoBasePlugin
 
-from son_mano_specific_manager_registry.smr_engine import SMREngine
+try:
+	from son_mano_specific_manager_registry.smr_engine import SMREngine
+except:
+	import smr_engine
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("son-mano-specific-manager-registry")
@@ -58,7 +61,10 @@ class SpecificManagerRegistry(ManoBasePlugin):
         self.ssm_repo = {}
 
         # connect to the docker daemon
-        self.smrengine = SMREngine()
+#        try:
+#            self.smrengine = self.smrengine = SMREngine()
+#        except:
+        self.smrengine = smr_engine.SMREngine()
 
         # register smr into the plugin manager
         super(SpecificManagerRegistry, self).__init__(self.name,
@@ -101,27 +107,28 @@ class SpecificManagerRegistry(ManoBasePlugin):
 
     def on_instantiate(self, ch, method, properties, message):
         id = None
-        try:
-            message = yaml.load(message)
-            image = message['NSD']['service_specific_managers'][0]['image']
-            id = message['NSD']['service_specific_managers'][0]['id']
-            LOG.info('Instantiation request received for SSM id: {0}'.format(id))
-            self.smrengine.start(image_name= image, ssm_name= id, host_ip= None)
-            self._wait_for_ssm_registration(ssm_name= id)
-            if id in self.ssm_repo.keys():
-                return yaml.dump({'status': 'Instantiated', 'error': 'None'})
-            else:
-                LOG.error("'{0}' instantiation: failed ==> SSM registration in SMR failed'".format(id))
-                return yaml.dump({'status':'failed', 'error': 'SSM registration in SMR failed'})
-        except BaseException as err:
-            if id is not None:
-                LOG.error("'{0}' instantiation: failed ==> '{1}'".format(id, err))
-            else:
-                LOG.error("SSM instantiation: failed ==> '{0}'".format(err))
-            return yaml.dump({'status': 'Failed', 'error': str(err)})
+        message = yaml.load(message)
+        image = 'registry.sonata-nfv.eu:5000/ssmplace'
+        id = message['service_specific_managers'][0]['id']
+        LOG.info('Instantiation request received for SSM id: {0}'.format(id))
+        self.smrengine.start(image_name= image, ssm_name= id, host_ip= None)
+        self._wait_for_ssm_registration(ssm_name= id)
+        if id in self.ssm_repo.keys():
+            return yaml.dump({'status': 'Instantiated', 'uuid': self.ssm_repo['uuid'],'error': 'None'})
+        else:
+            LOG.error("'{0}' instantiation: failed ==> SSM registration in SMR failed'".format(id))
+            return yaml.dump({'status':'failed', 'error': 'SSM registration in SMR failed'})
+#        except BaseException as err:
+#            if id is not None:
+#                LOG.error("'{0}' instantiation: failed ==> '{1}'".format(id, err))
+#            else:
+#                LOG.error("SSM instantiation: failed ==> '{0}'".format(err))
+#            return yaml.dump({'status': 'Failed', 'error': str(err)})
 
     def on_ssm_register(self, ch, method, properties, message):
-
+        msg = yaml.load(message)
+        print(msg)
+        
         try:
             message = yaml.load(str(message))
             keys = self.ssm_repo.keys()
@@ -131,6 +138,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
             else:
                 pid = str(uuid.uuid4())
                 self.ssm_repo.update({message['name']: message})
+                self.ssm_repo['uuid'] = pid
                 response = {
                     "status": "running",
                     "name": message['name'],
@@ -182,7 +190,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
         self.ssm_repo['ssmdumb']['status'] = 'killed'
         LOG.debug('ssmdumb kill: succeeded')
 
-    def _wait_for_ssm_registration(self, ssm_name, timeout=20, sleep_interval=0.1):
+    def _wait_for_ssm_registration(self, ssm_name, timeout=20, sleep_interval=5):
 
         c = 0
         rep = str(self.ssm_repo)

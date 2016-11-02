@@ -59,3 +59,6 @@ VNFR_REPOSITORY_URL = os.environ.get("url_vnfr_repository")
 # Monitoring repository, can be accessed throught a RESTful
 # API. Link is red from ENV variable.
 MONITORING_REPOSITORY_URL = os.environ.get("url_monitoring_server")
+
+# Broadcasts from the Plugin Manager on the status of the plugins
+PL_STATUS = "platform.management.plugin.status"

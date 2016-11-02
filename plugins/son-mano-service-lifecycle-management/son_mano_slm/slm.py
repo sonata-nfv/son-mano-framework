@@ -34,6 +34,7 @@ import sys
 import concurrent.futures as pool
 import slm_topics as t
 import slm_helpers as h
+import psutil
 
 from sonmanobase.plugin import ManoBasePlugin
 try:
@@ -68,7 +69,27 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Create the ledger
         self.services = {}
 
+        # Create a configuration dict that contains config info of SLM
+        # Setting the number of SLMs and the rank of this SLM
+        self.slm_config = {}
+        self.slm_config['slm_rank'] = 0
+        self.slm_config['slm_total'] = 1
+        self.slm_config['old_slm_rank'] = 0
+        self.slm_config['old_slm_total'] = 1
+
+        # Create the list of known other SLMs
+        self.known_slms = []
+
         self.thrd_pool = pool.ThreadPoolExecutor(max_workers=10)
+
+        # Create some flags that will be used for SLM management
+        self.bufferAllRequests = False
+        self.bufferOldRequests = False
+        self.deltaTnew = 1
+        self.deltaTold = 1
+
+        self.old_reqs = {}
+        self.new_reqs = {}
 
         # The following can be removed once transition is done
         self.service_requests_being_handled = {}
@@ -93,16 +114,19 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         # We have to call our super class here
         super(self.__class__, self).declare_subscriptions()
-        #
-        # GK <-> SLM interface
-        #
-        # We want to subscribe SERVICE.INSTANCE.CREATE to react on GK messages
-        self.manoconn.subscribe(self.service_instance_create,
+
+        # Subscription to service deploy requests.
+        self.manoconn.subscribe(self.pre1_service_instance_create,
                                 t.GK_CREATE)
 
+        # Subscription to service update requests.
         self.manoconn.register_async_endpoint(
             self.on_gk_service_update,
             t.GK_INSTANCE_UPDATE)
+
+        # Subscription to plugin status information
+        self.manoconn.subscribe(self.plugin_status,
+        						t.PL_STATUS)
 
     def on_lifecycle_start(self, ch, mthd, prop, msg):
         """
@@ -118,6 +142,20 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         super(self.__class__, self).on_lifecycle_start(ch, mthd, prop, msg)
         LOG.info("Lifecycle start event")
+
+    def on_registration_ok(self):
+        """
+        This method is called when the SLM is registered to the plugin mananger
+        """
+        super(self.__class__, self).on_registration_ok()
+        LOG.debug("Received registration ok event.")
+
+        # This SLM is currently the only known SLM
+        self.known_slms.append(str(self.uuid))
+
+        topic = str(self.uuid) + 'service.instance.create'
+
+        self.manoconn.subscribe(self.pre2_service_instance_create, topic)
 
 
 ##########################
@@ -159,43 +197,150 @@ class ServiceLifecycleManager(ManoBasePlugin):
 # SLM input - output
 ####################
 
+    def plugin_status(self, ch, method, properties, payload):
+        """
+        This method is called when the plugin manager broadcasts new
+        information on the plugins.
+        """
+
+        message = yaml.load(payload)
+
+        # If the plugin configuration has changed, it needs to be checked
+        # whether the number of SLMs has changed.
+        self.update_slm_configuration(message['plugin_dict'])
+
+
+    def pre1_service_instance_create(self, ch, method, properties, payload):
+        """
+        This function handles a received message on the service.instance.create
+        topic. It determines what to do with this request: handle it, buffer it
+        or discard it.
+        """
+
+        # Don't trigger on message originating from this plugin
+        if properties.app_id == self.name:
+            return
+
+        # Convert the uuid into an integer that can be used for distributed
+        # load balancing through the use of the modulo operator
+        corr_id = properties.correlation_id
+        reduced_id = self.convert_corr_id(corr_id) 
+
+        # Check if the request should be handled by this SLM in the current,
+        # or in the old regime
+        cur_reg = (reduced_id % self.slm_config['slm_total'] == self.slm_config['slm_rank'])
+        old_reg = (reduced_id % self.slm_config['old_slm_total'] == self.slm_config['old_slm_rank'])
+
+        # If this request is not handled by this SLM, discard it
+        if not (cur_reg or old_reg):
+            return
+
+        # If the SLM is in a buffering state, store it
+        if self.bufferAllRequests:
+            arguments = ch, method, properties, payload
+            if cur_reg:
+                self.new_reqs[corr_id] = {'mthd': self.service_instance_create,
+                                          'arg': arguments}
+                return
+            else:
+                self.old_reqs[corr_id] = {'mthd': self.service_instance_create,
+                                          'arg': arguments}
+                return
+
+        if self.bufferOldRequests:
+            arguments = ch, method, properties, payload
+            self.old_reqs[corr_id] = {'mthd': self.service_instance_create,
+                                      'arg': arguments}
+            return
+
+        # If the request should not be handled by this SLM in the current 
+        # regime, it is discarded.
+        if not cur_reg:
+            return
+
+        # If the SLM is not in a buffer state, and the request should be
+        # handled by this SLM, the request can be handled.
+        self.service_instance_create(ch, method, properties, payload)
+
+    def pre2_service_instance_create(self, ch, method, properties, payload):
+        """
+        This function handles forwarded requests that other SLMs received on
+        the service.instance.create topic, but couldn't handle due to exhausted
+        resources, after which they forwarded it to this SLM.
+        """
+
+#        print("RECEIVED FORWARD: " + str(properties.correlation_id))
+        # Check if this request has made a round trip. If it was forwarded
+        # through all the active SLMs, all SLM resources are exhausted and
+        # a new SLM should be deployed.
+        corr_id = properties.correlation_id
+        reduced_id = self.convert_corr_id(corr_id) 
+
+        cur_reg = (reduced_id % self.slm_config['slm_total'] == self.slm_config['slm_rank'])
+
+        #if cur_reg:
+#            print('ROUNDTRIP')
+            # TODO: deploy a new SLM. Until this functionality is added,
+            # the SLM keeps handling the requests.
+#            return
+
+        # Start handling the request
+        self.service_instance_create(ch, method, properties, payload)
+
+
     def service_instance_create(self, ch, method, properties, payload):
         """
         This function handles a received message on the service.instance.create
         topic.
         """
 
-        if properties.app_id != 'son-plugin.ServiceLifecycleManager':
+        # If the resources of this SLM are exhausted, forward the request to 
+        # another SLM.
+        cpu = psutil.cpu_percent()
 
-            message = yaml.load(payload)
-            corr_id = properties.correlation_id
+        if cpu > 80.0:
+            #Forward the request towards the following SLM in the list
+            print("FORWARDING: " + str(properties.correlation_id))
+            own_slm_rank = self.slm_config['slm_rank']
+            next_slm_rank = (own_slm_rank + 1) % self.slm_config['slm_total']
+            next_slm_uuid = self.known_slms[next_slm_rank]
+            topic = str(next_slm_uuid) + 'service.instance.create'
 
-            # Add the service to the ledger
-            serv_id = self.add_service_to_ledger(message, corr_id)
+            self.manoconn.notify(topic,
+                                 payload,
+                                 correlation_id=properties.correlation_id)
 
-            # Schedule the tasks that the SLM should do for this request.
-            add_schedule = []
-            add_schedule.append(self.validate_deploy_request)
-            add_schedule.append(self.contact_gk)
+            return
 
-            if 'service_specific_managers' in self.services[serv_id]['NSD']:
-                add_schedule.append(self.onboard_ssms)
-                add_schedule.append(self.instant_ssms)
 
-            if 'service_specific_managers' in self.services[serv_id]['NSD']:
-                add_schedule.append(self.trigger_master_ssm)
+        # Converting the request into a set of tasks.
+        message = yaml.load(payload)
+        corr_id = properties.correlation_id
 
-            add_schedule.append(self.request_topology)
-            add_schedule.append(self.placement)
+        # Add the service to the ledger
+        serv_id = self.add_service_to_ledger(message, corr_id)
 
-            add_schedule.append(self.req_vnfs_deployment)
+        # Schedule the tasks that the SLM should do for this request.
+        add_schedule = []
+        add_schedule.append(self.validate_deploy_request)
+        add_schedule.append(self.contact_gk)
 
-            add_schedule.append(self.dummy)
+        if 'service_specific_managers' in self.services[serv_id]['NSD']:
+            add_schedule.append(self.onboard_ssms)
+            add_schedule.append(self.instant_ssms)
+            add_schedule.append(self.trigger_master_ssm)
 
-            self.services[serv_id]['schedule'].extend(add_schedule)
+        add_schedule.append(self.request_topology)
+        add_schedule.append(self.placement)
 
-            # Start the chain of tasks
-            self.start_next_task(serv_id)
+        add_schedule.append(self.req_vnfs_deployment)
+
+        add_schedule.append(self.dummy)
+
+        self.services[serv_id]['schedule'].extend(add_schedule)
+
+        # Start the chain of tasks
+        self.start_next_task(serv_id)
 
     def resp_topo(self, ch, method, prop, payload):
         """
@@ -204,6 +349,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
 
         message = yaml.load(payload)
+#        print(message)
+#        print(prop.correlation_id)
+#        print(prop.app_id)
 
         # Retrieve the service uuid
         serv_id = h.serv_id_from_corr_id(self.services, prop.correlation_id)
@@ -245,9 +393,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # TODO: SRM should respond with a list of SSM uuids, so the SLM
         # knows which topics to use to contact the SSMs
 
-#        self.services[serv_id]['SSMs'] = [message['uuid']]
-        # Currently hardcoded due to issues with the SRM
-        message = ['e8dbb67e-076c-4fa5-bf3c-b614887038bd', 'e8dbb67e-076c-4fa5-bf3c-b614887038be']
+        self.services[serv_id]['SSMs'] = [message['uuid']]
 
         # Add SSM uuids to ledger with their names.
         ssm_list = self.services[serv_id]['NSD']['service_specific_managers']
@@ -336,8 +482,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         payload = yaml.dump(message)
         self.manoconn.notify(t.GK_CREATE, payload, correlation_id=corr_id)
 
-        return
-
     def request_topology(self, serv_id):
         """
         This method is used to request the topology of the available
@@ -347,6 +491,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
 
         # Generate correlation_id for the call, for future reference
+
         corr_id = str(uuid.uuid4())
         self.services[serv_id]['act_corr_id'] = corr_id
 
@@ -560,7 +705,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         :param serv_id: the instance id of the service
         """
-
         payload = self.services[serv_id]['payload']
         corr_id = self.services[serv_id]['corr_id']
 
@@ -624,10 +768,81 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         return
 
+    def update_slm_configuration(self, plugin_dict):
+        """
+        This method checks if an SLM was added or removed from the
+        pool of SLMs. If it was, this method updates the configuration
+        of the SLM.
+
+        :param plugin_dict: Dictionary of plugins registered in plugin manager
+        """
+
+        active_slms = []
+
+        # Substract information on the different SLMs from the dict
+        for plugin_uuid in plugin_dict.keys():
+#            print(plugin_dict[plugin_uuid]['name'])
+            if plugin_dict[plugin_uuid]['name'] == self.name:
+#                print('GOT HERE')
+                active_slms.append(plugin_uuid)
+
+        # Check if the list of active SLMs is identical to the known list
+        active_slms.sort()
+#        print('########')
+#        print(active_slms)
+#        print(self.known_slms)
+        if active_slms == self.known_slms:
+#            print('GOT HEREE')
+            # No action te be taken
+            return
+        else:
+            # Reconfigure the SLM
+            print(self.uuid)
+            print(active_slms)
+            self.slm_config['old_slm_rank'] = self.slm_config['slm_rank']
+            self.slm_config['old_slm_total'] = self.slm_config['slm_total']
+            self.slm_config['slm_rank'] = active_slms.index(str(self.uuid))
+            self.slm_config['slm_total'] = len(active_slms)
+
+            self.known_slms = active_slms
+            # Buffer incoming requests
+            self.bufferAllRequests = True
+            # Wait some time to allow different SLMs to get on the same pages
+            time.sleep(self.deltaTnew)
+            # Start handling the buffered requests in the new regime
+            self.bufferOldRequests = True
+            self.bufferAllRequests = False
+
+            for req in self.new_reqs:
+                task = self.thrd_pool.submit(req['mthd'], req['arguments'])
+
+            time.sleep(self.deltaTold)
+            # Start handling the buffered requests from the old regime
+            self.bufferOldRequests = False
+
+            for req in self.old_reqs:
+                task = self.thrd_pool.submit(req['mthd'], req['arguments'])
+
+
+    def convert_corr_id(self, corr_id):
+        """
+        This method converts the correlation id into an integer that is 
+        small enough to be used with a modulo operation.
+
+        :param corr_id: The correlation id as a String
+        """ 
+
+        #Select the final 4 digits of the string
+        reduced_string = corr_id[-4:]
+        reduced_int = int(reduced_string, 16)
+        return reduced_int
+
+
     def dummy(self, serv_id):
 
-        print('GOT HERE')
+        print(self.services[serv_id]['placement'])
 
+        return
 
 
 
@@ -706,7 +921,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
 
 
-
+    ###: Below the old functionality of the SLM. To be removed once transition is done.
 
 
     def on_gk_service_instance_create(self, ch, method, properties, message):

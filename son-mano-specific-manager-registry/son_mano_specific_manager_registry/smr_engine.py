@@ -100,20 +100,24 @@ class SMREngine(object):
             LOG.debug('{0} pull: succeeded'.format(ssm_name))
 
     def start(self, image_name, ssm_name, host_ip):
+        image_name = image_name.replace("file://", "")
         broker = self.retrieve_broker_name()
-        broker_host = os.environ['broker_host']
+        broker_host = 'amqp://guest:guest@broker:5672/%2F'
 
         container = self.dc.create_container(image=image_name, tty=True, name=ssm_name,
                                              environment={'HOST': host_ip,'broker_host':broker_host})
 
-        self.dc.start(container=container.get('Id'), links=[(broker['name'], broker['alias'])])
+        self.dc.start(container=container.get('Id'))
         LOG.debug("{0} instantiation: succeeded".format(ssm_name))
 
     def stop(self, ssm_name):
         self.dc.kill(ssm_name)
 
     def retrieve_broker_name(self):
-        broker = os.environ['broker_name']
+        try:
+            broker = os.environ['broker_name']
+        except:
+            broker = 'broker,broker'
         mid = broker.find(',')
         name = broker[:mid]
         alias = broker[mid+1:]
