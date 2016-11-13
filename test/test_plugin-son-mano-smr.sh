@@ -71,6 +71,6 @@ docker run -d --link test.broker:broker --link test.mongo:mongo --name test.plug
 # wait a bit for manager startup
 sleep 3
 # spin up smr container and run py.test
-docker run -it --rm --link test.broker:broker -v '/var/run/docker.sock:/var/run/docker.sock' -e broker_name=test.broker,broker --name test.smr registry.sonata-nfv.eu:5000/specificmanagerregistry py.test -v
+docker run --link test.broker:broker -v '/var/run/docker.sock:/var/run/docker.sock' -e broker_name=test.broker,broker --name test.smr registry.sonata-nfv.eu:5000/specificmanagerregistry py.test -v
 
 echo "done."

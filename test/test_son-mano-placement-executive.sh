@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Copyright (c) 2015 SONATA-NFV
 # ALL RIGHTS RESERVED.
@@ -39,7 +39,7 @@ docker rm -fv test.placementexecutive
 #  always abort if an error occurs
 set -e
 
-echo "test_plugin-son-mano-placement-executive.sh"
+echo "test_son-mano-placement-executive.sh"
 # spin up container with broker (in daemon mode)
 docker run -d -p 5672:5672 --name test.broker rabbitmq:3
 # wait a bit for broker startup
@@ -58,6 +58,6 @@ docker run -d --link test.broker:broker --link test.mongo:mongo --name test.plug
 # wait a bit for manager startup
 sleep 3
 # spin up placement executive container and run py.test
-docker run -it --rm --link test.broker:broker --name test.placementexecutive registry.sonata-nfv.eu:5000/scalingexecutive py.test -v
+docker run --link test.broker:broker --name test.placementexecutive registry.sonata-nfv.eu:5000/scalingexecutive py.test -v
 
 echo "done."

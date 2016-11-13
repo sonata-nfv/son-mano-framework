@@ -1,4 +1,18 @@
-#!/usr/bin/env bash
+#!/bin/bash
+
+# Copyright (c) 2015 SONATA-NFV
+# ALL RIGHTS RESERVED.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
 # limitations under the License.
 #
 # Neither the name of the SONATA-NFV [, ANY ADDITIONAL AFFILIATION]
@@ -12,16 +26,14 @@
 # acknowledge the contributions of their colleagues of the SONATA
 # partner consortium (www.sonata-nfv.eu).
 
+# This script runs the son-mano-slm plugin related tests.
 #
-# This script runs the son-mano-scaling-executive plugin related tests.
-#
-# It starts four Docker containers:
+# It starts three Docker containers:
 # - RabbitMQ
 # - MongoDB
 # - son-mano-pluginmanager/Dockerfile
-# - plugin/son-mano-service-lifecycle-management/Dockerfile
 #
-# It triggers the unittest execution in plugin/son-mano-service-lifecycle-management
+# It triggers the unittest execution in son-mano-pluginmanager
 #
 
 # setup cleanup mechanism
@@ -37,7 +49,7 @@ docker rm -fv test.scalingexecutive
 #  always abort if an error occurs
 set -e
 
-echo "test_plugin-son-mano-scaling-executive.sh"
+echo "test_son-mano-scaling-executive.sh"
 # spin up container with broker (in daemon mode)
 docker run -d -p 5672:5672 --name test.broker rabbitmq:3
 # wait a bit for broker startup
@@ -56,6 +68,6 @@ docker run -d --link test.broker:broker --link test.mongo:mongo --name test.plug
 # wait a bit for manager startup
 sleep 3
 # spin up scaling executive container and run py.test
-docker run -it --rm --link test.broker:broker --name test.scalingexecutive registry.sonata-nfv.eu:5000/scalingexecutive py.test -v
+docker run --link test.broker:broker --name test.scalingexecutive registry.sonata-nfv.eu:5000/scalingexecutive py.test -v
 
 echo "done."
