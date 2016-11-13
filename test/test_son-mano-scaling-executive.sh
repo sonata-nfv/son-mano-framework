@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # limitations under the License.
 #
 # Neither the name of the SONATA-NFV [, ANY ADDITIONAL AFFILIATION]
