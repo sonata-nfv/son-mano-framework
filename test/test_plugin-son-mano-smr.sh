@@ -59,6 +59,7 @@ docker run -d -p 5672:5672 --name test.broker rabbitmq:3
 while ! nc -z localhost 5672; do
 sleep 1 && echo -n .; # waiting for rabbitmq
 done;
+
 # spin up container with MongoDB (in daemon mode)
 docker run -d -p 27017:27017 --name test.mongo mongo
 # wait a bit for db startup
