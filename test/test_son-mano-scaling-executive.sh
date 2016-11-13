@@ -1,18 +1,4 @@
-#!/bin/bash
-
-# Copyright (c) 2015 SONATA-NFV
-# ALL RIGHTS RESERVED.
-# 
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
+#!/usr/bin/env bash
 # limitations under the License.
 #
 # Neither the name of the SONATA-NFV [, ANY ADDITIONAL AFFILIATION]
@@ -27,7 +13,7 @@
 # partner consortium (www.sonata-nfv.eu).
 
 #
-# This script runs the son-mano-smr plugin related tests.
+# This script runs the son-mano-scaling-executive plugin related tests.
 #
 # It starts four Docker containers:
 # - RabbitMQ
@@ -39,20 +25,19 @@
 #
 
 # setup cleanup mechanism
-trap "set +e; docker rm -fv test.broker; docker rm -fv test.mongo; docker rm -fv test.pluginmanager; docker rm -fv test.smr; docker rm -fv ssmexample;" INT TERM EXIT
+trap "set +e; docker rm -fv test.broker; docker rm -fv test.mongo; docker rm -fv test.pluginmanager; docker rm -fv test.scalingexecutive; " INT TERM EXIT
 
 # ensure cleanup
 set +e
 docker rm -fv test.broker
 docker rm -fv test.mongo
 docker rm -fv test.pluginmanager
-docker rm -fv test.smr
-docker rm -fv hadik3r/ssmexample
+docker rm -fv test.scalingexecutive
 
 #  always abort if an error occurs
 set -e
 
-echo "test_plugin-son-mano-smr.sh"
+echo "test_plugin-son-mano-scaling-executive.sh"
 # spin up container with broker (in daemon mode)
 docker run -d -p 5672:5672 --name test.broker rabbitmq:3
 # wait a bit for broker startup
@@ -70,7 +55,7 @@ sleep 3
 docker run -d --link test.broker:broker --link test.mongo:mongo --name test.pluginmanager registry.sonata-nfv.eu:5000/pluginmanager
 # wait a bit for manager startup
 sleep 3
-# spin up smr container and run py.test
-docker run -it --rm --link test.broker:broker -v '/var/run/docker.sock:/var/run/docker.sock' -e broker_name=test.broker,broker --name test.smr registry.sonata-nfv.eu:5000/specificmanagerregistry py.test -v
+# spin up scaling executive container and run py.test
+docker run -it --rm --link test.broker:broker --name test.scalingexecutive registry.sonata-nfv.eu:5000/scalingexecutive py.test -v
 
 echo "done."
