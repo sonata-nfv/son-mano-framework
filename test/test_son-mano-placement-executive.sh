@@ -39,7 +39,7 @@ docker rm -fv test.placementexecutive
 #  always abort if an error occurs
 set -e
 
-echo "test_plugin-son-mano-placement-executive.sh"
+echo "test_son-mano-placement-executive.sh"
 # spin up container with broker (in daemon mode)
 docker run -d -p 5672:5672 --name test.broker rabbitmq:3
 # wait a bit for broker startup
