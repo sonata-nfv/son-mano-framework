@@ -94,9 +94,9 @@ class SpecificManagerRegistry(ManoBasePlugin):
 
         except BaseException as err:
             if id is not None:
-                LOG.error("'{0}' on-boarding: failed ==> '{1}'".format(id, err))
+                LOG.error("'{0}' on-boarding: Failed ==> '{1}'".format(id, err))
             else:
-                LOG.error("FSM/SSM on-boarding: failed ==> '{0}'".format(err))
+                LOG.error("FSM/SSM on-boarding: Failed ==> '{0}'".format(err))
             return yaml.dump({'status': 'Failed', 'error': str(err)})
 
     def on_instantiate(self, ch, method, properties, message):
@@ -115,14 +115,14 @@ class SpecificManagerRegistry(ManoBasePlugin):
                 LOG.debug("Registration: succeeded ==> '{0}' ".format(self.ssm_repo))
                 return yaml.dump({'name':id,'status': 'Instantiated', 'uuid': self.ssm_repo[id]['uuid'],'error': 'None'})
             else:
-                LOG.error("'{0}' instantiation: failed ==> SSM registration in SMR failed'".format(id))
-                return yaml.dump({'status':'failed', 'error': 'SSM registration in SMR failed'})
+                LOG.error("'{0}' instantiation: Failed ==> SSM registration in SMR failed'".format(id))
+                return yaml.dump({'status':'Failed', 'uuid':'None','error': 'SSM registration in SMR failed'})
         except BaseException as err:
             if id is not None:
-                LOG.error("'{0}' instantiation: failed ==> '{1}'".format(id, err))
+                LOG.error("'{0}' instantiation: Failed ==> '{1}'".format(id, err))
             else:
-                LOG.error("SSM instantiation: failed ==> '{0}'".format(err))
-            return yaml.dump({'status': 'Failed', 'error': str(err)})
+                LOG.error("SSM instantiation: Failed ==> '{0}'".format(err))
+            return yaml.dump({'status': 'Failed', 'uuid':'None', 'error': str(err)})
 
     def on_ssm_register(self, ch, method, properties, message):
 
@@ -131,7 +131,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
             keys = self.ssm_repo.keys()
             if message['name'] in keys:
                 LOG.error("Cannot register '{0}', already exists".format(message['name']))
-                result = {'status': 'failed', 'error':"Cannot register '{0}', already exists".format(message['name'])}
+                result = {'status': 'Failed', 'error':"Cannot register '{0}', already exists".format(message['name'])}
             else:
                 pid = str(uuid.uuid4())
                 response = {
@@ -148,8 +148,8 @@ class SpecificManagerRegistry(ManoBasePlugin):
 
                 result = response
         except BaseException as err:
-            result = {'status': 'failed', 'error': str(err)}
-            LOG.exception("'{0}' registeration failed: ".format(message['name']))
+            result = {'status': 'Failed', 'error': str(err)}
+            LOG.exception("'{0}' registeration Failed: ".format(message['name']))
         return yaml.dump(result)
 
 
@@ -169,7 +169,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
                 #host_ip = message['VNFR'][0]['virtual_deployment_units'][0]['vnfc_instance'][0]['connection_points'][0]['type']['address']
                 #message['NSR'][1]['virtual_deployment_units'][1]['vnfc_instance'][0]['connection_points'][0]['type']['address']
             except BaseException as err:
-                LOG.error("'{0}' Update: failed ==> Host IP address does not exist in the VNFR")
+                LOG.error("'{0}' Update: Failed ==> Host IP address does not exist in the VNFR")
                 return yaml.dump({'status': 'Failed', 'error': 'Host IP address does not exist in the VNFR'})
             LOG.info('vFW IP address "{0}"'.format(host_ip))
             self.smrengine.pull(image, id)
@@ -181,10 +181,10 @@ class SpecificManagerRegistry(ManoBasePlugin):
                 LOG.debug("SSM update: succeeded ")
                 return yaml.dump({'status': 'Updated', 'error': 'None'})
             else:
-                LOG.error("'{0}' Update: failed ==> SSM registration in SMR failed'".format(id))
+                LOG.error("'{0}' Update: Failed ==> SSM registration in SMR failed'".format(id))
                 return yaml.dump({'status':'Failed', 'error': 'SSM registration in SMR failed'})
         except BaseException as err:
-            LOG.error("'{0}' Update: failed ==> '{1}'".format(id, err))
+            LOG.error("'{0}' Update: Failed ==> '{1}'".format(id, err))
             return yaml.dump({'status': 'Failed', 'error': str(err)})
 
     def ssm_kill(self):
