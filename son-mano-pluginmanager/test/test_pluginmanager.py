@@ -133,7 +133,7 @@ class TestPluginManagerMessageInterface(TestPluginManagerBase):
     """
     # TODO Add more test cases to cover all functionailites of the interface
 
-    #@unittest.skip("skip")
+    @unittest.skip("skip")
     def testInitialLifecycleStartMessage(self):
         """
         Do registration and check that a lifecycle.start message is sent afterwards.
