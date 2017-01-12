@@ -41,7 +41,7 @@ class Plugin(Document):
     This model represents a plugin that is registered to the plugin manager.
     We use mongoengine as ORM to interact with MongoDB.
     """
-    uuid = StringField(unique=True, primary_key=True, required=True)
+    uuid = StringField(primary_key=True, required=True)
     name = StringField(required=True)
     version = StringField(required=True)
     description = StringField(required=False)
