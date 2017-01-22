@@ -136,7 +136,8 @@ class SpecificManagerRegistry(ManoBasePlugin):
                 pid = str(uuid.uuid4())
                 response = {
                     "status": "running",
-                    "type": message['type'],
+                    "smtype": message['smtype'],
+                    "sfname": message['sfname'],
                     "name": message['name'],
                     "id": message['id'],
                     "version": message['version'],
