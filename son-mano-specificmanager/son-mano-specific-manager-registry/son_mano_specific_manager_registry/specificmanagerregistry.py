@@ -153,6 +153,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
             LOG.exception("'{0}' registeration Failed: ".format(message['name']))
         return yaml.dump(result)
 
+
     def on_ssm_update(self, ch, method, properties, message):
         id = None
         try:
