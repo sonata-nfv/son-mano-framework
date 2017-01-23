@@ -124,6 +124,7 @@ The following lead developers are responsible for this repository and have admin
 * Felipe Vicens (https://github.com/felipevicens)
 * Thomas Soenen (https://github.com/tsoenen)
 * Adrian Rosello (https://github.com/adrian-rosello)
++ Hadi Razzaghi Kouchaksaraei (https://github.com/hadik3r)
 
 #### Feedback-Chanel
 
