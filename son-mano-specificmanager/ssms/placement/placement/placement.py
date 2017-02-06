@@ -30,7 +30,6 @@ import logging
 import yaml
 from sonsmbase.smbase import sonSMbase
 
-
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("ssm-placement-1")
 LOG.setLevel(logging.DEBUG)
