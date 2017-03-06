@@ -29,6 +29,7 @@ partner consortium (www.sonata-nfv.eu).
 from amqpstorm import UriConnection
 import logging
 import threading
+import concurrent.futures as pool
 import uuid
 import os
 
@@ -64,6 +65,9 @@ class ManoBrokerConnection(object):
         self._connection = None
         # trigger connection setup (without blocking)
         self.setup_connection()
+
+        self.thrd_pool = pool.ThreadPoolExecutor(max_workers=100)
+
 
     def setup_connection(self):
         """
@@ -116,7 +120,7 @@ class ManoBrokerConnection(object):
                                   properties=default_properties)
             LOG.debug("PUBLISHED to %r: %r", topic, message)
 
-    def subscribe(self, cbf, topic):
+    def subscribe(self, cbf, topic, subscription_queue=None):
         """
         Implements basic subscribe functionality.
         Starts a new thread for each subscription in which messages are consumed and the callback functions
@@ -176,13 +180,23 @@ class ManoBrokerConnection(object):
 
         # Attention: We crate an individual queue for each subscription to allow multiple subscriptions
         # to the same topic.
-        subscription_queue = "%s.%s.%s" % ("q", topic, str(uuid.uuid1()))
+        if subscription_queue is None:
+            queue_uuid = str(uuid.uuid4())
+            subscription_queue = "%s.%s.%s" % ("q", topic, queue_uuid)
         # each subscriber is an own thread
-        t = threading.Thread(target=connection_thread, args=())
-        t.daemon = True
-        t.start()
+        LOG.debug("start new thread to consume " + str(subscription_queue))
+        task = self.thrd_pool.submit(connection_thread)
+        task.add_done_callback(self.done_with_task)
+
         LOG.debug("SUBSCRIBED to %r", topic)
         return subscription_queue
+
+    def done_with_task(self, f):
+        """
+        This function is called when a thread that consumes a queue is finished
+        """
+        # TODO: indicate that the thread is finished.
+
 
 
 class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
@@ -201,13 +215,13 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
 
     def __init__(self, app_id):
         self._async_calls_pending = {}
-        self._async_calls_response_topics = []
+        self._async_calls_response_topics = {}
         # call superclass to setup the connection
         super(self.__class__, self).__init__(app_id)
 
     def _execute_async(self, async_finish_cbf, func, ch, method, props, body):
         """
-        Run the given function in an independent thread and call
+        Run the given function
         cbf when it returns.
         :param async_finish_cbf: callback function
         :param func: function to execute
@@ -223,10 +237,8 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
             if cbf is not None:
                 cbf(ch, method, props, result)
 
-        t = threading.Thread(target=run, args=(async_finish_cbf, func, ch, method, props, body))
-        t.daemon = True
-        t.start()
-        LOG.debug("Async execution started: %r." % str(func))
+        run(async_finish_cbf, func, ch, method, props, body)
+        LOG.debug("Async execution finished: %r." % str(func))
 
     def _on_execute_async_finished(self, ch, method, props, result):
         """
@@ -325,15 +337,29 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         if props.reply_to is not None:
             #LOG.debug("Non-response message dropped at response endpoint.")
             return
-        if props.correlation_id in self._async_calls_pending:
+        if props.correlation_id in self._async_calls_pending.keys():
             LOG.debug("Async response received. Matches to corr_id: %r" % props.correlation_id)
             # call callback (in new thread)
             self._execute_async(None,
-                                self._async_calls_pending[props.correlation_id],
+                                self._async_calls_pending[props.correlation_id]['cbf'],
                                 ch, method, props, body
                                 )
+            # if no other call_async is using this queue, remove the queue
+            queue_tag = self._async_calls_pending[props.correlation_id]['queue']
+            queue_empty = True
+            for corr_id in self._async_calls_pending.keys():
+                if corr_id != props.correlation_id:
+                    if self._async_calls_pending[corr_id]['queue'] == queue_tag:
+                        queue_empty = False
+                        break
+            if queue_empty:
+                LOG.debug("Removing queue, as it is no longer used by any async call")
+                ch.queue.delete()
+                del self._async_calls_response_topics[self._async_calls_pending[props.correlation_id]['topic']]
+
             # remove from pending calls
             del self._async_calls_pending[props.correlation_id]
+
         else:
             LOG.debug("Received unmatched call response. Ignore it.")
 
@@ -362,13 +388,19 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
                 "No callback function (cbf) given to call_async. Use notify if you want one-way communication.")
         # generate uuid to match requests and responses
         correlation_id = str(uuid.uuid4()) if correlation_id is None else correlation_id
-
         # initialize response subscription if a callback function was defined
-        if topic not in self._async_calls_response_topics:
-            self.subscribe(self._on_call_async_response_received, topic)
+        if topic not in self._async_calls_response_topics.keys():
+            queue_uuid = str(uuid.uuid4())
+            subscription_queue = "%s.%s.%s" % ("q", topic, queue_uuid)
+
+            self.subscribe(self._on_call_async_response_received, topic, subscription_queue)
             # keep track of request
-            self._async_calls_response_topics.append(topic)
-        self._async_calls_pending[correlation_id] = cbf
+            self._async_calls_response_topics[topic] = subscription_queue
+        else:
+            #find the queue related to this topic
+            subscription_queue = self._async_calls_response_topics[topic]
+
+        self._async_calls_pending[correlation_id] = {'cbf':cbf, 'topic':topic, 'queue':subscription_queue}
 
         # build headers
         if headers is None:
@@ -388,6 +420,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
         }
 
         # publish request message
+        LOG.debug("async request made on " + str(topic) + ", with corr_id " + str(correlation_id))
         self.publish(topic, msg, properties=properties)
 
     def register_async_endpoint(self, cbf, topic):
