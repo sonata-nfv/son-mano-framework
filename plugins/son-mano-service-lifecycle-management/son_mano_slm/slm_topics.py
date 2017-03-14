@@ -26,39 +26,57 @@ This is SONATA's service lifecycle management plugin
 
 import os
 
-#
-# Configurations
-#
-# The topic to which service instantiation requests
-# of the GK are published
+# List of topics that are used by the SLM for its rabbitMQ communication
+
+# With gatekeeper
 GK_CREATE = "service.instances.create"
-VNF_CREATE = "function.instances.create"
+GK_PAUSE = "service.instance.pause"
+GK_RESUME = "service.instance.restart"
+GK_KILL = "service.instance.terminate"
+GK_UPDATE = "service.instances.update"
 
-GK_INSTANCE_UPDATE = 'service.instances.update'
+# With other SLM
+MANO_STATE = "mano.share.state"
+MANO_CREATE = "mano.instances.create"
+MANO_PAUSE = "mano.instance.pause"
+MANO_RESUME = "mano.instance.restart"
+MANO_KILL = "mano.instance.terminate"
+MANO_UPDATE = "mano.instances.update"
+MANO_DEPLOY = "mano.function.deploy"
 
-# The topic to which service instance deploy replies
-# of the Infrastructure Adaptor are published
-INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC = "infrastructure.service.deploy"
+# With gatekeeper or other SLM
+WC_CREATE = "*.instances.create"
+WC_PAUSE = "*.instance.pause"
+WC_RESUME = "*.instance.restart"
+WC_KILL = "*.instance.terminate"
+WC_UPDATE = "*.instances.update"
 
-# The topic to which available vims are published
-INFRA_ADAPTOR_AVAILABLE_VIMS = 'infrastructure.management.compute.list'
+# With infrastructure adaptor
+IA_DEPLOY = 'infrastructure.function.deploy'
+IA_TOPO = 'infrastructure.management.compute.list'
+IA_PREPARE = 'infrastructure.service.prepare'
+IA_CHAIN = 'infrastructure.service.chain'
+IA_CONF_WAN = 'infrastructure.wan.configure'
+IA_DECONF_WAN = 'infrastructure.wan.deconfigure'
 
-# TODO: discuss topic for topology
-IA_TOPO = 'infrastructure.management.topology'
-
-# Topics for interaction with the specific manager registry
+# With specific manager registry
 SRM_ONBOARD = 'specific.manager.registry.ssm.on-board'
 SRM_INSTANT = 'specific.manager.registry.ssm.instantiate'
 SRM_UPDATE = 'specific.manager.registry.ssm.update'
 
-# The NSR Repository can be accessed through a RESTful
-# API. Links are red from ENV variables.
+# With Repositories
+# TODO: Secure this get against failure
 NSR_REPOSITORY_URL = os.environ.get("url_nsr_repository")
-VNFR_REPOSITORY_URL = os.environ.get("url_vnfr_repository")
+if NSR_REPOSITORY_URL is None:
+	NSR_REPOSITORY_URL = "http://api.int.sonata-nfv.eu:4002/records/nsr/"
 
-# Monitoring repository, can be accessed throught a RESTful
-# API. Link is red from ENV variable.
+VNFR_REPOSITORY_URL = os.environ.get("url_vnfr_repository")
+if VNFR_REPOSITORY_URL is None:
+	VNFR_REPOSITORY_URL = "http://api.int.sonata-nfv.eu:4002/records/vnfr/"
+
+# With Monitoring Manager
+# TODO: Secure this get against failure
 MONITORING_REPOSITORY_URL = os.environ.get("url_monitoring_server")
 
-# Broadcasts from the Plugin Manager on the status of the plugins
+# With plugin mananger
 PL_STATUS = "platform.management.plugin.status"

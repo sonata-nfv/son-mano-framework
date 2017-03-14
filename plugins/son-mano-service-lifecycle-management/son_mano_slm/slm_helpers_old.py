@@ -28,78 +28,25 @@ import requests
 import uuid
 import yaml
 
-def convert_corr_id(corr_id):
+
+def build_message_for_IA(request_dictionary):
     """
-    This method converts the correlation id into an integer that is 
-    small enough to be used with a modulo operation.
-
-    :param corr_id: The correlation id as a String
-    """ 
-
-    #Select the final 4 digits of the string
-    reduced_string = corr_id[-4:]
-    reduced_int = int(reduced_string, 16)
-    return reduced_int
-
-
-def serv_id_from_corr_id(ledger, corr_id):
+    This method converts the deploy request from the gk to a messsaga for the
+    IA.
     """
-    This method returns the service uuid based on a correlation id.
-    It is used for responses from different modules that use the
-    correlation id as reference instead of the service id.
+    resulting_message = {}
+    resulting_message['vim_uuid'] = request_dictionary['vim']
+    resulting_message['nsd'] = request_dictionary['NSD']
+    resulting_message['vnfds'] = []
 
-    :param serv_dict: The ledger of services
-    :param corr_id: The correlation id
-    """
+    for key in request_dictionary.keys():
+        if key[:4] == 'VNFD':
+            resulting_message['vnfds'].append(request_dictionary[key])
 
-    for serv_id in ledger.keys():
-        if isinstance(ledger[serv_id]['act_corr_id'], list):
-            if str(corr_id) in ledger[serv_id]['act_corr_id']:
-                break
-        else:
-            if ledger[serv_id]['act_corr_id'] == str(corr_id):
-                break
+    newFile = open('service_request.yml', 'w')
+    newFile.write(yaml.dump(resulting_message))
+    return resulting_message
 
-    return serv_id
-
-def placement(NSD, functions, topology):
-    """
-    This is the default placement algorithm that is used if the SLM
-    is responsible to perform the placement
-    """
-
-    mapping = {}
-
-    for function in functions:
-        vnfd = function['vnfd']
-        needed_cpu = vnfd['virtual_deployment_units'][0]['resource_requirements']['cpu']['vcpus']
-        needed_mem = vnfd['virtual_deployment_units'][0]['resource_requirements']['memory']['size']
-        needed_sto = vnfd['virtual_deployment_units'][0]['resource_requirements']['storage']['size']
-
-#        print('vnfd considered ' + vnfd['name'] + ' ' + vnfd['instance_uuid'])
-
-        for vim in topology:
-            cpu_req = needed_cpu <= (vim['core_total'] - vim['core_used'])
-            mem_req = needed_mem <= (vim['memory_total'] - vim['memory_used'])
-
-#            print(str(needed_cpu) + ' ' + str(needed_mem))
-#            print(str(vim['core_total']) + ' ' + str(vim['core_used']))
-#            print(str(vim['memory_total']) + ' ' + str(vim['memory_used']))
-
-            if cpu_req and mem_req:
-                print('function embeddable: ' + function['id'])
-                print('selected vim: ' + vim['vim_uuid'])
-                mapping[function['id']] = {}
-                mapping[function['id']]['vim'] = vim['vim_uuid']
-                vim['core_used'] = vim['core_used'] + needed_cpu
-                vim['memory_used'] = vim['memory_used'] + needed_mem
-                break
-    
-    # Check if all VNFs have been mapped
-    if len(mapping.keys()) == len(functions):
-        return mapping
-    else:
-        return None
 
 def build_resource_request(descriptors, vim):
     """
@@ -136,7 +83,7 @@ def replace_old_corr_id_by_new(dictionary, old_correlation_id):
     return new_correlation_id, dictionary
 
 
-def build_nsr(ia_nsr, nsd, vnfr_ids):
+def build_nsr(gk_request, ia_payload):
     """
     This method builds the whole NSR from the payload (stripped nsr and vnfrs)
     returned by the Infrastructure Adaptor (IA).
@@ -145,36 +92,37 @@ def build_nsr(ia_nsr, nsd, vnfr_ids):
     nsr = {}
     # nsr mandatory fields
     nsr['descriptor_version'] = 'nsr-schema-01'
-    nsr['id'] = ia_nsr['id']
-    nsr['status'] = ia_nsr['status']
+    nsr['id'] = ia_payload['nsr']['id']
+    nsr['status'] = ia_payload['nsr']['status']
     # Building the nsr makes it the first version of this nsr
     nsr['version'] = '1'
-    nsr['descriptor_reference'] = nsd['uuid']
+    nsr['descriptor_reference'] = gk_request['NSD']['uuid']
 
     # Future functionality
 #    if 'instanceVimUuid' in ia_payload:
 #        nsr['instanceVimUuid'] = ia_payload['instanceVimUuid']
 
     # network functions
-    nsr['network_functions'] = []
-    for vnfr_id in vnfr_ids:
-        function = {}
-        function['vnfr_id'] = vnfr_id
-        nsr['network_functions'].append(function)
+    if 'vnfrs' in ia_payload.keys():
+        nsr['network_functions'] = []
+        for network_function in ia_payload['vnfrs']:
+            function = {}
+            function['vnfr_id'] = network_function['id']
+            nsr['network_functions'].append(function)
 
     # connection points
-    if 'connection_points' in nsd:
+    if 'connection_points' in gk_request['NSD']:
         nsr['connection_points'] = []
-        for connection_point in nsd['connection_points']:
+        for connection_point in gk_request['NSD']['connection_points']:
             cp = {}
             cp['id'] = connection_point['id']
             cp['type'] = connection_point['type']
             nsr['connection_points'].append(cp)
 
     # virtual links
-    if 'virtual_links' in nsd:
+    if 'virtual_links' in gk_request['NSD']:
         nsr['virtual_links'] = []
-        for virtual_link in nsd['virtual_links']:
+        for virtual_link in gk_request['NSD']['virtual_links']:
             vlink = {}
             vlink['id'] = virtual_link['id']
             vlink['connectivity_type'] = virtual_link['connectivity_type']
@@ -182,113 +130,118 @@ def build_nsr(ia_nsr, nsd, vnfr_ids):
             nsr['virtual_links'].append(vlink)
 
     # forwarding graphs
-    if 'forwarding_graphs' in nsd:
+    if 'forwarding_graphs' in gk_request['NSD']:
         nsr['forwarding_graphs'] = []
-        for forwarding_graph in nsd['forwarding_graphs']:
+        for forwarding_graph in gk_request['NSD']['forwarding_graphs']:
             nsr['forwarding_graphs'].append(forwarding_graph)
 
     # lifecycle events
-    if 'lifecycle_events' in nsd:
+    if 'lifecycle_events' in gk_request['NSD']:
         nsr['lifecycle_events'] = []
-        for lifecycle_event in nsd['lifecycle_events']:
+        for lifecycle_event in gk_request['NSD']['lifecycle_events']:
             nsr['lifecycle_events'].append(lifecycle_event)
 
     # vnf_dependency
-    if 'vnf_dependency' in nsd:
+    if 'vnf_dependency' in gk_request['NSD']:
         nsr['vnf_dependency'] = []
-        for vd in nsd['vnf_dependency']:
+        for vd in gk_request['NSD']['vnf_dependency']:
             nsr['vnf_dependency'].append(vd)
 
     # services_dependency
-    if 'services_dependency' in nsd:
+    if 'services_dependency' in gk_request['NSD']:
         nsr['services_dependency'] = []
-        for sd in nsd['services_dependency']:
+        for sd in gk_request['NSD']['services_dependency']:
             nsr['services_dependency'].append(sd)
 
     # monitoring_parameters
-    if 'monitoring_parameters' in nsd:
+    if 'monitoring_parameters' in gk_request['NSD']:
         nsr['monitoring_parameters'] = []
-        for mp in nsd['monitoring_parameters']:
+        for mp in gk_request['NSD']['monitoring_parameters']:
             nsr['monitoring_parameters'].append(mp)
 
     # auto_scale_policy
-    if 'auto_scale_policy' in nsd:
+    if 'auto_scale_policy' in gk_request['NSD']:
         nsr['auto_scale_policy'] = []
-        for asp in nsd['auto_scale_policy']:
+        for asp in gk_request['NSD']['auto_scale_policy']:
             nsr['monitoring_parameters'].append(asp)
 
     return nsr
 
 
-def build_vnfr(ia_vnfr, vnfd):
+def build_vnfrs(gk_request, ia_vnfrs):
     """
-    This method builds the VNFR. VNFRS are built from the stripped VNFRs
-    returned by the Infrastructure Adaptor (IA), combining it with the 
-    provided VNFD.
+    This method builds the different VNFRS a NSR consists of. VNFRS are built
+    from the stripped VNFRs returned by the Infrastructure Adaptor (IA),
+    combining it with the provided VNFD.
     """
+    vnfrs = []
+    for ia_vnfr in ia_vnfrs:
+        vnfd = get_vnfd_by_reference(gk_request, ia_vnfr['descriptor_reference'])
 
-    vnfr = {}
-    # vnfd base fields
-    vnfr['descriptor_version'] = ia_vnfr['descriptor_version']
-    vnfr['id'] = ia_vnfr['id']
-    #Building the vnfr makes it the first version of this vnfr.
-    vnfr['version'] = '1'
-    vnfr['status'] = ia_vnfr['status']
-    vnfr['descriptor_reference'] = ia_vnfr['descriptor_reference']
+        vnfr = {}
+        # vnfd base fields
+        vnfr['descriptor_version'] = ia_vnfr['descriptor_version']
+        vnfr['id'] = ia_vnfr['id']
+        #Building the vnfr makes it the first version of this vnfr.
+        vnfr['version'] = '1'
+        vnfr['status'] = ia_vnfr['status']
+        vnfr['descriptor_reference'] = ia_vnfr['descriptor_reference']
 
-    # deployment flavour
-    if 'deployment_flavour' in ia_vnfr:
-        vnfr['deployment_flavour'] = ia_vnfr['deployment_flavour']
+        # deployment flavour
+        if 'deployment_flavour' in ia_vnfr:
+            vnfr['deployment_flavour'] = ia_vnfr['deployment_flavour']
 
-    # virtual_deployment_units
-    vnfr['virtual_deployment_units'] = []
-    for ia_vdu in ia_vnfr['virtual_deployment_units']:
-        vnfd_vdu = get_vnfd_vdu_by_reference(vnfd, ia_vdu['vdu_reference'])
+        # virtual_deployment_units
+        vnfr['virtual_deployment_units'] = []
+        for ia_vdu in ia_vnfr['virtual_deployment_units']:
+            vnfd_vdu = get_vnfd_vdu_by_reference(vnfd, ia_vdu['vdu_reference'])
 
-        vdu = {}
-        # vdu info returned by IA
-        # mandatofy info
-        vdu['id'] = ia_vdu['id']
-        vdu['resource_requirements'] = vnfd_vdu['resource_requirements']
+            vdu = {}
+            # vdu info returned by IA
+            # mandatofy info
+            vdu['id'] = ia_vdu['id']
+            vdu['resource_requirements'] = vnfd_vdu['resource_requirements']
 
-        # vdu optional info
-        if 'vm_image' in ia_vdu:
-            vdu['vm_image'] = ia_vdu['vm_image']
-        if 'vdu_reference' in ia_vdu:
-            vdu['vdu_reference'] = ia_vdu['vdu_reference']
-        if 'number_of_instances' in ia_vdu:
-            vdu['number_of_instances'] = ia_vdu['number_of_instances']
-        # vdu vnfc-instances (optional)
-        vdu['vnfc_instance'] = []
-        if 'vnfc_instance' in ia_vdu:
-            for ia_vnfc in ia_vdu['vnfc_instance']:
-                vnfc = {}
-                vnfc['id'] = ia_vnfc['id']
-                vnfc['vim_id'] = ia_vnfc['vim_id']
-                vnfc['vc_id'] = ia_vnfc['vc_id']
-                vnfc['connection_points'] = ia_vnfc['connection_points']
-                vdu['vnfc_instance'].append(vnfc)
+            # vdu optional info
+            if 'vm_image' in ia_vdu:
+                vdu['vm_image'] = ia_vdu['vm_image']
+            if 'vdu_reference' in ia_vdu:
+                vdu['vdu_reference'] = ia_vdu['vdu_reference']
+            if 'number_of_instances' in ia_vdu:
+                vdu['number_of_instances'] = ia_vdu['number_of_instances']
+            # vdu vnfc-instances (optional)
+            vdu['vnfc_instance'] = []
+            if 'vnfc_instance' in ia_vdu:
+                for ia_vnfc in ia_vdu['vnfc_instance']:
+                    vnfc = {}
+                    vnfc['id'] = ia_vnfc['id']
+                    vnfc['vim_id'] = ia_vnfc['vim_id']
+                    vnfc['vc_id'] = ia_vnfc['vc_id']
+                    vnfc['connection_points'] = ia_vnfc['connection_points']
+                    vdu['vnfc_instance'].append(vnfc)
 
-        # vdu monitoring-parameters (optional)
+            # vdu monitoring-parameters (optional)
 
-        if vnfd_vdu is not None and 'monitoring_parameters' in vnfd_vdu:
-            vdu['monitoring_parameters'] = vnfd_vdu['monitoring_parameters']
+            if vnfd_vdu is not None and 'monitoring_parameters' in vnfd_vdu:
+                vdu['monitoring_parameters'] = vnfd_vdu['monitoring_parameters']
 
-        vnfr['virtual_deployment_units'].append(vdu)
+            vnfr['virtual_deployment_units'].append(vdu)
 
-    # connection points && virtual links (optional)
-    if 'connection_points' in ia_vnfr:
-        vnfr['connection_points'] = ia_vnfr['connection_points']
-    if 'virtual_links' in vnfd:
-        vnfr['virtual_links'] = vnfd['virtual_links']
+        # connection points && virtual links (optional)
+        if 'connection_points' in ia_vnfr:
+            vnfr['connection_points'] = ia_vnfr['connection_points']
+        if 'virtual_links' in vnfd:
+            vnfr['virtual_links'] = vnfd['virtual_links']
 
-    # TODO vnf_address ???
+        # TODO vnf_address ???
 
-    # lifecycle_events (optional)
-    if 'lifecycle_events' in vnfd:
-        vnfr['lifecycle_events'] = vnfd['lifecycle_events']
+        # lifecycle_events (optional)
+        if 'lifecycle_events' in vnfd:
+            vnfr['lifecycle_events'] = vnfd['lifecycle_events']
 
-    return vnfr
+        vnfrs.append(vnfr)
+
+    return vnfrs
 
 
 def get_vnfd_vdu_by_reference(vnfd, vdu_reference):
@@ -311,27 +264,23 @@ def get_vnfd_by_reference(gk_request, vnfd_reference):
     return None
 
 
-def build_monitoring_message(service, functions):
+def build_monitoring_message(gk_request, message_from_ia, nsr, vnfrs):
     """
     This method builds the message for the Monitoring Manager.
     """
 
-    nsd = service['nsd']
-    nsr = service['nsr']
-    instance_vim_uuid = service['vim_uuid']
+    def get_matching_vdu(vnfrs, vnfd, vdu):
+        """
+        This method searches inside the VNFRs for the VDU that makes reference
+        to a specific VDU of a VNFD.
+        """
+        for vnfr in vnfrs:
+            if vnfr['descriptor_reference'] == vnfd['uuid']:
+                for nsr_vdu in vnfr['virtual_deployment_units']:
+                    if vdu['id'] in nsr_vdu['vdu_reference']:
+                        return nsr_vdu
 
-#    def get_matching_vdu(vnfrs, vnfd, vdu):
-#        """
-#        This method searches inside the VNFRs for the VDU that makes reference
-#        to a specific VDU of a VNFD.
-#        """
-#        for vnfr in vnfrs:
-#            if vnfr['descriptor_reference'] == vnfd['uuid']:
-#                for nsr_vdu in vnfr['virtual_deployment_units']:
-#                    if vdu['id'] in nsr_vdu['vdu_reference']:
-#                        return nsr_vdu
-#
-#        return None
+        return None
 
     def get_associated_monitoring_rule(vnfd, monitoring_parameter_name):
         """
@@ -356,14 +305,24 @@ def build_monitoring_message(service, functions):
 
         return None
 
+    def get_vnfd_by_id(gk_request, vnfd_reference):
+        for key in gk_request.keys():
+            if key[:4] == 'VNFD':
+                if gk_request[key]['uuid'] == vnfd_reference:
+                    return gk_request[key]
+
+        return None
+
     message = {}
     service = {}
+
+    nsd = gk_request['NSD']
 
     # add nsd fields
     service['sonata_srv_id'] = nsr['id']
     service['name'] = nsd['name']
     service['description'] = nsd['description']
-    service['host_id'] = instance_vim_uuid
+    service['host_id'] = message_from_ia['instanceVimUuid']
     # TODO add pop_id and sonata_usr_id
     service['pop_id'] = None
     service['sonata_usr_id'] = None
@@ -377,12 +336,11 @@ def build_monitoring_message(service, functions):
     vdu_hostid = {}
 
     # add vnf information
-    for vnf in functions:
+    for vnfr in vnfrs:
 
-        print(vnf.keys())
         function = {}
-        vnfr = vnf['vnfr']
-        vnfd = vnf['vnfd']
+
+        vnfd = get_vnfd_by_id(gk_request, vnfr['descriptor_reference'])
 
         function['sonata_func_id'] = vnfr['id']
         function['name'] = vnfd['name']
