@@ -32,8 +32,10 @@ import son_mano_slm.slm_helpers as tools
 
 from unittest import mock
 from multiprocessing import Process
+import concurrent.futures as pool
 from son_mano_slm.slm import ServiceLifecycleManager
 from sonmanobase.messaging import ManoBrokerRequestResponseConnection
+from collections import namedtuple
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger('amqp-storm').setLevel(logging.INFO)
@@ -189,19 +191,6 @@ class testSlmRegistrationAndHeartbeat(unittest.TestCase):
         #STEP3b: When not receiving the message, the test failed 
         self.waitForEvent(timeout=5, msg="message not received.")
 
-
-#A mockup function that will be used to mock http POST responses.
-def mocked_post_requests(*args, **kwargs):
-    class MockResponse:
-        def __init__(self, json_data, json_code):
-            self.json_data = json_data
-            self.status_code = status_code
-
-    print('#################################################')
-    print('In the mock')
-    return MockResponse('failed', 422)
-
-
 class testSlmFunctionality(unittest.TestCase):
     """
     Tests the tasks that the SLM should perform in the service
@@ -216,31 +205,6 @@ class testSlmFunctionality(unittest.TestCase):
 ########################
 #SETUP
 ########################
-#    @classmethod
-#    def setUpClass(cls):
-#        """
-#        Starts the SLM instance and takes care if its registration.
-#        """
-#        def on_register_trigger(ch, method, properties, message):
-#            return json.dumps({'status':'OK','uuid':cls.uuid})
-
-#        #Some threading events that can be used during the tests
-#        cls.wait_for_first_event = threading.Event()
-#        cls.wait_for_first_event.clear()
-
-#        cls.wait_for_second_event = threading.Event()
-#        cls.wait_for_second_event.clear()
-
-        #Deploy SLM and a connection to the broker
-#        cls.slm_proc = Process(target=ServiceLifecycleManager)
-#        cls.slm_proc.daemon = True
-#        cls.manoconn_pm = ManoBrokerRequestResponseConnection('Son-plugin.SonPluginManager')
-#        cls.manoconn_pm.subscribe(on_register_trigger,'platform.management.plugin.register')
-#        cls.slm_proc.start()
-        #wait until registration process finishes
-#        if not cls.wait_for_first_event.wait(timeout=5):
-#            pass
-
     @classmethod
     def tearDownClass(cls):
         if cls.slm_proc is not None:
@@ -252,6 +216,9 @@ class testSlmFunctionality(unittest.TestCase):
         def on_register_trigger(ch, method, properties, message):
             return json.dumps({'status': 'OK', 'uuid': self.uuid})
 
+        #vnfcounter for when needed
+        self.vnfcounter = 0
+
         #Generate a new corr_id for every test
         self.corr_id = str(uuid.uuid4())
 
@@ -262,15 +229,8 @@ class testSlmFunctionality(unittest.TestCase):
         self.wait_for_second_event = threading.Event()
         self.wait_for_second_event.clear()
 
-        #Deploy SLM and a connection to the broker
-        self.slm_proc = Process(target=ServiceLifecycleManager)
-        self.slm_proc.daemon = True
-        self.manoconn_pm = ManoBrokerRequestResponseConnection('son-plugin.SonPluginManager')
-        self.manoconn_pm.subscribe(on_register_trigger, 'platform.management.plugin.register')
-        self.slm_proc.start()
-        #wait until registration process finishes
-        if not self.wait_for_first_event.wait(timeout=5):
-            pass
+        #Deploy SLM, without registring or running it
+        self.slm_proc = ServiceLifecycleManager(auto_register=False, start_running=False)
 
         #We make a spy connection to listen to the different topics on the broker
         self.manoconn_spy = ManoBrokerRequestResponseConnection('son-plugin.SonSpy')
@@ -316,16 +276,9 @@ class testSlmFunctionality(unittest.TestCase):
     def firstEventFinished(self):
         self.wait_for_first_event.set()
 
-    def secondEventFinished(self):
-        self.wait_for_second_event.set()
-
     #Method that starts a timer, waiting for an event
     def waitForFirstEvent(self, timeout=5, msg="Event timed out."):
         if not self.wait_for_first_event.wait(timeout):
-            self.assertEqual(True, False, msg=msg)
-
-    def waitForSecondEvent(self, timeout=5, msg="Event timed out."):
-        if not self.wait_for_second_event.wait(timeout):
             self.assertEqual(True, False, msg=msg)
 
     def dummy(self, ch, method, properties, message):
@@ -336,355 +289,886 @@ class testSlmFunctionality(unittest.TestCase):
         return
 
 #############################################################
-#TEST1: Test Reaction To Correctly Formatted Service Request.
+#TEST1: test validate_deploy_request
 #############################################################
-    def on_slm_infra_adaptor_vim_list_test1(self, ch, method, properties, message):
+    def test_validate_deploy_request(self):
         """
-        This method checks what the SLM sends towards the IA when it receives a
-        valid request from the gk.
-        """
-        msg = yaml.load(message)
-
-        #The message should have an empty body and a correlation_id different from the original correlation_id
-        self.assertEqual(msg, {}, msg='message is not empty.')
-        self.assertNotEqual(properties.correlation_id, self.corr_id, msg='message does not contain a new correlation_id.')
-        self.assertEqual(properties.reply_to, 'infrastructure.management.compute.list', msg='not the correct reply_to topic.')
-
-        self.firstEventFinished()
-
-    def on_gk_response_to_correct_service_request(self, ch, method, properties, message):
-        """
-        This method checks whether the SLM responds to a correctly formatted
-        new service request it receives from the GK.
+        The method validate_deploy_request is used to check whether the
+        received message that requests the deployment of a new service is
+        correctly formatted.
         """
 
-        msg = yaml.load(message)
-        self.assertTrue(isinstance(msg, dict), msg='response to service request is not a dictionary.')
-        self.assertEqual(msg['status'], 'INSTANTIATING', msg='not correct response, should be INSTANTIATING.')
-        self.assertEqual(msg['error'], None, msg='not correct response, should be None.')
-        self.assertTrue(isinstance(msg['timestamp'], float), msg='timestamp is not a float')
-        self.assertEqual(properties.correlation_id, self.corr_id, msg='response to async call doesnt have the same correlation_id')
+        #Setup
+        service_dict = {}
+        service_id = str(uuid.uuid4())
+        corr_id = str(uuid.uuid4())
+        service_dict[service_id] = {'original_corr_id':corr_id}
 
-        self.secondEventFinished()
+        #SUBTEST1: Check a correctly formatted message
+        message = self.createGkNewServiceRequestMessage()
+        service_dict[service_id]['payload'] =  yaml.load(message)
 
-    def testReactionToCorrectlyFormattedServiceRequest(self):
-        """
-        If the gk sends a request on the service.instances.create topic that is
-        correctly formatted, then the SLM should respond by doing 2 things:
-        1. Replying with the message {'status':'INSTANTIATING',
-            'error':NULL, 'timestamp':<timestamp>} with the same correlation_id
-            as the one in the request.
-        2. Requesting the available vims from the IA on the
-            infrastructure.management.compute.list topic with a new correlation
-            id and an empty body.
-        """
+        self.slm_proc.set_services(service_dict)
+        self.slm_proc.validate_deploy_request(service_id)
+        result = self.slm_proc.get_services()
 
-        self.wait_for_first_event.clear()
-        self.wait_for_second_event.clear()
+        self.assertEqual({'status': result[service_id]['status'],
+                          'error': result[service_id]['error']},
+                         {'status': 'INSTANTIATING', 'error': None},
+                         msg="outcome and expected result not equal SUBTEST1.")
 
-        #STEP1: Spy the topic on which the SLM will contact the infrastructure adaptor
-        self.manoconn_spy.subscribe(self.on_slm_infra_adaptor_vim_list_test1, 'infrastructure.management.compute.list')
+        #SUBTEST2: Check a message that is not a dictionary
+        message = "test message"
+        service_dict[service_id]['payload'] = message
 
-        #STEP2: Send a correctly formatted service request message (from the gk) to the SLM
-        self.manoconn_gk.call_async(self.on_gk_response_to_correct_service_request, 'service.instances.create', msg=self.createGkNewServiceRequestMessage(correctlyFormatted=True), content_type='application/yaml', correlation_id=self.corr_id)
+        self.slm_proc.set_services(service_dict)
+        self.slm_proc.validate_deploy_request(service_id)
+        result = self.slm_proc.get_services()
 
-        #STEP3: Start waiting for the messages that are triggered by this request
-        self.waitForFirstEvent(timeout=10, msg='Wait for message from SLM to IA to request resources timed out.')
-        self.waitForSecondEvent(timeout=10, msg='Wait for reply to request from GK timed out.')
+        expected_message = "Request " + corr_id + ": payload is not a dict."
+        expected_response = {'status': 'ERROR', 'error': expected_message}
+
+        self.assertEqual({'status': result[service_id]['status'],
+                          'error': result[service_id]['error']},
+                         expected_response,
+                         msg="outcome and expected result not equal SUBTEST2.")
+
+
+        #SUBTEST3: Check a message that contains no NSD
+        message = self.createGkNewServiceRequestMessage()
+        loaded_message = yaml.load(message)
+        del loaded_message['NSD']
+        service_dict[service_id]['payload'] = loaded_message
+
+        self.slm_proc.set_services(service_dict)
+        self.slm_proc.validate_deploy_request(service_id)
+        result = self.slm_proc.get_services()
+
+        expected_message = "Request " + corr_id + ": NSD is not a dict."
+        expected_response = {'status': 'ERROR', 'error': expected_message}
+
+        self.assertEqual({'status': result[service_id]['status'],
+                          'error': result[service_id]['error']},
+                         expected_response,
+                         msg="outcome and expected result not equal SUBTEST3.")
+
+        #SUBTEST4: The number of VNFDs must be the same as listed in the NSD
+        message = self.createGkNewServiceRequestMessage()
+        loaded_message = yaml.load(message)
+        loaded_message['NSD']['network_functions'].append({})
+        service_dict[service_id]['payload'] = loaded_message
+
+        self.slm_proc.set_services(service_dict)
+        self.slm_proc.validate_deploy_request(service_id)
+        result = self.slm_proc.get_services()
+
+        expected_message = "Request " + corr_id + ": # of VNFDs doesn't match NSD."
+        expected_response = {'status': 'ERROR', 'error': expected_message}
+
+        self.assertEqual({'status': result[service_id]['status'],
+                          'error': result[service_id]['error']},
+                         expected_response,
+                         msg="outcome and expected result not equal SUBTEST4.")
+
+        #SUBTEST5: VNFDs can not be empty
+        message = self.createGkNewServiceRequestMessage()
+        loaded_message = yaml.load(message)
+        loaded_message['VNFD1'] = None
+        service_dict[service_id]['payload'] = loaded_message
+
+        self.slm_proc.set_services(service_dict)
+        self.slm_proc.validate_deploy_request(service_id)
+        result = self.slm_proc.get_services()
+
+        expected_message = "Request " + corr_id + ": empty VNFD."
+        expected_response = {'status': 'ERROR', 'error': expected_message}
+
+        self.assertEqual({'status': result[service_id]['status'],
+                          'error': result[service_id]['error']},
+                         expected_response,
+                         msg="outcome and expected result not equal SUBTEST5.")
 
 ###########################################################
-#TEST2: Test reaction to wrongly formatted service request.
+#TEST2: Test start_next_task
 ###########################################################
-    def on_gk_response_to_wrong_service_request(self, ch, method, properties, message):
+    def test_start_next_task(self):
         """
-        This method checks whether the SLM responds to a wrongly formatted new
-        service request it receives from the GK.
-        """
-
-        msg = yaml.load(message)
-        self.assertTrue(isinstance(msg, dict), msg='response to service request is not a dictionary.')
-        self.assertEqual(msg['status'], 'ERROR', msg='not correct response, should be ERROR')
-        self.assertTrue(isinstance(msg['error'], str), msg='Error message is not a string.')
-        self.assertTrue(isinstance(msg['timestamp'], float), msg='timestamp is not a float')
-        self.assertEqual(properties.correlation_id, self.corr_id, msg='response to async call doesnt have the same correlation_id')
-
-        self.firstEventFinished()
-
-    def testReactionToWronglyFormattedServiceRequest(self):
-        """
-        If the gk sends a request on the service.instances.create topic that is
-        wrongly formatted, then the SLM should respond by
-        replying with the message {'status':'ERROR', 'error':<error message>,
-        'timestamp':<timestamp>} with the same correlation_id as the one in the
-        request.
+        This method tests the start_next_task method
         """
 
+        #Setup
+        service_dict = {}
+        service_id = str(uuid.uuid4())
+        corr_id = str(uuid.uuid4())
+        orig_corr_id = str(uuid.uuid4())
+        service_dict[service_id] = {'corr_id':corr_id,
+                                    'original_corr_id': orig_corr_id,
+                                    'pause_chain': True}
+
+        #SUBTEST1: Check if next task is correctly called
+        message = self.createGkNewServiceRequestMessage()
+
+        #Add a task to the list
+        task_list = ['validate_deploy_request']
+
+        #Create the ledger
+        service_dict[service_id]['schedule'] = task_list
+        service_dict[service_id]['payload'] = yaml.load(message)
+
+        #Run the method
+        self.slm_proc.set_services(service_dict)
+        self.slm_proc.start_next_task(service_id)
+
+        #wait for the task to finish
+        time.sleep(1)
+        result = self.slm_proc.get_services()
+
+        #Check result
+        generated_response = {'status': result[service_id]['status'],
+                              'error': result[service_id]['error']}
+        expected_response = {'status': 'INSTANTIATING', 'error': None}
+
+        self.assertEqual(generated_response,
+                         expected_response,
+                         msg="outcome and expected result not equal SUBTEST1.")
+
+        #Setup
+        service_dict = {}
+        service_id = str(uuid.uuid4())
+        corr_id = str(uuid.uuid4())
+        orig_corr_id = str(uuid.uuid4())
+        service_dict[service_id] = {'corr_id':corr_id,
+                                    'original_corr_id': orig_corr_id,
+                                    'pause_chain': False}
+
+        #SUBTEST2: Check behavior if there is no next task
+        message = self.createGkNewServiceRequestMessage()
+
+        #Add a task to the list
+        task_list = []
+
+        #Create the ledger
+        service_dict[service_id]['schedule'] = task_list
+        service_dict[service_id]['payload'] = yaml.load(message)
+
+        #Run the method
+        self.slm_proc.set_services(service_dict)
+        self.slm_proc.start_next_task(service_id)
+
+        #wait for the task to finish
+        time.sleep(1)
+        result = self.slm_proc.get_services()
+
+        #Check result: if successful, service_id will not be a key in result
+
+        self.assertFalse(service_id in result.keys(),
+                         msg="key is part of ledger in SUBTEST2.")
+
+###############################################################
+#TEST3: Test service_instance_create
+###############################################################
+    def test_service_instance_create(self):
+        """
+        This method tests the service_instance_create method of the SLM
+        """
+
+        #Setup
+        message = self.createGkNewServiceRequestMessage()
+        corr_id = str(uuid.uuid4())
+        topic = "service.instances.create"
+        prop_dict = {'reply_to': topic, 
+                     'correlation_id': corr_id,
+                     'app_id': "Gatekeeper"}
+
+        properties = namedtuple('properties', prop_dict.keys())(*prop_dict.values())
+
+        schedule = self.slm_proc.service_instance_create('foo',
+                                                         'bar',
+                                                         properties,
+                                                         message)
+
+        #Check result: since we don't know how many of the tasks
+        #were completed by the time we got the result, we only check
+        #the final elements in the tasklist
+
+        #The last 7 elements from the generated result
+        generated_result = schedule[-7:]
+
+        #The expected last 7 elements in the list
+        expected_result = ['SLM_mapping', 'ia_prepare', 'vnf_deploy',
+                           'vnf_chain', 'wan_configure',
+                           'instruct_monitoring', 'inform_gk']
+
+        self.assertEqual(generated_result,
+                         expected_result,
+                         msg='lists are not equal')
+
+###############################################################
+#TEST4: Test resp_topo
+###############################################################
+    def test_resp_topo(self):
+        """
+        This method tests the resp_topo method.
+        """
+
+        #Setup
+        #Create topology message
+        first = {'vim_uuid':str(uuid.uuid4()), 'memory_used':5, 'memory_total':12, 'core_used':4, 'core_total':6}
+        second = {'vim_uuid':str(uuid.uuid4()), 'memory_used':3, 'memory_total':5, 'core_used':4, 'core_total':5}
+        third = {'vim_uuid':str(uuid.uuid4()), 'memory_used':6, 'memory_total':7, 'core_used':2, 'core_total':12}
+        topology_message = [first, second, third]
+        payload = yaml.dump(topology_message)
+
+        #Create ledger
+        service_dict = {}
+        service_id = str(uuid.uuid4())
+        corr_id = str(uuid.uuid4())
+        service_dict[service_id] = {'act_corr_id':corr_id,
+                                    'infrastructure': {'topology':None},
+                                    'schedule': ['get_ledger'],
+                                    'original_corr_id':corr_id,
+                                    'pause_chain': True}
+
+        self.slm_proc.set_services(service_dict)
+
+        #Create properties
+        topic = "infrastructure.management.compute.list"
+        prop_dict = {'reply_to': topic, 
+                     'correlation_id': corr_id,
+                     'app_id': 'InfrastructureAdaptor'}
+
+        properties = namedtuple('properties', prop_dict.keys())(*prop_dict.values())
+
+        #Run method
+        self.slm_proc.resp_topo('foo', 'bar', properties, payload)
+
+        #Check result
+        result = self.slm_proc.get_services()
+
+        self.assertEqual(topology_message,
+                         result[service_id]['infrastructure']['topology'],
+                         msg="Dictionaries are not equal")
+
+###############################################################
+#TEST5: Test resp_vnf_depl
+###############################################################
+    def test_resp_vnf_depl(self):
+        """
+        This method tests the resp_vnf_depl method.
+        """
+
+        #SUBTEST1: Only one VNFD in the service
+        #Setup
+        #Create the message
+        vnfr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/expected_vnfr_iperf.yml', 'r'))
+        message = {'status': 'DEPLOYED',
+                   'error': None,
+                   'vnfr': vnfr}
+
+        payload = yaml.dump(message)
+
+        #Create ledger
+        service_dict = {}
+        service_id = str(uuid.uuid4())
+        corr_id = str(uuid.uuid4())
+        service_dict[service_id] = {'act_corr_id':corr_id,
+                                    'function': [{'id': vnfr['id']}],
+                                    'vnfs_to_deploy': 1,
+                                    'schedule': ['get_ledger'],
+                                    'original_corr_id':corr_id,
+                                    'pause_chain': True}
+
+        self.slm_proc.set_services(service_dict)
+
+        #Create properties
+        topic = "mano.function.deploy"
+        prop_dict = {'reply_to': topic, 
+                     'correlation_id': corr_id,
+                     'app_id': 'FunctionLifecycleManager'}
+
+        properties = namedtuple('props', prop_dict.keys())(*prop_dict.values())
+
+        #Run method
+        self.slm_proc.resp_vnf_depl('foo', 'bar', properties, payload)
+
+        #Check result
+        result = self.slm_proc.get_services()
+
+        self.assertEqual(vnfr,
+                         result[service_id]['function'][0]['vnfr'],
+                         msg="Dictionaries are not equal SUBTEST 1")
+
+        self.assertEqual(result[service_id]['vnfs_to_deploy'],
+                         0,
+                         msg="Values not equal SUBTEST 1")
+
+
+        #SUBTEST2: Two VNFDs in the service
+        #Setup
+        #Create the message
+        vnfr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/expected_vnfr_iperf.yml', 'r'))
+        message = {'status': 'DEPLOYED',
+                   'error': None,
+                   'vnfr': vnfr}
+
+        payload = yaml.dump(message)
+
+        #Create ledger
+        service_dict = {}
+        service_id = str(uuid.uuid4())
+        corr_id = str(uuid.uuid4())
+        service_dict[service_id] = {'act_corr_id':corr_id,
+                                    'function': [{'id': vnfr['id']}],
+                                    'vnfs_to_deploy': 2,
+                                    'schedule': ['get_ledger'],
+                                    'original_corr_id':corr_id,
+                                    'pause_chain': True}
+
+        self.slm_proc.set_services(service_dict)
+
+        #Create properties
+        topic = "mano.function.deploy"
+        prop_dict = {'reply_to': topic, 
+                     'correlation_id': corr_id,
+                     'app_id': 'FunctionLifecycleManager'}
+
+        properties = namedtuple('props', prop_dict.keys())(*prop_dict.values())
+
+        #Run method
+        self.slm_proc.resp_vnf_depl('foo', 'bar', properties, payload)
+
+        #Check result
+        result = self.slm_proc.get_services()
+
+        self.assertEqual(vnfr,
+                         result[service_id]['function'][0]['vnfr'],
+                         msg="Dictionaries are not equal SUBTEST 2")
+
+        self.assertEqual(result[service_id]['vnfs_to_deploy'],
+                         1,
+                         msg="Values not equal SUBTEST 2")
+
+        self.assertEqual(result[service_id]['schedule'],
+                         ['get_ledger'],
+                         msg="Lists not equal SUBTEST 2")
+
+###############################################################
+#TEST6: Test resp_prepare
+###############################################################
+    def test_resp_prepare(self):
+        """
+        This method tests the resp_prepare method.
+        """
+
+        #SUBTEST 1: Successful response message
+        #Setup
+        #Create the message
+        message = {'status': 'PREPARED',
+                   'error': None,
+                   }
+
+        payload = yaml.dump(message)
+
+        #Create ledger
+        service_dict = {}
+        service_id = str(uuid.uuid4())
+        corr_id = str(uuid.uuid4())
+        service_dict[service_id] = {'act_corr_id':corr_id,
+                                    'schedule': ['get_ledger'],
+                                    'original_corr_id':corr_id,
+                                    'pause_chain': True}
+
+        self.slm_proc.set_services(service_dict)
+
+        #Create properties
+        topic = "infrastructure.service.prepare"
+        prop_dict = {'reply_to': topic, 
+                     'correlation_id': corr_id,
+                     'app_id': 'InfrastructureAdaptor'}
+
+        properties = namedtuple('props', prop_dict.keys())(*prop_dict.values())
+
+        #Run method
+        self.slm_proc.resp_prepare('foo', 'bar', properties, payload)
+
+        #Check result
+        result = self.slm_proc.get_services()
+
+        self.assertFalse('status' in result[service_id].keys(),
+                         msg="Key in dictionary SUBTEST 1")
+
+        self.assertFalse('error' in result[service_id].keys(),
+                         msg="Key in dictionary SUBTEST 1")
+
+        #SUBTEST 2: Failed response message
+        #Setup
+        #Create the message
+        message = {'status': 'FAILED',
+                   'error': 'Vim not available',
+                   }
+
+        payload = yaml.dump(message)
+
+        #Create ledger
+        service_dict = {}
+        service_id = str(uuid.uuid4())
+        corr_id = str(uuid.uuid4())
+        service_dict[service_id] = {'act_corr_id':corr_id,
+                                    'schedule': ['get_ledger'],
+                                    'original_corr_id':corr_id,
+                                    'pause_chain': True}
+
+        self.slm_proc.set_services(service_dict)
+
+        #Create properties
+        topic = "infrastructure.service.prepare"
+        prop_dict = {'reply_to': topic, 
+                     'correlation_id': corr_id,
+                     'app_id': 'InfrastructureAdaptor'}
+
+        properties = namedtuple('props', prop_dict.keys())(*prop_dict.values())
+
+        #Run method
+        self.slm_proc.resp_prepare('foo', 'bar', properties, payload)
+
+        #Check result
+        result = self.slm_proc.get_services()
+
+        self.assertTrue('status' in result[service_id].keys(),
+                         msg="Key in dictionary SUBTEST 2")
+
+        self.assertTrue('error' in result[service_id].keys(),
+                         msg="Key in dictionary SUBTEST 2")
+
+        self.assertEqual(result[service_id]['error'],
+                         'Vim not available',
+                          msg='Error message not equal in SUBTEST 2')
+
+###############################################################
+#TEST7: test contact_gk
+###############################################################
+    def test_contact_gk(self):
+        """
+        This method tests the contact_gk method.
+        """
+
+        #Check result SUBTEST 1
+        def on_contact_gk_subtest1(ch, mthd, prop, payload):
+            print('GOT HERE')
+
+            message = yaml.load(payload)
+
+            self.assertEqual(message['status'],
+                             'FOO',
+                             msg="Status not correct in SUBTEST 1")
+
+            self.assertEqual(message['error'],
+                             'BAR',
+                             msg="Error not correct in SUBTEST 1")
+
+            self.assertTrue('timestamp' in message.keys(),
+                             msg="Timestamp missing in SUBTEST 1")
+
+            self.assertEqual(len(message.keys()),
+                             3,
+                            msg="Number of keys not correct in SUBTEST1")
+            self.firstEventFinished()
+
+        #Check result SUBTEST2
+        def on_contact_gk_subtest2(ch, mthd, prop, payload):
+            self.firstEventFinished()
+
+            message = yaml.load(payload)
+
+            self.assertEqual(message['status'],
+                             'FOO',
+                             msg="Status not correct in SUBTEST 2")
+
+            self.assertEqual(message['error'],
+                             'BAR',
+                             msg="Error not correct in SUBTEST 2")
+
+            self.assertEqual(message['FOO'],
+                             'BAR',
+                             msg="Error not correct in SUBTEST 2")
+
+            self.assertTrue('timestamp' in message.keys(),
+                             msg="Timestamp missing in SUBTEST 2")
+
+            self.assertEqual(len(message.keys()),
+                             4,
+                            msg="Number of keys not correct in SUBTEST2")
+
+        #SUBTEST1: Without additional content
+        #Setup
+        #Create the ledger
         self.wait_for_first_event.clear()
+        service_dict = {}
+        service_id = str(uuid.uuid4())
+        corr_id = str(uuid.uuid4())
+        service_dict[service_id] = {'schedule': ['get_ledger'],
+                                    'original_corr_id':corr_id,
+                                    'pause_chain': True,
+                                    'status': 'FOO',
+                                    'error': 'BAR'}
 
-        #STEP1: Send a wrongly formatted service request message (from the gk) to the SLM
-        self.manoconn_gk.call_async(self.on_gk_response_to_wrong_service_request, 'service.instances.create', msg=self.createGkNewServiceRequestMessage(correctlyFormatted=False), content_type='application/yaml', correlation_id=self.corr_id)
+        #Set the ledger
+        self.slm_proc.set_services(service_dict)
 
-        #STEP2: Start waiting for the messages that are triggered by this request
-        self.waitForFirstEvent(timeout=10, msg='Wait for reply to request from GK timed out.')
+        #Spy the message bus
+        self.manoconn_spy.subscribe(on_contact_gk_subtest1, 'service.instances.create')
 
-###############################################################
-#TEST3: Test Reaction when SLM receives a valid list of VIMs.
-###############################################################
-    def on_slm_infra_adaptor_vim_list_test3(self, ch, method, properties, message):
-        """
-        This method replies to a request of the SLM to the IA to get the
-        VIM-list.
-        """
+        #Wait until subscription is completed
+        time.sleep(1)
 
-        if properties.app_id == 'son-plugin.ServiceLifecycleManager':
-            VIM_list = [{'vim_uuid': uuid.uuid4().hex}, {'vim_uuid': uuid.uuid4().hex}, {'vim_uuid': uuid.uuid4().hex}]
-            self.manoconn_ia.notify('infrastructure.management.compute.list', yaml.dump(VIM_list), correlation_id=properties.correlation_id)
+        #Run the method
+        self.slm_proc.contact_gk(service_id)
 
-    def on_slm_infra_adaptor_service_deploy_request_test3(self, ch, method, properties, message):
-        """
-        This method checks whether the request from the SLM to the IA to deploy
-        a service is correctly formatted.
-        """
+        #Wait for the test to finish
+        self.waitForFirstEvent(timeout=5)
 
-        msg = yaml.load(message)
-
-        self.assertTrue(isinstance(msg, dict), msg="message is not a dictionary.")
-        self.assertIn('vim_uuid', msg.keys(), msg="vim_uuid is not a key in the dictionary.")
-        self.assertIn('nsd', msg.keys(), msg="nsd is not a key in the dictionary.")
-        self.assertIn('vnfds', msg.keys(), msg="vnfds is not a key in the dictionary.")
-        self.assertIn('instance_uuid', msg['nsd'].keys(), msg="instance_uuid is not a key in the dictionary.")
-
-        for vnfd in msg['vnfds']:
-            self.assertIn('instance_uuid', vnfd.keys(), msg='intance_uuid is not a key in the dictionary.')
-
-        self.firstEventFinished()
-
-    def testReactionToCorrectlyFormattedVimList(self):
-        """
-        This method tests the response of the SLM when it receives a valid VIM
-        list. The SLM should choose a VIM out of the list, and request whether
-        it has enough resources to host the service.
-        """
-
+        #SUBTEST2: With additional content
+        #Setup
         self.wait_for_first_event.clear()
-        self.wait_for_second_event.clear()
+        #Create the ledger
+        service_dict = {}
+        service_id = str(uuid.uuid4())
+        corr_id = str(uuid.uuid4())
+        add_content = {'FOO': 'BAR'}
+        service_dict[service_id] = {'schedule': ['get_ledger'],
+                                    'original_corr_id':corr_id,
+                                    'pause_chain': True,
+                                    'status': 'FOO',
+                                    'error': 'BAR',
+                                    'add_content': add_content}
 
-        #STEP1: Spy the topic on which the SLM will contact the infrastructure adaptor
-        self.manoconn_spy.subscribe(self.on_slm_infra_adaptor_vim_list_test3, 'infrastructure.management.compute.list')
+        self.slm_proc.set_services(service_dict)
 
-        #STEP2: Spy the topic on which the SLM will contact the infrastructure adaptor the first time, to request the resource availability.
-        self.manoconn_spy.subscribe(self.on_slm_infra_adaptor_service_deploy_request_test3, 'infrastructure.service.deploy')
+        #Spy the message bus
+        self.manoconn_gk.subscribe(on_contact_gk_subtest2, 'service.instances.create')
 
-        #STEP3: Send a correctly formatted service request message (from the gk) to the SLM
-        self.manoconn_gk.call_async(self.dummy, 'service.instances.create', msg=self.createGkNewServiceRequestMessage(correctlyFormatted=True), content_type='application/yaml', correlation_id=self.corr_id)
+        #Wait until subscription is completed
+        time.sleep(1)
 
-        #STEP4: Start waiting for the messages that are triggered by this request
-        self.waitForFirstEvent(timeout=10, msg='Wait for message from SLM to IA to request resources timed out.')
+        #Run the method
+        self.slm_proc.contact_gk(service_id)
+
+        #Wait for the test to finish
+        self.waitForFirstEvent(timeout=5)
 
 ###############################################################
-#TEST4: Test Reaction when SLM receives an empty list of VIMs.
+#TEST8: test request_topology
 ###############################################################
-    def on_slm_infra_adaptor_vim_list_test4(self, ch, method, properties, message):
+    def test_request_topology(self):
         """
-        This method replies to a request of the SLM to the IA to get the
-        VIM-list.
+        This method tests the request_topology method.
         """
 
-        if properties.app_id == 'son-plugin.ServiceLifecycleManager':
-            VIM_list = []
-            self.manoconn_ia.notify('infrastructure.management.compute.list', yaml.dump(VIM_list), correlation_id=properties.correlation_id)
+        #Check result SUBTEST 1
+        def on_request_topology_subtest1(ch, mthd, prop, payload):
 
-    def on_slm_response_to_gk_with_empty_vim_list(self, ch, method, properties, message):
+            self.assertEqual(payload,
+                             "{}",
+                             msg="Payload is not empty")
+
+            self.firstEventFinished()
+
+        #SUBTEST1: Trigger request_topology
+        #Setup
+        #Create the ledger
+        self.wait_for_first_event.clear()
+        service_dict = {}
+        service_id = str(uuid.uuid4())
+        corr_id = str(uuid.uuid4())
+        service_dict[service_id] = {'schedule': ['get_ledger'],
+                                    'original_corr_id':corr_id,
+                                    'pause_chain': True,
+                                    'status': 'FOO',
+                                    'error': 'BAR',
+                                    'infrastructure':{}}
+
+        #Set the ledger
+        self.slm_proc.set_services(service_dict)
+
+        #Spy the message bus
+        self.manoconn_spy.subscribe(on_request_topology_subtest1, 
+                                    'infrastructure.management.compute.list')
+
+        #Wait until subscription is completed
+        time.sleep(1)
+
+        #Run the method
+        self.slm_proc.request_topology(service_id)
+
+        #Wait for the test to finish
+        self.waitForFirstEvent(timeout=5)
+
+###############################################################
+#TEST9: test ia_prepare
+###############################################################
+    def test_ia_prepare(self):
         """
-        This method checks the content of the message send from SLM to the GK
-        to indicate that there are no vims available.
+        This method tests the request_topology method.
         """
-        msg = yaml.load(message)
 
-        #We don't want to trigger on the first response (the async_call), butonly on the second(the notify) and we don't want to trigger on our outgoing message.
-        if properties.app_id == 'son-plugin.ServiceLifecycleManager':
-            if msg['status'] != 'INSTANTIATING':
+        #Check result SUBTEST 1
+        def on_ia_prepare_subtest1(ch, mthd, prop, payload):
 
-                self.assertTrue(isinstance(msg, dict), msg='message is not a dictionary.')
-                self.assertEqual(msg['status'], 'ERROR', msg='status is not correct.')
-                self.assertEqual(msg['error'], 'No VIM.', msg='error message is not correct.')
-                self.assertTrue(isinstance(msg['timestamp'], float), msg='timestamp is not a float.')
+            message = yaml.load(payload)
 
+            for func in service_dict[service_id]['function']:
+                self.assertIn(func['vim_uuid'], 
+                              message.keys(), 
+                              msg="VIM uuid missing from keys")
+
+                image = func['vnfd']['virtual_deployment_units'][0]['vm_image']
+
+                self.assertIn(image,
+                              message[func['vim_uuid']]['vm_images'],
+                              msg="image not on correct Vim")
+
+            self.firstEventFinished()
+
+        #SUBTEST1: Check ia_prepare message if functions are mapped on
+        # different VIMs.
+        #Setup
+        #Create the ledger
+        self.wait_for_first_event.clear()
+        service_dict = {}
+        service_id = str(uuid.uuid4())
+        corr_id = str(uuid.uuid4())
+        service_dict[service_id] = {'schedule': ['get_ledger'],
+                                    'original_corr_id':corr_id,
+                                    'pause_chain': True,
+                                    'function': []}
+
+
+        path = '/plugins/son-mano-service-lifecycle-management/test/'
+
+        vnfd1 = open(path + 'test_descriptors/firewall-vnfd.yml', 'r')
+        vnfd2 = open(path + 'test_descriptors/iperf-vnfd.yml', 'r')
+        vnfd3 = open(path + 'test_descriptors/tcpdump-vnfd.yml', 'r')
+
+        service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd1)})
+        service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd2)})
+        service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd3)})
+
+        for vnfd in service_dict[service_id]['function']:
+            vnfd['vim_uuid'] = str(uuid.uuid4())
+
+        #Set the ledger
+        self.slm_proc.set_services(service_dict)
+
+        #Spy the message bus
+        self.manoconn_spy.subscribe(on_ia_prepare_subtest1, 
+                                    'infrastructure.service.prepare')
+
+        #Wait until subscription is completed
+        time.sleep(1)
+
+        #Run the method
+        self.slm_proc.ia_prepare(service_id)
+
+        #Wait for the test to finish
+        self.waitForFirstEvent(timeout=5)
+
+        #SUBTEST2: Check ia_prepare message if functions are mapped on
+        # same VIMs.
+        #Setup
+        #Create the ledger
+        self.wait_for_first_event.clear()
+        service_dict = {}
+        service_id = str(uuid.uuid4())
+        corr_id = str(uuid.uuid4())
+        service_dict[service_id] = {'schedule': ['get_ledger'],
+                                    'original_corr_id':corr_id,
+                                    'pause_chain': True,
+                                    'function': []}
+
+
+        path = '/plugins/son-mano-service-lifecycle-management/test/'
+
+        vnfd1 = open(path + 'test_descriptors/firewall-vnfd.yml', 'r')
+        vnfd2 = open(path + 'test_descriptors/iperf-vnfd.yml', 'r')
+        vnfd3 = open(path + 'test_descriptors/tcpdump-vnfd.yml', 'r')
+
+        service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd1)})
+        service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd2)})
+        service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd3)})
+
+        vim_uuid = str(uuid.uuid4())
+        for vnfd in service_dict[service_id]['function']:
+            vnfd['vim_uuid'] = vim_uuid
+
+        #Set the ledger
+        self.slm_proc.set_services(service_dict)
+
+        #Run the method
+        self.slm_proc.ia_prepare(service_id)
+
+        #Wait for the test to finish
+        self.waitForFirstEvent(timeout=5)
+
+###############################################################
+#TEST10: test vnf_deploy
+###############################################################
+    def test_vnf_deploy(self):
+        """
+        This method tests the request_topology method.
+        """
+
+        #Check result SUBTEST 1
+        def on_vnf_deploy_subtest1(ch, mthd, prop, payload):
+
+            print('GOT HERE')
+            message = yaml.load(payload)
+
+            self.assertIn(message,
+                          service_dict[service_id]['function'],
+                             msg="Payload is not correct")
+
+            self.vnfcounter = self.vnfcounter + 1
+
+            if self.vnfcounter == len(service_dict[service_id]['function']):
                 self.firstEventFinished()
 
-    def testReactionToWronglyFormattedVimList(self):
-        """
-        This method tests the response of the SLM when it receives an empty VIM
-        list. The SLM should report back to the gk with an error.
-        """
-
+        #SUBTEST1: Run test
+        #Setup
+        #Create the ledger
         self.wait_for_first_event.clear()
-
-        #STEP1: Spy the topic on which the SLM will contact the infrastructure adaptor
-        self.manoconn_spy.subscribe(self.on_slm_infra_adaptor_vim_list_test4, 'infrastructure.management.compute.list')
-
-        #STEP2: Spy the topic on which the SLM will contact the GK, to indicate that the deployment is stopped due to lack of resources.
-        self.manoconn_spy.subscribe(self.on_slm_response_to_gk_with_empty_vim_list, 'service.instances.create')
-
-        #STEP3: Send a correctly formatted service request message (from the gk) to the SLM
-        self.manoconn_gk.call_async(self.on_slm_response_to_gk_with_empty_vim_list, 'service.instances.create', msg=self.createGkNewServiceRequestMessage(correctlyFormatted=True), content_type='application/yaml', correlation_id=self.corr_id)
-
-        #STEP4: Start waiting for the messages that are triggered by this request
-        self.waitForFirstEvent(timeout=10, msg='Wait for message from SLM to IA to request resources timed out.')
+        service_dict = {}
+        self.vnfcounter = 0
+        service_id = str(uuid.uuid4())
+        corr_id = str(uuid.uuid4())
+        service_dict[service_id] = {'schedule': ['get_ledger'],
+                                    'original_corr_id':corr_id,
+                                    'pause_chain': True,
+                                    'function': []}
 
 
-###############################################################################
-#TEST7: Test reaction to negative response on deployment message to/from IA
-###############################################################################
-    def on_slm_infra_adaptor_vim_list_test7(self, ch, method, properties, message):
-        """
-        This method replies to a request of the SLM to the IA to get the
-        VIM-list.
-        """
+        path = '/plugins/son-mano-service-lifecycle-management/test/'
 
-        if properties.app_id == 'son-plugin.ServiceLifecycleManager':
-            VIM_list = [{'vim_uuid':uuid.uuid4().hex}]
-            self.manoconn_ia.notify('infrastructure.management.compute.list', yaml.dump(VIM_list), correlation_id=properties.correlation_id)
+        vnfd1 = open(path + 'test_descriptors/firewall-vnfd.yml', 'r')
+        vnfd2 = open(path + 'test_descriptors/iperf-vnfd.yml', 'r')
+        vnfd3 = open(path + 'test_descriptors/tcpdump-vnfd.yml', 'r')
 
-    def on_slm_infra_adaptor_service_deploy_request_test7(self, ch, method, properties, message):
-        """
-        This method fakes a message from the IA to the SLM that indicates that
-        the deployment has failed.
-        """
+        service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd1),
+                                                'id': str(uuid.uuid4()),
+                                                'vim_uuid': str(uuid.uuid4())})
+        service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd2),
+                                                'id': str(uuid.uuid4()),
+                                                'vim_uuid': str(uuid.uuid4())})
+        service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd3),
+                                                'id': str(uuid.uuid4()),
+                                                'vim_uuid': str(uuid.uuid4())})
 
-        if properties.app_id == 'son-plugin.ServiceLifecycleManager':
-            reply_message = {'request_status':'failed'}
-            self.manoconn_ia.notify('infrastructure.service.deploy', yaml.dump(reply_message), correlation_id=properties.correlation_id)
+        #Set the ledger
+        self.slm_proc.set_services(service_dict)
 
-    def on_slm_gk_service_deploy_request_failed(self, ch, method, properties, message):
-        """
-        This method checks whether the message from the SLM to the GK to
-        indicate that the deployment failed is correctly formatted.
-        """
-        msg = yaml.load(message)
+        #Spy the message bus
+        self.manoconn_spy.subscribe(on_vnf_deploy_subtest1, 
+                                    'mano.function.deploy')
 
-        #We don't want to trigger on the first response (the async_call), but only on the second(the notify) and we don't want to trigger on our outgoing message.
-        if properties.app_id == 'son-plugin.ServiceLifecycleManager':
-            if msg['status'] != 'INSTANTIATING':
+        #Wait until subscription is completed
+        time.sleep(1)
 
-                self.assertTrue(isinstance(msg, dict), msg='message is not a dictionary.')
-                self.assertEqual(msg['status'], "ERROR", msg='status is not correct.')
-                self.assertEqual(msg['error'], 'Deployment result: failed', msg='error message is not correct.')
-                self.assertTrue(isinstance(msg['timestamp'], float), msg='timestamp is not a float.')
+        #Run the method
+        self.slm_proc.vnf_deploy(service_id)
 
-                self.firstEventFinished()
+        #Wait for the test to finish
+        self.waitForFirstEvent(timeout=5)
 
-    def testReactionToNegativeReplyOnDeploymentFromIA(self):
-        """
-        When the SLM contacts the IA to request whether enough resources are
-        available, it gets a response from the IA.
-        If this response indicates that the resources are available, the SLM
-        should requestthe deployment of the service to the IA.
-        """
-
-        self.wait_for_first_event.clear()
-
-        #STEP1: Spy the topic on which the SLM will contact the infrastructure adaptor
-        self.manoconn_spy.subscribe(self.on_slm_infra_adaptor_vim_list_test7, 'infrastructure.management.compute.list')
-
-        #STEP2: Spy the topic on which the SLM will contact the IA the second time, to request the deployment of the service
-        self.manoconn_ia.subscribe(self.on_slm_infra_adaptor_service_deploy_request_test7, 'infrastructure.service.deploy')
-
-        #STEP3: Spy the topic on which the SLM will contact the GK to respond that the deployment has failed.
-        self.manoconn_gk.subscribe(self.on_slm_gk_service_deploy_request_failed, 'service.instances.create')
-
-        #STEP4: Send a correctly formatted service request message (from the gk) to the SLM
-        self.manoconn_gk.call_async(self.dummy, 'service.instances.create', msg=self.createGkNewServiceRequestMessage(correctlyFormatted=True), content_type='application/yaml', correlation_id=self.corr_id)
-
-        #STEP5: Start waiting for the messages that are triggered by this request
-        self.waitForFirstEvent(timeout=15, msg='Wait for message from SLM to IA to request deployment timed out.')
+        #SUBTEST2: TODO: test that only one message is sent per vnf
 
 ###############################################################################
-#TEST8: Test Monitoring message creation.
+#TEST11: Test build_monitoring_message
 ###############################################################################
-    def testMonitoringMessageGeneration(self):
-
+    def test_build_monitoring_message(self):
         """
-        SLM should generate a message for the monitoring
-        module in order to start the monitoring process
-        to the deployed network service. This message is
-        generated from the information existing in NSD,
-        VNFDs, NSRs and VNFs. The test checks that, given
-        the sonata-demo network service, SLM correctly
-        generates the expected message for the monitoring
-        module.
+        This method tests the build_monitoring_message method
         """
 
-        #STEP1: create NSD and VNFD by reading test descriptors.
+        #Setup
         gk_request = yaml.load(self.createGkNewServiceRequestMessage())
 
-        #STEP2: add ids to NSD and VNFDs (those used in the expected message)
+        #add ids to NSD and VNFDs (those used in the expected message)
         gk_request['NSD']['uuid'] = '005606ed-be7d-4ce3-983c-847039e3a5a2'
         gk_request['VNFD1']['uuid'] = '6a15313f-cb0a-4540-baa2-77cc6b3f5b68'
         gk_request['VNFD2']['uuid'] = '645db4fa-a714-4cba-9617-4001477d1281'
         gk_request['VNFD3']['uuid'] = '8a0aa837-ec1c-44e5-9907-898f6401c3ae'
 
-        #STEP3: load nsr_file, containing both NSR and the list of VNFRs
+        #load nsr_file, containing both NSR and the list of VNFRs
         message_from_ia = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml', 'r'))
         nsr_file = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-nsr.yml', 'r'))
         vnfrs_file = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-vnfrs.yml', 'r'))
 
-        #STEP4: call real method
-        message = tools.build_monitoring_message(gk_request, message_from_ia, nsr_file, vnfrs_file)
+        vnfd_firewall = gk_request['VNFD1']
+        vnfd_iperf = gk_request['VNFD2']
+        vnfd_tcpdump = gk_request['VNFD3']
 
-        #STEP5: read expected message from descriptor file
+        vnfr_firewall = vnfrs_file[1]
+        vnfr_iperf = vnfrs_file[0]
+        vnfr_tcpdump = vnfrs_file[2]
+
+        service = {'nsd': gk_request['NSD'], 'nsr': nsr_file, 'vim_uuid': message_from_ia['instanceVimUuid']}
+        functions = []
+        functions.append({'vnfr': vnfr_iperf, 'vnfd': vnfd_iperf, 'id': vnfr_iperf['id']})
+        functions.append({'vnfr': vnfr_firewall, 'vnfd': vnfd_firewall, 'id': vnfr_firewall['id']})
+        functions.append({'vnfr': vnfr_tcpdump, 'vnfd': vnfd_tcpdump, 'id': vnfr_tcpdump['id']})
+
+        #Call the method
+        message = tools.build_monitoring_message(service, functions)
+
+        #Load expected results
         expected_message = json.load(open('/plugins/son-mano-service-lifecycle-management/test/test_descriptors/monitoring-message.json', 'r'))
 
-        #STEP6: compare that generated message is equals to the expected one
+        #Check result
         self.assertEqual(message, expected_message, "messages are not equals")
 
 ###############################################################################
-#TEST9: Test creation of the message addressed to the Monitoring Repository
+#TEST12: Test build_nsr
 ###############################################################################
-
-    def testNsrCreation(self):
-
+    def test_build_nsr(self):
         """
-        Once the Infrastructure Adapter has deployed the network
-        service, it would build the entire NSR from the information
-        provided by the Infrastructure Adapter. This test checks
-        that, given the sonata-demo network service, the IA is able
-        to build the correct NSR.
+        This method tests the build_nsr method
         """
 
-        #STEP1: create NSD and VNFD by reading test descriptors.
+        #Setup
         gk_request = yaml.load(self.createGkNewServiceRequestMessage())
+        nsd = gk_request['NSD']
 
-        #STEP2: read IA response and the expected NSR
-        ia_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml', 'r'))
+        ia_message = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml', 'r'))
         expected_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-nsr.yml', 'r'))
 
-        #STEP3: call real method
-        message = tools.build_nsr(gk_request, ia_nsr)
+        vnfr_ids = ['645db4fa-a714-4cba-9617-4001477d0000','6a15313f-cb0a-4540-baa2-77cc6b3f0000', '8a0aa837-ec1c-44e5-9907-898f64010000']
 
-        #STEP4: comprare the generated message is equals to the expected one
+        #Call method
+        message = tools.build_nsr(ia_message['nsr'], nsd, vnfr_ids)
+
+        #Check result
         self.assertEqual(message, expected_nsr, "Built NSR is not equal to the expected one")
 
 ###############################################################################
-#TEST10: Test creation of the NSR
+#TEST13: Test build_vnfr
 ###############################################################################
+    def test_build_vnfr(self):
+        """
+        This method tests the build_vnfr method
+        """
 
-    def testVnfrsCreation(self):
-        #STEP1: create NSD and VNFD by reading test descriptors.
+        #Setup
         gk_request = yaml.load(self.createGkNewServiceRequestMessage())
+        vnfd_iperf = gk_request['VNFD2']
 
-        #STEP2: read IA response and the expected NSR
-        ia_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml', 'r'))
-        expected_vnfrs = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-vnfrs.yml', 'r'))
+        ia_vnfr_iperf = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-vnfr-iperf.yml', 'r'))
+        expected_vnfr_iperf = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/expected_vnfr_iperf.yml', 'r'))
 
-        message = tools.build_vnfrs(gk_request, ia_nsr['vnfrs'])
+        #Call method
+        message = tools.build_vnfr(ia_vnfr_iperf['vnfr'], vnfd_iperf)
 
-        self.assertEqual(message, expected_vnfrs, "Built VNFRs are not equals to the expected ones")
+        #Check result
+        self.assertEqual(message, expected_vnfr_iperf, "Built VNFRs are not equals to the expected ones")
 
-
-###############################################################################
-#TEST11: Test creation of the NSR
-###############################################################################
 
 if __name__ == '__main__':
     unittest.main()
