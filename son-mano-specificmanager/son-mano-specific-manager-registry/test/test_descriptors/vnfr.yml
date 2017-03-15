@@ -1,0 +1,87 @@
+- created_at: '2016-09-13T12:37:14.338+00:00'
+  descriptor_reference: 3fd89fde-3081-425a-9756-ba15eaf673f7
+  descriptor_version: vnfr-schema-01
+  status: normal operation
+  updated_at: '2016-09-13T12:37:14.338+00:00'
+  uuid: 601f2f0c-fc56-4567-920d-231738547e40
+  version: '1'
+  virtual_deployment_units:
+  - id: vdu01
+    monitoring_parameters:
+    - {name: vm_cpu_perc, unit: Percentage}
+    - {name: vm_mem_perc, unit: Percentage}
+    - {name: vm_net_rx_bps, unit: bps}
+    - {name: vm_net_tx_bps, unit: bps}
+    number_of_instances: 1
+    resource_requirements:
+      cpu: {vcpus: 1}
+      memory: {size: 2, size_unit: GB}
+      storage: {size: 20, size_unit: GB}
+    vdu_reference: vtc-vnf:vdu01
+    vm_image: sonata-vtc
+    vnfc_instance:
+    - connection_points:
+      - id: vdu01:eth0
+        type: {address: 10.100.32.251}
+      - id: vdu01:eth1
+        type: {address: 192.0.0.10, netmask: 255.255.255.248}
+      - id: vdu01:eth2
+        type: {address: 192.0.0.18, netmask: 255.255.255.248}
+      id: 27be35b4-2452-4b6f-b878-f67a317b7ab0
+      vc_id: 4359a2b1-c9ac-4f95-ba1d-d24f07de17b1
+      vim_id: 1111-22222222-33333333-4444
+  virtual_links:
+  - connection_points_reference: ['vdu01:eth0', 'vnf:mgmt']
+    connectivity_type: E-LAN
+    dhcp: true
+    id: mgmt
+  - connection_points_reference: ['vdu01:eth1', 'vnf:input']
+    connectivity_type: E-Line
+    dhcp: true
+    id: input
+  - connection_points_reference: ['vdu01:eth2', 'vnf:output']
+    connectivity_type: E-Line
+    dhcp: true
+    id: output
+- created_at: '2016-09-13T12:37:14.667+00:00'
+  descriptor_reference: ba758582-1b4a-4019-8c66-ff8a44183bb7
+  descriptor_version: vnfr-schema-01
+  status: normal operation
+  updated_at: '2016-09-13T12:37:14.667+00:00'
+  uuid: ddc010e2-dddc-43c4-a6fd-bfe9f3c5f68f
+  version: '1'
+  virtual_deployment_units:
+  - id: '1'
+    monitoring_parameters:
+    - {name: vm_cpu_perc, unit: Percentage}
+    - {name: vm_mem_perc, unit: Percentage}
+    - {name: vm_net_rx_bps, unit: bps}
+    - {name: vm_net_tx_bps, unit: bps}
+    number_of_instances: 1
+    resource_requirements:
+      cpu: {vcpus: 1}
+      memory: {size: 1, size_unit: GB}
+      storage: {size: 1, size_unit: GB}
+    vdu_reference: fw-vnf:1
+    vm_image: sonata-vfw
+    vnfc_instance:
+    - connection_points:
+      - id: vdu01:eth0
+        type: {address: 10.100.32.250}
+      - id: vdu01:eth1
+        type: {address: 192.0.0.27, netmask: 255.255.255.248}
+      - id: vdu01:eth2
+        type: {address: 192.0.0.35, netmask: 255.255.255.248}
+      id: 27be35b4-2452-4b6f-b878-f67a317b7ab0
+      vc_id: dda5647e-9fe9-42d6-94f5-876d464cb2ea
+      vim_id: 1111-22222222-33333333-4444
+  virtual_links:
+  - connection_points_reference: ['vdu01:eth0', mgmt]
+    connectivity_type: E-LAN
+    id: mgmt
+  - connection_points_reference: ['vdu01:eth1', 'vnf:input']
+    connectivity_type: E-Line
+    id: input
+  - connection_points_reference: ['vdu01:eth2', 'vnf:output']
+    connectivity_type: E-Line
+    id: output

@@ -1,0 +1,1 @@
+Smart Function Specific Manager
