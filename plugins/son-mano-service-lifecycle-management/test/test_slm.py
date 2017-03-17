@@ -32,7 +32,6 @@ import son_mano_slm.slm_helpers as tools
 
 from unittest import mock
 from multiprocessing import Process
-import concurrent.futures as pool
 from son_mano_slm.slm import ServiceLifecycleManager
 from sonmanobase.messaging import ManoBrokerRequestResponseConnection
 from collections import namedtuple
@@ -72,10 +71,9 @@ class testSlmRegistrationAndHeartbeat(unittest.TestCase):
         del self.slm_proc
 
         #Killing the connection with the broker
-        try:
-            self.manoconn.stop_connection()
-        except Exception as e:
-            LOG.exception("Stop connection exception.")
+        self.manoconn.stop_connection()
+        self.manoconn.stop_threads()
+        del self.manoconn
 
         #Clearing the threading helpers
         del self.wait_for_event
@@ -198,20 +196,12 @@ class testSlmFunctionality(unittest.TestCase):
     """
 
     slm_proc    = None
-    manoconn_pm = None
     uuid        = '1'
     corr_id     = '1ba347d6-6210-4de7-9ca3-a383e50d0330'
 
 ########################
 #SETUP
 ########################
-    @classmethod
-    def tearDownClass(cls):
-        if cls.slm_proc is not None:
-            cls.slm_proc.terminate()
-            del cls.slm_proc
-#        cls.manoconn_pm.stop_connection()
-
     def setUp(self):
         def on_register_trigger(ch, method, properties, message):
             return json.dumps({'status': 'OK', 'uuid': self.uuid})
@@ -222,14 +212,7 @@ class testSlmFunctionality(unittest.TestCase):
         #Generate a new corr_id for every test
         self.corr_id = str(uuid.uuid4())
 
-        #Some threading events that can be used during the tests
-        self.wait_for_first_event = threading.Event()
-        self.wait_for_first_event.clear()
-
-        self.wait_for_second_event = threading.Event()
-        self.wait_for_second_event.clear()
-
-        #Deploy SLM, without registring or running it
+        #a new SLM in another process for each test
         self.slm_proc = ServiceLifecycleManager(auto_register=False, start_running=False)
 
         #We make a spy connection to listen to the different topics on the broker
@@ -239,13 +222,37 @@ class testSlmFunctionality(unittest.TestCase):
         #we need a connection to simulate messages from the infrastructure adaptor
         self.manoconn_ia = ManoBrokerRequestResponseConnection('son-plugin.SonInfrastructureAdapter')
 
+        #Some threading events that can be used during the tests
+        self.wait_for_first_event = threading.Event()
+        self.wait_for_first_event.clear()
+
+        #The uuid that can be assigned to the plugin
+        self.uuid = '1'
+
     def tearDown(self):
+        #Killing the slm
+        self.slm_proc.manoconn.stop_connection()
+        self.slm_proc.manoconn.stop_threads()
+
         try:
-            self.manoconn_spy.stop_connection()
-            self.manoconn_gk.stop_connection()
-            self.manoconn_ia.stop_connection()
-        except Exception as e:
-            LOG.exception("Stop connection exception.")
+            del self.slm_proc
+        except:
+            pass
+
+        #Killing the connection with the broker
+        self.manoconn_spy.stop_connection()
+        self.manoconn_gk.stop_connection()
+        self.manoconn_ia.stop_connection()
+
+        self.manoconn_spy.stop_threads()
+        self.manoconn_gk.stop_threads()
+        self.manoconn_ia.stop_threads()
+
+        del self.manoconn_spy
+        del self.manoconn_gk
+        del self.manoconn_ia
+
+        del self.wait_for_first_event
 
 ########################
 #GENERAL
@@ -283,7 +290,7 @@ class testSlmFunctionality(unittest.TestCase):
 
     def dummy(self, ch, method, properties, message):
         """
-        Sometimes, we need a cbf for a async_call, without actually needing it.
+        Sometimes, we need a cbf for a async_call, without actually using it.
         """
 
         return
@@ -420,7 +427,7 @@ class testSlmFunctionality(unittest.TestCase):
         self.slm_proc.start_next_task(service_id)
 
         #wait for the task to finish
-        time.sleep(1)
+        time.sleep(0.1)
         result = self.slm_proc.get_services()
 
         #Check result
@@ -456,7 +463,7 @@ class testSlmFunctionality(unittest.TestCase):
         self.slm_proc.start_next_task(service_id)
 
         #wait for the task to finish
-        time.sleep(1)
+        time.sleep(0.1)
         result = self.slm_proc.get_services()
 
         #Check result: if successful, service_id will not be a key in result
@@ -754,8 +761,6 @@ class testSlmFunctionality(unittest.TestCase):
 
         #Check result SUBTEST 1
         def on_contact_gk_subtest1(ch, mthd, prop, payload):
-            print('GOT HERE')
-
             message = yaml.load(payload)
 
             self.assertEqual(message['status'],
@@ -819,7 +824,7 @@ class testSlmFunctionality(unittest.TestCase):
         self.manoconn_spy.subscribe(on_contact_gk_subtest1, 'service.instances.create')
 
         #Wait until subscription is completed
-        time.sleep(1)
+        time.sleep(0.1)
 
         #Run the method
         self.slm_proc.contact_gk(service_id)
@@ -848,7 +853,7 @@ class testSlmFunctionality(unittest.TestCase):
         self.manoconn_gk.subscribe(on_contact_gk_subtest2, 'service.instances.create')
 
         #Wait until subscription is completed
-        time.sleep(1)
+        time.sleep(0.1)
 
         #Run the method
         self.slm_proc.contact_gk(service_id)
@@ -895,7 +900,7 @@ class testSlmFunctionality(unittest.TestCase):
                                     'infrastructure.management.compute.list')
 
         #Wait until subscription is completed
-        time.sleep(1)
+        time.sleep(0.1)
 
         #Run the method
         self.slm_proc.request_topology(service_id)
@@ -964,7 +969,7 @@ class testSlmFunctionality(unittest.TestCase):
                                     'infrastructure.service.prepare')
 
         #Wait until subscription is completed
-        time.sleep(1)
+        time.sleep(0.1)
 
         #Run the method
         self.slm_proc.ia_prepare(service_id)
@@ -1019,8 +1024,6 @@ class testSlmFunctionality(unittest.TestCase):
 
         #Check result SUBTEST 1
         def on_vnf_deploy_subtest1(ch, mthd, prop, payload):
-
-            print('GOT HERE')
             message = yaml.load(payload)
 
             self.assertIn(message,
@@ -1070,7 +1073,7 @@ class testSlmFunctionality(unittest.TestCase):
                                     'mano.function.deploy')
 
         #Wait until subscription is completed
-        time.sleep(1)
+        time.sleep(0.1)
 
         #Run the method
         self.slm_proc.vnf_deploy(service_id)

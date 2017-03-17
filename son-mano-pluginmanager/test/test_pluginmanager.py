@@ -63,6 +63,8 @@ class TestPluginManagerBase(unittest.TestCase):
         self.plugin_uuid = None
 
     def tearDown(self):
+        self.m.stop_connection()
+        self.m.stop_threads()
         del self.m
 
     def waitForMessage(self, timeout=5):
