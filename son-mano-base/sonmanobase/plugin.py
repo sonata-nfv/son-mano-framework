@@ -58,6 +58,7 @@ class ManoBasePlugin(object):
                  description=None,
                  auto_register=True,
                  wait_for_registration=True,
+                 start_running=True,
                  auto_heartbeat_rate=0.5):
         """
         Performs plugin initialization steps, e.g., connection setup
@@ -80,6 +81,7 @@ class ManoBasePlugin(object):
         # create and initialize broker connection
         self.manoconn = messaging.ManoBrokerRequestResponseConnection(self.name)
         # register subscriptions
+
         self.declare_subscriptions()
         # register to plugin manager
         if auto_register:
@@ -91,7 +93,8 @@ class ManoBasePlugin(object):
         # kick-off automatic heartbeat mechanism
         self._auto_heartbeat(auto_heartbeat_rate)
         # jump to run
-        self.run()
+        if start_running:
+            self.run()
 
     def __del__(self):
         """
@@ -101,6 +104,7 @@ class ManoBasePlugin(object):
         # de-register this plugin
         self.deregister()
         self.manoconn.stop_connection()
+        self.manoconn.stop_threads()
         del self.manoconn
 
     def _auto_heartbeat(self, rate):
@@ -192,6 +196,7 @@ class ManoBasePlugin(object):
         message = {"name": self.name,
                    "version": self.version,
                    "description": self.description}
+
         self.manoconn.call_async(self._on_register_response,
                                  "platform.management.plugin.register",
                                  json.dumps(message))
@@ -225,7 +230,6 @@ class ManoBasePlugin(object):
         self.manoconn.call_async(self._on_deregister_response,
                                  "platform.management.plugin.deregister",
                                  json.dumps(message))
-
     def _on_deregister_response(self, ch, method, props, response):
         """
         Event triggered when de-register response is received.

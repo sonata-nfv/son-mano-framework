@@ -20,11 +20,40 @@
 ## partner consortium (www.sonata-nfv.eu).
 
 ---
-instanceName: "sonata-demo9df6a98f-9e11-4cb7-b3c0-InAdUnitTest-02"
-instanceVimUuid: "4003b02c-2515-48ee-a2a0-cdf85894ccdb"
-nsr:
+vnfr:
   status: "offline"
-  descriptor_version: "nsr-schema-01"
-  id: "9df6a98f-9e11-4cb7-b3c0-InAdUnitTest-02"
-  descriptor_reference: "9df6a98f-9e11-4cb7-b3c0-b1375e7cb0b0"
+  connection_points:
+  - id: 'vnf:cp01'
+    type:
+        address: "10.0.0.1"
+  - id: 'vnf:cp02'
+    type:
+        address: "10.0.0.2"
+  - id: 'vnf:cp03'
+    type:
+        address: "10.0.0.3"
+  descriptor_version: "vnfr-schema-01"
+  id: "645db4fa-a714-4cba-9617-4001477d0000"
+  descriptor_reference: "645db4fa-a714-4cba-9617-4001477d1281"
+  virtual_deployment_units:
+  - id: "vdu01"
+    vm_image: "TestVM"
+    vdu_reference: "iperf-vnf:vdu01"
+    number_of_instances: 1
+    vnfc_instance:
+    - id: "9df6a98f-9e11-4cb7-b3c0-InAdUnitTest-02"
+      vim_id: "5b780368-0f66-4c7a-8c10-4b7213100605"
+      vc_id: "1772a2ce-3bbb-4dca-b39d-42980bd7bc1c"
+      connection_points:
+      - id: "vdu01:cp01"
+        type:
+          address: "10.31.12.124"
+      - id: "vdu01:cp02"
+        type:
+          address: "172.0.3.98"
+          netmask: "255.255.255.248"
+      - id: "vdu01:cp03"
+        type:
+          address: "172.0.3.106"
+          netmask: "255.255.255.248"
 request_status: "DEPLOYED"

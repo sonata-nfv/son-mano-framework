@@ -43,6 +43,8 @@ class BaseTestCase(unittest.TestCase):
         self.m = None
 
     def tearDown(self):
+        self.m.stop_connection()
+        self.m.stop_threads()
         del self.m
 
     def _simple_subscribe_cbf1(self, ch, method, props, body):

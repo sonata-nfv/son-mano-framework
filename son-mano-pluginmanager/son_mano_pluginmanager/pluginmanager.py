@@ -32,8 +32,10 @@ This is the main module of the plugin manager component.
 import logging
 import json
 import datetime
+import yaml
 import uuid
 import os
+import time
 from mongoengine import DoesNotExist
 
 from sonmanobase.plugin import ManoBasePlugin
@@ -68,8 +70,8 @@ class SonPluginManager(ManoBasePlugin):
         """
         Declare topics to which we want to listen and define callback methods.
         """
-        self.manoconn.register_async_endpoint(self._on_register, "platform.management.plugin.register")
-        self.manoconn.register_async_endpoint(self._on_deregister, "platform.management.plugin.deregister")
+        self.manoconn.subscribe(self._on_register, "platform.management.plugin.register")
+        self.manoconn.subscribe(self._on_deregister, "platform.management.plugin.deregister")
         self.manoconn.register_notification_endpoint(self._on_heartbeat, "platform.management.plugin.*.heartbeat")
 
     def _send_lifecycle_notification(self, plugin, operation):
@@ -119,6 +121,11 @@ class SonPluginManager(ManoBasePlugin):
         :param message: request body
         :return: response message
         """
+
+        #Don't trigger on messages coming from the PM
+        if properties.app_id == self.name:
+            return
+
         message = json.loads(str(message))
         pid = str(uuid.uuid4())
         # create a entry in our plugin database
@@ -129,10 +136,9 @@ class SonPluginManager(ManoBasePlugin):
             description=message.get("description"),
             state="REGISTERED"
         )
+
         p.save()
         LOG.info("REGISTERED: %r" % p)
-        # broadcast a plugin status update to the other plugin
-        self.send_plugin_status_update()
         # return result
         response = {
             "status": "OK",
@@ -142,7 +148,10 @@ class SonPluginManager(ManoBasePlugin):
             "uuid": pid,
             "error": None
         }
-        return json.dumps(response)
+        self.manoconn.notify(
+            'platform.management.plugin.register', json.dumps(response), correlation_id=properties.correlation_id)
+        # broadcast a plugin status update to the other plugin
+        self.send_plugin_status_update()
 
     def _on_deregister(self, ch, method, properties, message):
         """

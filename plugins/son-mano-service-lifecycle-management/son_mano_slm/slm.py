@@ -27,11 +27,15 @@ This is SONATA's service lifecycle management plugin
 import logging
 import yaml
 import time
-import requests
-import uuid
-import threading
-import json
 import os
+import requests
+import copy
+import uuid
+import json
+import threading
+import sys
+import concurrent.futures as pool
+#import psutil
 
 from sonmanobase.plugin import ManoBasePlugin
 try:
@@ -39,13 +43,23 @@ try:
 except:
     import slm_helpers as tools
 
+try:
+    from son_mano_slm import slm_helpers_old as oldtools
+except:
+    import slm_helpers_old as oldtools
+
+try:
+    from son_mano_slm import slm_topics as t
+except:
+    import slm_topics as t
+
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("plugin:slm")
 LOG.setLevel(logging.DEBUG)
 
-#
-# Configurations
-#
+# Declaration of topics, to be removed after transition
+# To new SLM is completed
+
 # The topic to which service instantiation requests
 # of the GK are published
 GK_INSTANCE_CREATE_TOPIC = "service.instances.create"
@@ -77,11 +91,12 @@ MONITORING_REPOSITORY_URL = os.environ.get("url_monitoring_server")
 class ServiceLifecycleManager(ManoBasePlugin):
     """
     This class implements the service lifecycle manager.
-
-    see: https://github.com/sonata-nfv/son-mano-framework/issues/23
     """
 
-    def __init__(self):
+    def __init__(self,
+                 auto_register=True,
+                 wait_for_registration=True,
+                 start_running=True):
         """
         Initialize class and son-mano-base.plugin.BasePlugin class.
         This will automatically connect to the broker, contact the
@@ -92,12 +107,52 @@ class ServiceLifecycleManager(ManoBasePlugin):
         'on_lifecycle_start' method is called.
         :return:
         """
+
+        # Create the ledger that saves state
+        self.services = {}
+
+        #The frequency of state sharing events
+        self.state_share_frequency = 1
+
+        # Create a configuration dict that contains config info of SLM
+        # Setting the number of SLMs and the rank of this SLM
+        self.slm_config = {}
+        self.slm_config['slm_rank'] = 0
+        self.slm_config['slm_total'] = 1
+        self.slm_config['old_slm_rank'] = 0
+        self.slm_config['old_slm_total'] = 1
+        self.slm_config['tasks_other_slm'] = {}
+
+        # Create the list of known other SLMs
+        self.known_slms = []
+
+        self.thrd_pool = pool.ThreadPoolExecutor(max_workers=10)
+
+        # Create some flags that will be used for SLM management
+        self.bufferAllRequests = False
+        self.bufferOldRequests = False
+        self.deltaTnew = 1
+        self.deltaTold = 1
+
+        self.old_reqs = {}
+        self.new_reqs = {}
+
+        self.flm_ledger = {}
+
+        # The following can be removed once transition is done
         self.service_requests_being_handled = {}
         self.service_updates_being_handled = {}
 
         # call super class (will automatically connect to
         # broker and register the SLM to the plugin manger)
-        super(self.__class__, self).__init__(version="0.1-dev", description="This is the SLM plugin")
+        ver = "0.1-dev"
+        des = "This is the SLM plugin"
+
+        super(self.__class__, self).__init__(version=ver, 
+                                             description=des,                  
+                                             auto_register=auto_register,
+                                             wait_for_registration=wait_for_registration,
+                                             start_running=start_running)
 
     def __del__(self):
         """
@@ -108,29 +163,45 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
     def declare_subscriptions(self):
         """
-        Declare topics to subscribe to.
+        Declare topics that SLM subscribes on.
         """
         # We have to call our super class here
         super(self.__class__, self).declare_subscriptions()
-        #
-        # GK <-> SLM interface
-        #
-        # We want to subscribe SERVICE.INSTANCE.CREATE to react on GK messages
-        self.manoconn.register_async_endpoint(
-            self.on_gk_service_instance_create, # function called when message received
-            GK_INSTANCE_CREATE_TOPIC)           # topic to listen to
 
+        # The topic on which deploy requests are posted.
+        self.manoconn.subscribe(self.service_instance_create, t.GK_CREATE)
+
+        # The topic on which pause requests are posted.
+        self.manoconn.subscribe(self.service_instance_pause, t.GK_PAUSE)
+
+        # The topic on which resume requests are posted.
+        self.manoconn.subscribe(self.service_instance_resume, t.GK_RESUME)
+
+        # The topic on which termination requests are posted.
+        self.manoconn.subscribe(self.service_instance_kill, t.GK_KILL)
+
+        # The topic on which SLMs share state with eachother
+        self.manoconn.subscribe(self.inter_slm, t.MANO_STATE)
+
+        # The topic on which update requests are posted.
+        self.manoconn.subscribe(self.service_update, t.GK_UPDATE)
+
+        # The topic on which plugin status info is shared
+        self.manoconn.subscribe(self.plugin_status, t.PL_STATUS)
+
+        # The topic on which the FLM receives deploy request from SLM
+        self.manoconn.subscribe(self.flm_deploy, t.MANO_DEPLOY)
+
+        # To be removed when transition to new SLM is completed
         self.manoconn.register_async_endpoint(
             self.on_gk_service_update,
-            GK_INSTANCE_UPDATE)
+			GK_INSTANCE_UPDATE)
 
-    def on_lifecycle_start(self, ch, method, properties, message):
+    def on_lifecycle_start(self, ch, mthd, prop, msg):
         """
         This event is called when the plugin has successfully registered itself
         to the plugin manager and received its lifecycle.start event from the
         plugin manager. The plugin is expected to do its work after this event.
-
-        This is a default method each plugin should implement.
 
         :param ch: RabbitMQ channel
         :param method: RabbitMQ method
@@ -138,16 +209,1035 @@ class ServiceLifecycleManager(ManoBasePlugin):
         :param message: RabbitMQ message content
         :return:
         """
-        super(self.__class__, self).on_lifecycle_start(ch, method, properties, message)
+        super(self.__class__, self).on_lifecycle_start(ch, mthd, prop, msg)
         LOG.info("Lifecycle start event")
+
+    def deregister(self):
+        """
+        Send a deregister request to the plugin manager.
+        """
+        LOG.info('Deregistering SLM with uuid ' + self.uuid)
+        message = {"uuid": self.uuid}
+        self.manoconn.notify("platform.management.plugin.deregister",
+                            json.dumps(message))
+        os._exit(0)
+
+    def on_registration_ok(self):
+        """
+        This method is called when the SLM is registered to the plugin mananger
+        """
+        super(self.__class__, self).on_registration_ok()
+        LOG.debug("Received registration ok event.")
+
+        # This SLM is currently the only known SLM
+        self.known_slms.append(str(self.uuid))
+
+
+##########################
+# SLM Threading management
+##########################
+
+
+    def get_ledger(self, serv_id):
+
+        return self.services[serv_id] 
+
+    def get_services(self):
+
+        return self.services
+
+    def set_services(self, service_dict):
+
+        self.services = service_dict
+
+        return
+
+    def start_next_task(self, serv_id):
+        """
+        This method makes sure that the next task in the schedule is started
+        when a task is finished, or when the first task should begin.
+
+        :param serv_id: the instance uuid of the service that is being handled.
+        :param first: indicates whether this is the first task in a chain.
+        """
+
+        # Select the next task, only if task list is not empty
+        if len(self.services[serv_id]['schedule']) > 0:
+
+            #share state with other SLMs
+            next_task = getattr(self, self.services[serv_id]['schedule'].pop(0))
+
+            # Push the next task to the threadingpool
+            task = self.thrd_pool.submit(next_task, serv_id)
+
+            # Log the result of the task, for future reference
+#            new_log = [next_task, task.result()]
+#            self.services[serv_id]['task_log'].append(new_log)
+
+            # Log if a task fails
+            if task.exception() is not None:
+                print(task.result())
+
+#            if tasknumber % (1 / self.state_share_frequency) == 0:
+#                self.slm_share('IN PROGRESS', self.services[serv_id])
+
+            # When the task is done, the next task should be started if no flag
+            # is set to pause the chain.
+            if self.services[serv_id]['pause_chain']:
+                self.services[serv_id]['pause_chain'] = False
+            else:
+                self.start_next_task(serv_id)
+
+
+        else:
+            #share state with other SLMs
+            self.slm_share('DONE', self.services[serv_id])
+
+            del self.services[serv_id]
+
+####################
+# SLM input - output
+####################
+
+    def plugin_status(self, ch, method, properties, payload):
+        """
+        This method is called when the plugin manager broadcasts new
+        information on the plugins.
+        """
+        #TODO: needs unit testing
+
+        message = yaml.load(payload)
+
+        # If the plugin configuration has changed, it needs to be checked
+        # whether the number of SLMs has changed.
+        self.update_slm_configuration(message['plugin_dict'])
+
+    def slm_down(self):
+        """
+        This method is called when this SLM notices that another SLM
+        has gone missing. This SLM needs to determine whether it should
+        take over unfinished tasks from this SLM.
+        """
+        #TODO: needs unit testing
+
+        for serv_id in self.slm_config['tasks_other_slm'].keys():
+
+            # TODO: only take over when ID's match
+            LOG.info('SLM down, taking over requests')
+            self.services[serv_id] = self.slm_config['tasks_other_slm'][serv_id]
+
+            if 'schedule' not in self.services[serv_id].keys():
+                del self.services[serv_id]
+                ch = self.slm_config['tasks_other_slm'][serv_id]['ch']
+                method = self.slm_config['tasks_other_slm'][serv_id]['method']
+                properties = self.slm_config['tasks_other_slm'][serv_id]['properties']
+                payload = self.slm_config['tasks_other_slm'][serv_id]['payload']
+
+                self.service_instance_create(ch, method, properties, payload)
+
+            else:
+                self.start_next_task(serv_id)
+
+        self.slm_config['tasks_other_slm'] = {}
+
+    def inter_slm(self, ch, method, properties, payload):
+        """
+        This method handles messages that are shared between different SLMs.
+        """
+        #TODO: needs unit testing
+
+        msg = yaml.load(payload)
+
+        if msg['slm_id'] != str(self.uuid):
+
+            if msg['status'] == 'DONE':
+                if (str(msg['corr_id'])) in self.slm_config['tasks_other_slm'].keys():
+                    del self.slm_config['tasks_other_slm'][str(msg['corr_id'])]
+
+            if msg['status'] == 'IN PROGRESS':
+                self.slm_config['tasks_other_slm'][str(msg['corr_id'])] = msg['state']
+
+
+    def service_instance_create(self, ch, method, properties, payload):
+        """
+        This function handles a received message on the *.instance.create
+        topic.
+        """
+
+        # Check if the messages comes from the GK or is forward by another SLM
+        message_from_gk = True
+        if properties.app_id == self.name:
+            message_from_gk = False     
+            if properties.reply_to is None:
+                return
+        
+        # Bypass for backwards compatibility, to be removed after transition 
+        # to new version of SLM is completed
+        message = yaml.load(payload)
+        if 'NSD' in message.keys():
+            if message['NSD']['descriptor_version'] == '1.0':
+                response = self.on_gk_service_instance_create(ch, method, properties, payload)
+                self.manoconn.notify(GK_INSTANCE_CREATE_TOPIC, response, correlation_id=properties.correlation_id)
+
+        # Extract the correlation id and generate a reduced id
+        corr_id = properties.correlation_id
+        reduced_id = tools.convert_corr_id(corr_id) 
+
+        # If the message comes from another SLM, check if the request has made
+        # a round trip
+        if not message_from_gk:
+            roundtrip = (reduced_id % self.slm_config['slm_total'] == self.slm_config['slm_rank'])
+
+            if roundtrip:
+                # If the message made a round trip, a new SLM should be started
+                # as this implies that the resources are exhausted 
+                deploy_new_slm()
+
+            else:
+                # TODO: check if this SLM has the resources for this request
+                has_enough_resources = True
+                if has_enough_resources:
+                    pass
+                else:
+                    # TODO: forward to next SLM
+                    return
+
+        # Start handling the request
+        message = yaml.load(payload)
+
+        # Add the service to the ledger
+        serv_id = self.add_service_to_ledger(message, corr_id)
+
+        # Schedule the tasks that the SLM should do for this request.
+        add_schedule = []
+        
+        add_schedule.append('validate_deploy_request')
+        add_schedule.append('contact_gk')
+        add_schedule.append('request_topology')
+
+        add_schedule.append('SLM_mapping')
+
+        if 'service_specific_managers' in self.services[serv_id]['service']['nsd']:
+            # TODO
+            pass
+        else:
+            # If no SSMs are defined, the SLM performs the mapping
+            add_schedule.append('SLM_mapping')
+
+        add_schedule.append('ia_prepare')
+        add_schedule.append('vnf_deploy')
+        add_schedule.append('vnf_chain')
+        add_schedule.append('wan_configure')
+        add_schedule.append('instruct_monitoring')
+        add_schedule.append('inform_gk')
+
+#        if 'service_specific_managers' in self.services[serv_id]['NSD']:
+#            add_schedule.append('onboard_ssms')
+#            add_schedule.append('instant_ssms')
+#            add_schedule.append('trigger_master_ssm')
+
+
+        self.services[serv_id]['schedule'].extend(add_schedule)
+
+        # Start the chain of tasks
+        self.start_next_task(serv_id)
+
+        return self.services[serv_id]['schedule']
+
+    def service_instance_pause(self, ch, method, prop, payload):
+
+        pass
+
+    def service_instance_resume(self, ch, method, prop, payload):
+
+        pass
+
+    def service_instance_kill(self, ch, method, prop, payload):
+
+        pass
+
+    def service_update(self, ch, method, prop, payload):
+
+        pass
+
+
+    def resp_topo(self, ch, method, prop, payload):
+        """
+        This function handles responses to topology requests made to the
+        infrastructure adaptor.
+        """
+        message = yaml.load(payload)
+
+        # Retrieve the service uuid
+        serv_id = tools.serv_id_from_corr_id(self.services, prop.correlation_id)
+
+        # Add topology to ledger
+        self.services[serv_id]['infrastructure']['topology'] = message
+
+        # Continue with the scheduled tasks
+        self.start_next_task(serv_id)
+
+
+    def resp_onboard(self, ch, method, prop, payload): 
+        """
+        This function handles responses to a request to onboard the ssms
+        of a new service.
+        """
+        #TODO: Test this method
+
+        # Retrieve the service uuid
+        serv_id = tools.serv_id_from_corr_id(self.services, prop.correlation_id)
+
+        message = yaml.load(payload)
+
+        # TODO: What to do if onboarding fails?
+
+        # Continue with the scheduled tasks
+        self.start_next_task(serv_id)
+
+    def resp_instant(self, ch, method, prop, payload):
+        """
+        This function handles responses to a request to onboard the ssms
+        of a new service.
+        """
+        #TODO: Test this method
+
+        # Retrieve the service uuid
+        serv_id = tools.serv_id_from_corr_id(self.services, prop.correlation_id)
+
+        message = yaml.load(payload)
+
+        # TODO: What to do inf instantiation of SSM fails?
+        # TODO: SRM should respond with a list of SSM uuids, so the SLM
+        # knows which topics to use to contact the SSMs
+
+        new_active_ssm = {}
+        new_active_ssm['id'] = message['id']
+        new_active_ssm['uuid'] = message['uuid']
+        new_active_ssm['executive'] = message['executive']
+        self.services[serv_id]['service']['SSMs'].append(new_active_ssm)
+
+        # Add SSM uuids to ledger with their names.
+#        ssm_list = self.services[serv_id]['service']['nsd']['service_specific_managers']
+
+        # Continue with the scheduled tasks
+        self.start_next_task(serv_id)
+
+    def resp_task(self, ch, method, prop, payload):
+        """
+        This method handles updates of the task schedule by the an SSM.
+        """
+        #TODO: Test this method
+
+        message = yaml.load(payload)
+
+        # Retrieve the service uuid
+        serv_id = tools.serv_id_from_corr_id(self.services, prop.correlation_id)
+
+        # Convert method string names into method pointers and add to ledger
+        schedule = [getattr(self, x['task']) for x in message]
+        self.services[serv_id]['schedule'] = schedule
+
+        # Add attributes for these methods to the ledger.
+        for task in message:
+            if task['attributes'] != None:
+                self.services[serv_id][task['task']] = task['attributes']
+
+        # Continue with the scheduled tasks
+        self.start_next_task(serv_id)
+
+    def resp_place(self, ch, method, prop, payload):
+        """
+        This method handles a placement performed by an SSM.
+        """
+        #TODO: Test this method
+
+        message = yaml.load(payload)
+
+        # Retrieve the service uuid
+        serv_id = tools.serv_id_from_corr_id(self.services, prop.correlation_id)
+
+        # Add placement information to the ledger
+        self.services[serv_id]['service']['mapping'] = message['placement']
+
+        self.start_next_task(serv_id)
+
+    def resp_vnf_depl(self, ch, method, prop, payload):
+        """
+        This method handles a response from the FLM to a vnf deploy request.
+        """
+
+        LOG.info('VNF deployed')
+        message = yaml.load(payload)
+
+        # Retrieve the service uuid
+        serv_id = tools.serv_id_from_corr_id(self.services, prop.correlation_id)
+
+        for function in self.services[serv_id]['function']:
+            if function['id'] == message['vnfr']['id']:
+                function['vnfr'] = message['vnfr']
+                
+        # TODO: implement what to do if deployment failed
+
+        vnfs_to_depl = self.services[serv_id]['vnfs_to_deploy'] - 1 
+        self.services[serv_id]['vnfs_to_deploy'] = vnfs_to_depl
+
+        # Only continue if all vnfs are deployed
+        if vnfs_to_depl == 0:
+            self.services[serv_id]['act_corr_id'] = None
+            self.start_next_task(serv_id)
+
+    def resp_prepare(self, ch, method, prop, payload):
+        """
+        This method handles a response to a prepare request.
+        """
+
+        # Retrieve the service uuid
+        serv_id = tools.serv_id_from_corr_id(self.services, prop.correlation_id)
+
+        message = yaml.load(payload)
+
+        if message['error'] is None:
+            LOG.info("Infrastructure is prepared , continuing with workflow")
+            self.start_next_task(serv_id)
+        else:
+            LOG.info("Error occured while preparing vims, aborting workflow")
+            self.services[serv_id]['status'] = 'ABORTED'
+            self.services[serv_id]['error'] = message['error']
+            self.services[serv_id]['schedule'] = ['contact_gk']
+            self.start_next_task(serv_id)
+
+
+    def contact_gk(self, serv_id):
+        """
+        This method handles communication towards the gatekeeper.`
+
+        :param serv_id: the instance uuid of the service
+        """
+
+        # Get the correlation_id for the message
+        corr_id = self.services[serv_id]['original_corr_id']
+
+        #Build the message for the GK
+        message = {}
+        message['status'] = self.services[serv_id]['status']
+        message['error'] = self.services[serv_id]['error']
+        message['timestamp'] = time.time()
+
+        if 'add_content' in self.services[serv_id].keys():
+            message.update(self.services[serv_id]['add_content'])
+
+        payload = yaml.dump(message)
+        self.manoconn.notify(t.GK_CREATE, payload, correlation_id=corr_id)
+
+    def request_topology(self, serv_id):
+        """
+        This method is used to request the topology of the available
+        infrastructure from the Infrastructure Adaptor.
+
+        :param serv_id: The instance uuid of the service
+        """
+
+        # Generate correlation_id for the call, for future reference
+        corr_id = str(uuid.uuid4())
+        self.services[serv_id]['act_corr_id'] = corr_id
+
+        self.manoconn.call_async(self.resp_topo,
+                                 t.IA_TOPO,
+                                 None,
+                                 correlation_id=corr_id)
+
+        # Pause the chain of tasks to wait for response
+        self.services[serv_id]['pause_chain'] = True
+
+    def ia_prepare(self, serv_id):
+        """
+        This method informs the IA which PoPs will be used and which
+        type the image will be (by linking the image)
+
+        :param serv_id: The instance uuid of the service
+        """
+
+        # Build mapping message for IA
+        IA_mapping = {}
+        for function in self.services[serv_id]['function']:
+            vim_uuid = function['vim_uuid']
+            vm_image = function['vnfd']['virtual_deployment_units'][0]['vm_image']
+
+            if vim_uuid in IA_mapping.keys():
+                IA_mapping[vim_uuid]['vm_images'].append(vm_image)
+            else:
+                IA_mapping[vim_uuid] = {}
+                IA_mapping[vim_uuid]['vm_images'] = [vm_image]
+
+        # Add correlation id to the ledger for future reference
+        corr_id = str(uuid.uuid4())
+        self.services[serv_id]['act_corr_id'] = corr_id
+
+        # Send this mapping to the IA
+        self.manoconn.call_async(self.resp_prepare,
+                                 t.IA_PREPARE,
+                                 yaml.dump(IA_mapping),
+                                 correlation_id=corr_id)
+
+        # Pause the chain of tasks to wait for response
+        self.services[serv_id]['pause_chain'] = True
+
+    def vnf_deploy(self, serv_id):
+        """
+        This method triggeres the deployment of all the vnfs.
+        """
+
+        functions = self.services[serv_id]['function']
+        self.services[serv_id]['vnfs_to_deploy'] = len(functions)
+
+        self.services[serv_id]['act_corr_id'] = []
+
+        for function in functions:
+
+            corr_id = str(uuid.uuid4())
+            self.services[serv_id]['act_corr_id'].append(corr_id)
+
+            message = function
+            self.manoconn.call_async(self.resp_vnf_depl,
+                                     t.MANO_DEPLOY, 
+                                     yaml.dump(message), 
+                                     correlation_id=corr_id)
+
+        self.services[serv_id]['pause_chain'] = True
+
+
+    def onboard_ssms(self, serv_id):
+        """
+        This method instructs the ssm registry manager to onboard the
+        required SSMs.
+
+        :param serv_id: The instance uuid of the service
+        """
+
+        corr_id = str(uuid.uuid4())
+        # Sending the NSD to the SRM triggers it to onboard the ssms
+        msg = {}
+        msg['NSD'] = self.services[serv_id]['service']['nsd']
+        msg['VNFD'] = []
+        for function in self.services[serv_id]['function']:
+            msg['VNFD'].append(function['vnfd'])
+
+        pyld = yaml.dump(msg)
+        self.manoconn.call_async(self.resp_onboard,
+                                 t.SRM_ONBOARD,
+                                 pyld,
+                                 correlation_id=corr_id)
+
+        # Add correlation id to the ledger for future reference
+        self.services[serv_id]['act_corr_id'] = corr_id
+
+        # Pause the chain of tasks to wait for response
+        self.services[serv_id]['pause_chain'] = True
+
+    def instant_ssms(self, serv_id, ssm_id):
+        """
+        This method instructs the ssm registry manager to instantiate the
+        required SSMs.
+
+        :param serv_id: The instance uuid of the service
+        :param ssm_id: which ssm you want to deploy
+        """
+
+        corr_id = str(uuid.uuid4())        
+        #find ssm descriptor in NSD from ssm_id
+        for ssm in self.services[serv_id]['service']['nsd']['servic_specific_managers']:
+            if ssm['id'] == ssm_id:
+                msg = {'id':ssm_id, 'image': ssm['image']}
+
+        pyld = yaml.dump(msg)
+
+        self.manoconn.call_async(self.resp_instant,
+                                 t.SRM_INSTANT,
+                                 pyld,
+                                 correlation_id=corr_id)
+
+        # Add correlation id to the ledger for future reference
+        self.services[serv_id]['act_corr_id'] = corr_id
+
+        # Pause the chain of tasks to wait for response
+        self.services[serv_id]['pause_chain'] = True
+
+    def trigger_master_ssm(self, serv_id):
+        """
+        This method contacts the master SSM and allows it to update
+        the task schedule.
+
+        :param serv_id: the instance uuid of the service
+        """
+
+        corr_id = str(uuid.uuid4())
+        self.services[serv_id]['act_corr_id'] = corr_id
+
+        # Select the master SSM and create topic to reach it on
+        master_ssm = self.services[serv_id]['service']['ssm'][0]
+        topic = str(master_ssm['executive']) + '.executive.request'
+
+        # Convert schedule of method pointers into list of method string names
+        schedule_pointer = self.services[serv_id]['schedule']
+        schedule_string = [x.__name__ for x in schedule_pointer]
+        message = {'uuid': master_ssm['uuid'], 'schedule': schedule_string}
+
+        # Contact SSM
+        payload = yaml.dump(message)
+        self.manoconn.call_async(self.resp_task,
+                                 topic,
+                                 payload,
+                                 correlation_id=corr_id)
+
+        # Pause the chain of tasks to wait for response
+        self.services[serv_id]['pause_chain'] = True
+
+    def req_placement_from_ssm(self, serv_id):
+        """
+        This method requests the placement by an ssm.
+
+        :param serv_id: The instance uuid of the service.
+        """
+
+        corr_id = str(uuid.uuid4())
+        self.services[serv_id]['act_corr_id'] = corr_id
+
+        # build message for placement SSM
+        nsd = self.services[serv_id]['service']['nsd']
+        top = self.services[serv_id]['infrastructure']['topology']
+        message = {'NSD': nsd, 'Topology': top}
+
+        # Create topic to reach placement SSM on. This topic is set
+        # by the master ssm
+        func_name = sys._getframe().f_code.co_name
+        ssm = self.services[serv_id][func_name]['ssm']
+        ssm_uuid = str(self.services[serv_id]['service']['ssm'][ssm])
+        topic = 'ssm.management.' + ssm_uuid + '.place'
+
+        # Contact SSM
+        payload = yaml.dump(message)
+        self.manoconn.call_async(self.resp_place,
+                                 topic,
+                                 payload,
+                                 correlation_id=corr_id)
+
+        # Pause the chain of tasks to wait for response
+        self.services[serv_id]['pause_chain'] = True
+
+    def slm_share(self, status, content):
+
+        message = {'status':status, 'state':content, 'corr_id': content['original_corr_id'], 'slm_id': self.uuid}
+        payload = yaml.dump(message)
+        self.manoconn.notify('mano.inter.slm', payload)
+
+    def flm_deploy(self, ch, method, prop, payload):
+        """
+        This methods fakes the FLM by handling requests from the SLM to dpeloy
+        a specific function
+        """
+
+        message = yaml.load(payload)
+
+        if 'vnfd' in message.keys():
+
+            outg_message = {}
+            outg_message['vnfd'] = message['vnfd']
+            outg_message['vnfd']['instance_uuid'] = message['id']
+            outg_message['vim_uuid'] = message['vim_uuid']
+
+            payload = yaml.dump(outg_message)
+
+            corr_id = str(uuid.uuid4())
+            #adding the vnfd to the flm ledger
+            self.flm_ledger[corr_id] = {}
+            self.flm_ledger[corr_id]['vnfd'] = message['vnfd']
+            self.flm_ledger[corr_id]['orig_corr_id'] = prop.correlation_id
+
+            # Contact the IA
+            self.manoconn.call_async(self.IA_deploy_response,
+                                     t.IA_DEPLOY,
+                                     payload,
+                                     correlation_id=corr_id)
+
+    def IA_deploy_response(self, ch, method, prop, payload):
+        """
+        This method fakes the FLMs reaction to a IA response.
+        """
+
+        # When the IA responses, the FLM builds the record and then 
+        # forwards this to the SLM.
+        # TODO: situation where the status is negative    
+        # TODO: build record
+
+        inc_message = yaml.load(payload)
+
+        # Getting vnfd from the FLM ledger
+        vnfd = self.flm_ledger[prop.correlation_id]['vnfd']
+
+        error = inc_message['error']
+
+        if inc_message['status'] != 'failed':
+
+            # Build the record
+            vnfr = tools.build_vnfr(inc_message['vnfr'], vnfd)
+        
+            # Store the record
+            try:
+                vnfr_response = requests.post(t.VNFR_REPOSITORY_URL + 'vnf-instances', data=yaml.dump(vnfr), headers={'Content-Type':'application/x-yaml'}, timeout=1.0)
+                LOG.info('repo response for vnfr: ' + str(vnfr_response))
+
+                if (vnfr_response.status_code == 200):
+                    pass
+                #If storage fails, add error code and message to rply to gk
+                else:
+                    error = {'http_code': vnfr_response.status_code, 'message': vnfr_response.json()}
+                    LOG.info('vnfr to repo failed: ' + str(message_for_gk['error']['vnfr']))
+            except:
+                error = {'http_code': '0', 'message': 'Timeout when contacting server'}
+                LOG.info('time-out on vnfr to repo')
+
+
+        # Build the message for the SLM
+        outg_message = {}
+        outg_message['status'] = inc_message['status']
+        outg_message['error'] = error
+        outg_message['vnfr'] = vnfr
+        outg_message['inst_id'] = vnfd['instance_uuid']
+
+        self.manoconn.notify(t.MANO_DEPLOY,
+                             yaml.dump(outg_message),
+                             correlation_id=self.flm_ledger[prop.correlation_id]['orig_corr_id'])    
+
+    def vnf_chain(self, serv_id):
+        """
+        This method instructs the IA how to chain the functions together.        
+        """
+
+        corr_id = str(uuid.uuid4())
+        self.services[serv_id]['act_corr_id'] = corr_id
+
+        # TODO: what is the format of the chain?
+        chain = {}
+
+        self.manoconn.call_async(self.IA_chain_response,
+                                 t.IA_CHAIN,
+                                 yaml.dump(chain),
+                                 correlation_id=corr_id)
+
+        # Pause the chain of tasks to wait for response
+        self.services[serv_id]['pause_chain'] = True
+
+    def IA_chain_response(self, ch, method, prop, payload):
+        """
+        This method handles the IA response to the chain request
+        """
+        # Get the serv_id of this service
+        serv_id = tools.serv_id_from_corr_id(self.services, prop.correlation_id)
+
+        # TODO: handle negative status
+        message = yaml.load(payload)
+
+        nsd = self.services[serv_id]['service']['nsd']
+        error = message['error']
+
+        # Store the record
+        if message['status'] != 'failed':
+            # List the vnfr ids
+            vnfr_ids = []
+            for function in self.services[serv_id]['function']:
+                vnfr_ids.append(function['id'])
+
+            nsr = tools.build_nsr(message['nsr'], nsd, vnfr_ids)
+
+            # Store nsr in the repository, catch exception when time-out occurs
+            try:
+                nsr_response = requests.post(t.NSR_REPOSITORY_URL + 'ns-instances', data=json.dumps(nsr), headers={'Content-Type':'application/json'}, timeout=1.0)
+                if (nsr_response.status_code == 200):
+                    pass
+                else:
+                    error = {'http_code': nsr_response.status_code, 'message': nsr_response.json()}
+                    LOG.info('nsr to repo failed: ' + str(message_for_gk['error']['nsr']))
+            except:
+                error = {'http_code': '0', 'message': 'Timeout when contacting server'}
+
+        # TODO: what to do with the errors?
+
+        self.services[serv_id]['service']['nsr'] = nsr
+        self.services[serv_id]['service']['vim_uuid'] = message['nsr']['instanceVimUuid']
+
+        self.start_next_task(serv_id)
+
+    def wan_configure(self, serv_id):
+        """
+        This method configures the WAN of a service
+        """
+
+        corr_id = str(uuid.uuid4())
+        self.services[serv_id]['act_corr_id'] = corr_id
+
+        message = {'service_instance_id':serv_id}
+
+        self.manoconn.call_async(self.wan_configure_response,
+                                 t.IA_CONF_WAN,
+                                 yaml.dump(message),
+                                 correlation_id=corr_id)
+
+        # Pause the chain of tasks to wait for response
+        self.services[serv_id]['pause_chain'] = True
+
+    def wan_configure_response(self, ch, method, prop, payload):
+        """
+        This method handles the IA response to the WAN request
+        """
+        # Get the serv_id of this service
+        serv_id = tools.serv_id_from_corr_id(self.services, prop.correlation_id)
+
+        message = yaml.load(payload)
+        self.services[serv_id]['status'] = message['status'] 
+        self.services[serv_id]['error'] = None
+
+        # TODO: handle negative status
+        self.start_next_task(serv_id)
+
+    def instruct_monitoring(self, serv_id):
+        """
+        This method instructs the monitoring manager to start monitoring
+        """
+        service = self.services[serv_id]['service']
+        functions = self.services[serv_id]['function']
+
+        monitoring_message = tools.build_monitoring_message(service, functions)
+
+    def inform_gk(self, serv_id):
+        """
+        This method informs the gatekeeper.
+        """
+        ledger = self.services[serv_id]
+
+        message = {}
+        message['uuid'] = serv_id
+        message['status'] = ledger['status']
+        message['error'] = ledger['error']
+        message['timestamp'] = time.time()
+        message['NSR'] = ledger['service']['nsr']
+
+        # TODO: add the VNFRs
+
+        self.manoconn.notify(t.GK_CREATE,
+                             yaml.dump(message),
+                             correlation_id=ledger['corr_id'])
+
+
+###########
+# SLM tasks
+###########
+
+    def add_service_to_ledger(self, payload, corr_id):
+        """
+        This method adds new services with their specifics to the ledger,
+        so other functions can use this information.
+
+        :param payload: the payload of the received message
+        :param corr_id: the correlation id of the received message
+        """
+
+        # Generate an istance uuid for the service
+        serv_id = str(uuid.uuid4())
+
+        # Add the service to the ledger and add instance ids
+        self.services[serv_id] = {}
+        self.services[serv_id]['service'] = {}
+        self.services[serv_id]['service']['nsd'] = payload['NSD']
+        self.services[serv_id]['service']['id'] = serv_id
+
+        self.services[serv_id]['function'] = []
+        for key in payload.keys():
+            if key[:4] == 'VNFD':
+                vnf_id = str(uuid.uuid4())
+                self.services[serv_id]['function'].append({'vnfd': payload[key], 'id':vnf_id})
+
+        # Add to correlation id to the ledger
+        self.services[serv_id]['original_corr_id'] = corr_id
+
+        # Add payload to the ledger
+        self.services[serv_id]['payload'] = payload
+
+        self.services[serv_id]['infrastructure'] = {}
+
+        # Create the service schedule
+        self.services[serv_id]['schedule'] = []
+
+        # Create a log for the task results
+        self.services[serv_id]['task_log'] = []
+
+        # Create the SSM dict
+        self.services[serv_id]['service']['ssm'] = {}
+
+        # Create counter for vnfs
+        self.services[serv_id]['vnfs_to_deploy'] = 0
+
+        # Create the chain pause flag
+
+        self.services[serv_id]['pause_chain'] = False
+
+        return serv_id
+
+    def validate_deploy_request(self, serv_id):
+        """
+        This metod checks the format of a received request. All neccesary
+        fields should be present, and the available fields should not be
+        conflicting with each other.
+
+        :param serv_id: the instance id of the service
+        """
+        payload = self.services[serv_id]['payload']
+        corr_id = self.services[serv_id]['original_corr_id']
+
+        # TODO: check whether correlation_id is already being used.
+
+        # The service request in the yaml file should be a dictionary
+        if not isinstance(payload, dict):
+            response = "Request " + corr_id + ": payload is not a dict."
+            self.services[serv_id]['status'] = 'ERROR'
+            self.services[serv_id]['error'] = response
+            return
+
+        # The dictionary should contain a 'NSD' key
+        if 'NSD' not in payload.keys():
+            response = "Request " + corr_id + ": NSD is not a dict."
+            self.services[serv_id]['status'] = 'ERROR'
+            self.services[serv_id]['error'] = response
+            return
+
+        # Their should be as many VNFD keys in the dictionary as their
+        # are network functions listed to the NSD.
+        number_of_vnfds = 0
+        for key in payload.keys():
+            if key[:4] == 'VNFD':
+                number_of_vnfds = number_of_vnfds + 1
+
+        if len(payload['NSD']['network_functions']) != number_of_vnfds:
+            response = "Request " + corr_id + ": # of VNFDs doesn't match NSD."
+            self.services[serv_id]['status'] = 'ERROR'
+            self.services[serv_id]['error'] = response
+            return
+
+        # Check whether VNFDs are empty.
+        for key in payload.keys():
+            if key[:4] == 'VNFD':
+                if payload[key] is None:
+                    response = "Request " + corr_id + ": empty VNFD."
+                    self.services[serv_id]['status'] = 'ERROR'
+                    self.services[serv_id]['error'] = response
+                    return
+
+        # If all tests succeed, the status changes to 'INSTANTIATING'
+        message = {'status': 'INSTANTIATING', 'error': None}
+        self.services[serv_id]['status'] = 'INSTANTIATING'
+        self.services[serv_id]['error'] = None
+        return
+
+#        except Exception as e:
+#            tracebackString = traceback.format_exc(e)
+#            self.services[serv_id]['traceback'] = tracebackString
+
+    def SLM_mapping(self, serv_id):
+        """
+        This method is used if the SLM is responsible for the placement.
+
+        :param serv_id: The instance uuid of the service
+        """
+
+        topology = self.services[serv_id]['infrastructure']['topology']
+        NSD = self.services[serv_id]['service']['nsd']
+        functions = self.services[serv_id]['function']
+
+        mapping = tools.placement(NSD, functions, topology)
+
+        if mapping is None:
+            # TODO: no mapping was possible, reject request
+            pass
+        else:
+            # Add mapping to ledger
+            self.services[serv_id]['service']['mapping'] = mapping
+            for function in self.services[serv_id]['function']:
+                vnf_id = function['id']
+                function['vim_uuid'] = mapping[vnf_id]['vim']
+
+        return
+
+    def update_slm_configuration(self, plugin_dict):
+        """
+        This method checks if an SLM was added or removed from the
+        pool of SLMs. If it was, this method updates the configuration
+        of the SLM.
+
+        :param plugin_dict: Dictionary of plugins registered in plugin manager
+        """
+
+        active_slms = []
+
+        # Substract information on the different SLMs from the dict
+        for plugin_uuid in plugin_dict.keys():
+#            print(plugin_dict[plugin_uuid]['name'])
+            if plugin_dict[plugin_uuid]['name'] == self.name:
+#                print('GOT HERE')
+                active_slms.append(plugin_uuid)
+
+        # Check if the list of active SLMs is identical to the known list
+        active_slms.sort()
+#        print('########')
+#        print(active_slms)
+#        print(self.known_slms)
+        if active_slms == self.known_slms:
+#            print('GOT HEREE')
+            # No action te be taken
+            return
+        else:
+            if self.uuid is None:
+                for slm_uuid in active_slms:
+                    if slm_uuid not in self.known_slms:
+                        self.uuid = slm_uuid
+            self.slm_config['old_slm_rank'] = self.slm_config['slm_rank']
+            self.slm_config['old_slm_total'] = self.slm_config['slm_total']
+            self.slm_config['slm_rank'] = active_slms.index(str(self.uuid))
+            self.slm_config['slm_total'] = len(active_slms)
+            down = False
+            if len(active_slms) < len(self.known_slms):
+                down = True
+
+            self.known_slms = active_slms
+            # Buffer incoming requests
+#            self.bufferAllRequests = True
+            # Wait some time to allow different SLMs to get on the same pages
+#            time.sleep(self.deltaTnew)
+            # Start handling the buffered requests in the new regime
+#            self.bufferOldRequests = True
+#            self.bufferAllRequests = False
+
+#            for req in self.new_reqs:
+#                task = self.thrd_pool.submit(req['mthd'], req['arguments'])
+
+#            time.sleep(self.deltaTold)
+            # Start handling the buffered requests from the old regime
+#            self.bufferOldRequests = False
+
+#            for req in self.old_reqs:
+#                task = self.thrd_pool.submit(req['mthd'], req['arguments'])
+
+            if down:
+                self.slm_down()
+
+
+    ###: Below the old functionality of the SLM. To be removed once transition is done.
+
 
     def on_gk_service_instance_create(self, ch, method, properties, message):
         """
         This is our first SLM specific event method. It is called when the SLM
         receives a message from the GK published to GK_INSTANCE_CREATE_TOPIC.
-
         Here we should react and trigger the service instantiation.
-
         :param ch: RabbitMQ channel
         :param method: RabbitMQ method
         :param properties: RabbitMQ properties
@@ -440,7 +1530,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #to choose one to place the service on. This is done by sending
         #a message with an empty body on the infrastructure.management.
         #resource.list topic.
-        new_corr_id, self.service_requests_being_handled = tools.replace_old_corr_id_by_new(self.service_requests_being_handled, properties.correlation_id)
+        new_corr_id, self.service_requests_being_handled = oldtools.replace_old_corr_id_by_new(self.service_requests_being_handled, properties.correlation_id)
         self.manoconn.call_async(self.start_vim_selection, INFRA_ADAPTOR_AVAILABLE_VIMS, None, correlation_id=new_corr_id)
 
     def start_vim_selection(self, ch, method, properties, message):
@@ -482,10 +1572,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method is triggered once a vim is selected to place the service on.
         """
 
-        request = tools.build_message_for_IA(self.service_requests_being_handled[correlation_id])
+        request = oldtools.build_message_for_IA(self.service_requests_being_handled[correlation_id])
         LOG.info('Request message for IA built: ' + yaml.dump(request, indent=4))
         #In the service_requests_being_handled dictionary, we replace the old corr_id with the new one, to be able to keep track of the request
-        new_corr_id, self.service_requests_being_handled = tools.replace_old_corr_id_by_new(self.service_requests_being_handled, correlation_id)
+        new_corr_id, self.service_requests_being_handled = oldtools.replace_old_corr_id_by_new(self.service_requests_being_handled, correlation_id)
         LOG.info('Contacting the IA on infrastructure.service.deploy.')
         self.manoconn.call_async(self.on_infra_adaptor_service_deploy_reply,
                                  INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC,
@@ -513,10 +1603,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
         message_for_gk['timestamp'] = time.time()
 
         if msg['request_status'][:8] == 'DEPLOYED':
-            nsr = tools.build_nsr(self.service_requests_being_handled[properties.correlation_id], msg)
+            nsr = oldtools.build_nsr(self.service_requests_being_handled[properties.correlation_id], msg)
             LOG.info('nsr built: ' + yaml.dump(nsr, indent=4))
             #Retrieve VNFRs from message and translate
-            vnfrs = tools.build_vnfrs(self.service_requests_being_handled[properties.correlation_id], msg['vnfrs'])
+            vnfrs = oldtools.build_vnfrs(self.service_requests_being_handled[properties.correlation_id], msg['vnfrs'])
             LOG.info('vnfrs built: ' + yaml.dump(vnfrs, indent=4))
             ## Store vnfrs in the repository and add vnfr ids to nsr if it is not already present
             for vnfr in vnfrs:
@@ -554,7 +1644,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             #TODO: put this in an if clause, so it is only done when nsr and
             #vnfrs are accepted by repository.
             LOG.info('nsr and vnfrs stored in Repositories, starting montitoring process.')
-            monitoring_message = tools.build_monitoring_message(self.service_requests_being_handled[properties.correlation_id], msg, nsr, vnfrs)
+            monitoring_message = oldtools.build_monitoring_message(self.service_requests_being_handled[properties.correlation_id], msg, nsr, vnfrs)
             LOG.info('Monitoring message built: ' + json.dumps(monitoring_message, indent=4))
 
             try:
@@ -620,6 +1710,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         pass
 
+
 def main():
     """
     Entry point to start plugin.
@@ -630,7 +1721,7 @@ def main():
     logging.getLogger("son-mano-base:plugin").setLevel(logging.INFO)
 #    logging.getLogger("amqp-storm").setLevel(logging.DEBUG)
     # create our service lifecycle manager
-    ServiceLifecycleManager()
+    slm = ServiceLifecycleManager()
 
 if __name__ == '__main__':
     main()
