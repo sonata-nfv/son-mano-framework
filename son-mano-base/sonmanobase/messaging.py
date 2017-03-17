@@ -31,6 +31,7 @@ import logging
 import threading
 import concurrent.futures as pool
 import uuid
+import time
 import os
 
 logging.basicConfig(level=logging.INFO)
@@ -66,8 +67,10 @@ class ManoBrokerConnection(object):
         # trigger connection setup (without blocking)
         self.setup_connection()
 
+        # Threading workers
         self.thrd_pool = pool.ThreadPoolExecutor(max_workers=100)
-
+        # Track the workers
+        self.tasks = []
 
     def setup_connection(self):
         """
@@ -82,6 +85,13 @@ class ManoBrokerConnection(object):
         :return:
         """
         self._connection.close()
+
+    def stop_threads(self):
+        """
+        Stop all the threads that are consuming messages
+        """
+        for task in self.tasks:
+            task.cancel()
 
     def publish(self, topic, message, properties=None):
         """
@@ -188,6 +198,11 @@ class ManoBrokerConnection(object):
         task = self.thrd_pool.submit(connection_thread)
         task.add_done_callback(self.done_with_task)
 
+        self.tasks.append(task)
+
+        #Make sure that consuming has started, before method finishes.
+        time.sleep(0.1)
+
         LOG.debug("SUBSCRIBED to %r", topic)
         return subscription_queue
 
@@ -196,7 +211,6 @@ class ManoBrokerConnection(object):
         This function is called when a thread that consumes a queue is finished
         """
         # TODO: indicate that the thread is finished.
-
 
 
 class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
