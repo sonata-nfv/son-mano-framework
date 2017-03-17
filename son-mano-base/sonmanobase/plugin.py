@@ -104,6 +104,7 @@ class ManoBasePlugin(object):
         # de-register this plugin
         self.deregister()
         self.manoconn.stop_connection()
+        self.manoconn.stop_threads()
         del self.manoconn
 
     def _auto_heartbeat(self, rate):
