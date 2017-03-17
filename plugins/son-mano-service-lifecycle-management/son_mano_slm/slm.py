@@ -216,7 +216,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         Send a deregister request to the plugin manager.
         """
-        print('Deregistering SLM with uuid ' + self.uuid)
+        LOG.info('Deregistering SLM with uuid ' + self.uuid)
         message = {"uuid": self.uuid}
         self.manoconn.notify("platform.management.plugin.deregister",
                             json.dumps(message))
@@ -265,8 +265,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         if len(self.services[serv_id]['schedule']) > 0:
 
             #share state with other SLMs
-            print(self.services[serv_id]['schedule'])
-
             next_task = getattr(self, self.services[serv_id]['schedule'].pop(0))
 
             # Push the next task to the threadingpool
@@ -325,7 +323,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         for serv_id in self.slm_config['tasks_other_slm'].keys():
 
             # TODO: only take over when ID's match
-            print('SLM down, taking over requests')
+            LOG.info('SLM down, taking over requests')
             self.services[serv_id] = self.slm_config['tasks_other_slm'][serv_id]
 
             if 'schedule' not in self.services[serv_id].keys():
@@ -355,7 +353,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
             if msg['status'] == 'DONE':
                 if (str(msg['corr_id'])) in self.slm_config['tasks_other_slm'].keys():
                     del self.slm_config['tasks_other_slm'][str(msg['corr_id'])]
-                    print('request deleted')
 
             if msg['status'] == 'IN PROGRESS':
                 self.slm_config['tasks_other_slm'][str(msg['corr_id'])] = msg['state']
@@ -377,8 +374,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Bypass for backwards compatibility, to be removed after transition 
         # to new version of SLM is completed
         message = yaml.load(payload)
-        print('#####')
-        print(message.keys())
         if 'NSD' in message.keys():
             if message['NSD']['descriptor_version'] == '1.0':
                 response = self.on_gk_service_instance_create(ch, method, properties, payload)
@@ -480,7 +475,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['infrastructure']['topology'] = message
 
         # Continue with the scheduled tasks
-        print("Done with resp_topo")
         self.start_next_task(serv_id)
 
 
@@ -573,7 +567,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method handles a response from the FLM to a vnf deploy request.
         """
 
-        print('VNF deployed')
+        LOG.info('VNF deployed')
         message = yaml.load(payload)
 
         # Retrieve the service uuid
@@ -586,14 +580,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # TODO: implement what to do if deployment failed
 
         vnfs_to_depl = self.services[serv_id]['vnfs_to_deploy'] - 1 
-        print('vnfs left to deploy before continue: ' + str(vnfs_to_depl))
         self.services[serv_id]['vnfs_to_deploy'] = vnfs_to_depl
 
-        print('number of vnfds to deploy: ' + str(vnfs_to_depl))
         # Only continue if all vnfs are deployed
         if vnfs_to_depl == 0:
             self.services[serv_id]['act_corr_id'] = None
-            print("resp_vnf_depl done")
             self.start_next_task(serv_id)
 
     def resp_prepare(self, ch, method, prop, payload):
@@ -636,7 +627,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         if 'add_content' in self.services[serv_id].keys():
             message.update(self.services[serv_id]['add_content'])
 
-        print(message)
         payload = yaml.dump(message)
         self.manoconn.notify(t.GK_CREATE, payload, correlation_id=corr_id)
 
@@ -657,7 +647,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
                                  None,
                                  correlation_id=corr_id)
 
-        print("sending: " + corr_id)
         # Pause the chain of tasks to wait for response
         self.services[serv_id]['pause_chain'] = True
 
@@ -686,8 +675,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['act_corr_id'] = corr_id
 
         # Send this mapping to the IA
-        print('message for ia_prepare: ')
-        print(yaml.dump(IA_mapping))
         self.manoconn.call_async(self.resp_prepare,
                                  t.IA_PREPARE,
                                  yaml.dump(IA_mapping),
@@ -703,7 +690,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         functions = self.services[serv_id]['function']
         self.services[serv_id]['vnfs_to_deploy'] = len(functions)
-        print("number of vnfs: " + str(self.services[serv_id]['vnfs_to_deploy']))
 
         self.services[serv_id]['act_corr_id'] = []
 
@@ -711,7 +697,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
             corr_id = str(uuid.uuid4())
             self.services[serv_id]['act_corr_id'].append(corr_id)
-            print("VNF deploy requested, corr_id added.")
 
             message = function
             self.manoconn.call_async(self.resp_vnf_depl,
@@ -870,7 +855,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
             self.flm_ledger[corr_id]['orig_corr_id'] = prop.correlation_id
 
             # Contact the IA
-            print('deploy vnf: ' + message['id'])
             self.manoconn.call_async(self.IA_deploy_response,
                                      t.IA_DEPLOY,
                                      payload,
@@ -1060,7 +1044,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Generate an istance uuid for the service
         serv_id = str(uuid.uuid4())
-        print('New serv_id: ' + serv_id)
 
         # Add the service to the ledger and add instance ids
         self.services[serv_id] = {}
@@ -1172,8 +1155,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         mapping = tools.placement(NSD, functions, topology)
 
-        print(yaml.dump(mapping))
-
         if mapping is None:
             # TODO: no mapping was possible, reject request
             pass
@@ -1218,9 +1199,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 for slm_uuid in active_slms:
                     if slm_uuid not in self.known_slms:
                         self.uuid = slm_uuid
-                        print('SELF ASSIGNED SLM UUID ' + str(self.uuid))
-            print('EIGEN UUID ' + str(self.uuid))
-            print(active_slms)
             self.slm_config['old_slm_rank'] = self.slm_config['slm_rank']
             self.slm_config['old_slm_total'] = self.slm_config['slm_total']
             self.slm_config['slm_rank'] = active_slms.index(str(self.uuid))

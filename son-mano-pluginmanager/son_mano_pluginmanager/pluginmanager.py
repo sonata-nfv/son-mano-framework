@@ -128,8 +128,6 @@ class SonPluginManager(ManoBasePlugin):
 
         message = json.loads(str(message))
         pid = str(uuid.uuid4())
-        print('REGISTERING RECEIVED')
-        print(message)
         # create a entry in our plugin database
         p = model.Plugin(
             uuid=pid,
