@@ -88,8 +88,6 @@ class ManoBasePlugin(object):
             self.register()
             if wait_for_registration:
                 self._wait_for_registration()
-        # add additional subscriptions
-        self._register_lifecycle_endpoints()
         # kick-off automatic heartbeat mechanism
         self._auto_heartbeat(auto_heartbeat_rate)
         # jump to run
@@ -219,6 +217,9 @@ class ManoBasePlugin(object):
         LOG.info("Plugin registered with UUID: %r" % response.get("uuid"))
         # jump to on_registration_ok()
         self.on_registration_ok()
+        # subscribe to start topic
+        self._register_lifecycle_endpoints()
+        # start heartbeat mechanism
         self._send_heartbeat()
 
     def deregister(self):
