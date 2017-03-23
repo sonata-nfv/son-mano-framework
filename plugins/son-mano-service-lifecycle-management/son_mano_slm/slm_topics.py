@@ -64,6 +64,9 @@ SRM_ONBOARD = 'specific.manager.registry.ssm.on-board'
 SRM_INSTANT = 'specific.manager.registry.ssm.instantiate'
 SRM_UPDATE = 'specific.manager.registry.ssm.update'
 
+# With Executive
+EXEC_PLACE = 'placement.executive.request'
+
 # With Repositories
 # TODO: Secure this get against failure
 NSR_REPOSITORY_URL = os.environ.get("url_nsr_repository")
