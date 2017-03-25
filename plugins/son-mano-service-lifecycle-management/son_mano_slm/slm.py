@@ -422,10 +422,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
         add_schedule.append('request_topology')
 
         #Perform the placement
-        if 'placement' not in self.services[serv_id]['service']['ssm'].keys():
+        if self.services[serv_id]['service']['ssm'] is None:
             add_schedule.append('SLM_mapping')
         else:
-            add_schedule.append('req_placement_from_ssm')
+            if 'placement' in self.services[serv_id]['service']['ssm'].keys():
+                add_schedule.append('req_placement_from_ssm')
 
         add_schedule.append('ia_prepare')
         add_schedule.append('vnf_deploy')
@@ -649,6 +650,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Pause the chain of tasks to wait for response
         self.services[serv_id]['pause_chain'] = True
 
+        LOG.info("Topology requested from IA.")
+
     def ia_prepare(self, serv_id):
         """
         This method informs the IA which PoPs will be used and which
@@ -817,7 +820,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #Check if placement SSM is available
         ssm_place = self.services[serv_id]['service']['ssm']['placement']
         #If not available, fall back on SLM placement
-        if ssm_place['instantiated'] = False:
+        if ssm_place['instantiated'] == False:
             return self.SLM_mapping(serv_id)         
         # build message for placement SSM
         nsd = self.services[serv_id]['service']['nsd']
