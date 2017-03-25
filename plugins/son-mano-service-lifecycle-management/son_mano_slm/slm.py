@@ -1028,8 +1028,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         ledger = self.services[serv_id]
 
-        message = {}
-        message['uuid'] = serv_id
+        message = serv_id['gk_message']
         message['status'] = ledger['status']
         message['error'] = ledger['error']
         message['timestamp'] = time.time()
@@ -1188,8 +1187,21 @@ class ServiceLifecycleManager(ManoBasePlugin):
         mapping = tools.placement(NSD, functions, topology)
 
         if mapping is None:
-            # TODO: no mapping was possible, reject request
-            pass
+            # The GK should be informed that the placement failed and the
+            # deployment was aborted.
+            message = {}
+            message['error'] = 'Unable to perform placement.'
+            message['time'] = time.time()
+            message['status'] = 'ERROR'
+
+            corr_id = self.services[serv_id]['original_corr_id']
+            self.manoconn.notify(t.GK_create, 
+                                 yaml.dump(message), 
+                                 correlation_id=corr_id)
+
+            # The deployment must be aborted
+            del self.services['serv_id']
+            
         else:
             # Add mapping to ledger
             self.services[serv_id]['service']['mapping'] = mapping
@@ -1198,6 +1210,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 function['vim_uuid'] = mapping[vnf_id]['vim']
 
         return
+
 
     def update_slm_configuration(self, plugin_dict):
         """
