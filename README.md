@@ -88,6 +88,7 @@ To run all components of the MANO framework you have to start their containers. 
 2. `docker run -d -p 27017:27017 --name mongo mongo`
 3. `docker run -it --rm --link broker:broker --link mongo:mongo --name pluginmanager registry.sonata-nfv.eu:5000/pluginmanager`
 4. `docker run -it --rm --link broker:broker --name slm registry.sonata-nfv.eu:5000/servicelifecyclemanagement`
+5. `sudo docker run -it --rm --link broker:broker -e broker_name:broker,broker -v '/var/run/docker.sock:/var/run/docker.sock' --name specificmanagerregistry registry.sonata-nfv.eu:5000/specificmanagerregistry`
 
 ### Unit tests
 #### Container-based unit tests
