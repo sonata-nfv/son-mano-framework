@@ -87,8 +87,7 @@ def placement(NSD, functions, topology):
 #            print(str(vim['memory_total']) + ' ' + str(vim['memory_used']))
 
             if cpu_req and mem_req:
-                print('function embeddable: ' + function['id'])
-                print('selected vim: ' + vim['vim_uuid'])
+                print('VNF ' + function['id'] + ' mapped on VIM ' + vim['vim_uuid'])
                 mapping[function['id']] = {}
                 mapping[function['id']]['vim'] = vim['vim_uuid']
                 vim['core_used'] = vim['core_used'] + needed_cpu

@@ -1195,12 +1195,14 @@ class ServiceLifecycleManager(ManoBasePlugin):
             message['status'] = 'ERROR'
 
             corr_id = self.services[serv_id]['original_corr_id']
-            self.manoconn.notify(t.GK_create, 
+            self.manoconn.notify(t.GK_CREATE, 
                                  yaml.dump(message), 
                                  correlation_id=corr_id)
 
             # The deployment must be aborted
-            del self.services['serv_id']
+            del self.services[serv_id]
+
+            #TODO: stop the chain for this workflow
             
         else:
             # Add mapping to ledger
