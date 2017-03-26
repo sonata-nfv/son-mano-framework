@@ -40,7 +40,6 @@ logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
 
 class fakeslm(object):
-
     def __init__(self):
 
         self.name = 'fake-slm'
@@ -53,10 +52,10 @@ class fakeslm(object):
         self.manoconn = messaging.ManoBrokerRequestResponseConnection(self.name)
 
         self.path_descriptors = '/home/hadi/son-mano-framework/son-mano-specificmanager/son-mano-specific-manager-registry/test/test_descriptors/'
-        
+
         self.end = False
 
-        self.publish_nsd()
+        self.publish_sid()
 
         self.run()
 
@@ -67,61 +66,36 @@ class fakeslm(object):
         while self.end == False:
             time.sleep(1)
 
-    def publish_nsd(self):
-
-        LOG.info("Sending onboard request")
-        nsd = open(self.path_descriptors + 'nsd1.yml', 'r')
-        message = {'NSD':yaml.load(nsd)}
-        self.manoconn.call_async(self._on_publish_nsd_response,
-                                 'specific.manager.registry.ssm.on-board',
-                                 yaml.dump(message))
-
-
-    def _on_publish_nsd_response(self, ch, method, props, response):
-
-        response = yaml.load(str(response))
-        if type(response) == dict:
-            if response['status'] == 'On-boarded':
-                LOG.info("Docker container on-boarded")
-                self.publish_sid()
-            else:
-                LOG.error("SSM on-boarding failed. ==> '{0}'".format(response['error']))
-                self.end = True
-
     def publish_sid(self):
 
         LOG.info("Sending instantiate request")
-        #nsd = open(self.path_descriptors + 'nsd1.yml', 'r')
-        #nsr = open(self.path_descriptors + 'nsr.yml', 'r')
-        #message = {'NSD':yaml.load(nsd),'NSR':yaml.load(nsr)}
-        message = {'id': 'sonfsmdumb1', 'image': 'hadik3r/sonfsmdumb1'}
+        nsd = open('test_descriptors/nsd.yml', 'r')
+        message = {'NSD': yaml.load(nsd), 'UUID':'1234'}
         self.manoconn.call_async(self._on_publish_sid_response,
                                  'specific.manager.registry.ssm.instantiate',
                                  yaml.dump(message))
-        message = {'id': 'sonssmplacement1', 'image': 'hadik3r/sonssmplacement1'}
+
+
+        vnfd1 = open('test_descriptors/vnfd1.yml', 'r')
+        message = {'VNFD': yaml.load(vnfd1), 'UUID':'9012'}
         self.manoconn.call_async(self._on_publish_sid_response,
-                                 'specific.manager.registry.ssm.instantiate',
+                                 'specific.manager.registry.fsm.instantiate',
+                                 yaml.dump(message))
+
+        vnfd2 = open('test_descriptors/vnfd2.yml', 'r')
+        message = {'VNFD': yaml.load(vnfd2), 'UUID':'5678'}
+        self.manoconn.call_async(self._on_publish_sid_response,
+                                 'specific.manager.registry.fsm.instantiate',
                                  yaml.dump(message))
 
     def _on_publish_sid_response(self, ch, method, props, response):
 
         response = yaml.load(str(response))
         if type(response) == dict:
-            if response['status'] == 'Instantiated':
-                LOG.info("instantiation done- uuid: {0}".format(response['uuid']))
-                self.end = True
-            else:
-                LOG.error("SSM instantiation failed.==> '{0}'".format(response['error']))
-                self.end = True
-
-            if response['name']=='sonssmplacement1':
-                message = {'NSD':'nsd','Topology':'topology', 'uuid': response['uuid']}
-                self.manoconn.call_async(self.on_place_res,topic= "placement.executive.request", msg= yaml.dump(message), correlation_id=props.correlation_id)
-
-    def on_place_res(self, ch, method, props, response):
-        res = yaml.load(response)
-        print(res)
-
+            try:
+                print(response)
+            except BaseException as error:
+                print(error)
 
 def main():
     fakeslm()

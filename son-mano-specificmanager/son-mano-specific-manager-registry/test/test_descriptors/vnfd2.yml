@@ -1,0 +1,181 @@
+## Copyright (c) 2015 SONATA-NFV
+## ALL RIGHTS RESERVED.
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##    http://www.apache.org/licenses/LICENSE-2.0
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+## Neither the name of the SONATA-NFV [, ANY ADDITIONAL AFFILIATION]
+## nor the names of its contributors may be used to endorse or promote
+## products derived from this software without specific prior written
+## permission.
+## This work has been performed in the framework of the SONATA project,
+## funded by the European Commission under Grant number 671517 through
+## the Horizon 2020 and 5G-PPP programmes. The authors would like to
+## acknowledge the contributions of their colleagues of the SONATA
+## partner consortium (www.sonata-nfv.eu).
+---
+##
+## Some general information regarding this
+## VNF descriptor.
+##
+descriptor_version: "vnfd-schema-01"
+
+vendor: "eu.sonata-nfv"
+name: "vtc-vnf"
+version: "0.1"
+author: "George Xilouris, NCSRD"
+description: >
+  "Virtual traffic classifier (vTC) descriptor file. vTC uses ndpi library for the implementation of the vTC"
+##
+## Some function specific managers.
+##
+
+##
+## Some function specific managers.
+## image: Specifies the DockerHub URI (user/image name) to fetch the SSM image from.
+##
+
+function_specific_managers:
+  - id: "sonfsmemptydumb3"
+    description: "An empty FSM"
+    image: "hadik3r/sonfsmemptydumb3"
+    options:
+      - key: "myKey"
+        value: "myValue"
+
+  - id: "sonfsmemptydumb4"
+    description: "An empty FSM"
+    image: "hadik3r/sonfsmemptydumb4"
+    options:
+      - key: "myKey"
+        value: "myValue"
+
+##
+## The virtual deployment unit.
+##
+virtual_deployment_units:
+  - id: "vdu01"
+    description: "VNFC for the dashboard and the time-series database"
+    vm_image: "TBD"
+    vm_image_format: "qcow2"
+    resource_requirements:
+      cpu:
+        vcpus: 1
+      memory:
+        size: 2
+        size_unit: "GB"
+      storage:
+        size: 20
+        size_unit: "GB"
+    monitoring_parameters:
+      - name: "vm_cpu_perc"
+        unit: "Percentage"
+      - name: "vm_mem_pers"
+        unit: "Percentage"
+      - name: "vm_net_rx_MB"
+        unit: "MB"
+      - name: "vm_net_tx_MB"
+        unit: "Mbps"
+    connection_points:
+      #Management interface
+      - id: "vdu01:eth0"
+        type: "interface"
+
+
+  - id: "vdu02"
+    vm_image: "TBD"
+    description: "VNFC for the DPI functionality"
+    vm_image_format: "qcow2"
+    resource_requirements:
+      cpu:
+        vcpus: 1
+      memory:
+        size: 2
+        size_unit: "GB"
+      storage:
+        size: 5
+        size_unit: "GB"
+    monitoring_parameters:
+      - name: "vm_cpu_perc"
+        unit: "Percentage"
+      - name: "vm_mem_pers"
+        unit: "Percentage"
+      - name: "vm_net_rx_MB"
+        unit: "MB"
+      - name: "vm_net_tx_MB"
+        unit: "Mbps"
+    connection_points:
+      #Management interface
+      - id: "vdu02:eth0"
+        type: "interface" #this is the only interface that should get floating IP address. traffic for the other interfaces will be forwarded via the SDN controller"
+        access: "public" #signal the allocation of public IP from the allocated segment for this tenant.
+      #Data-in interface
+      - id: "vdu02:eth1"
+        type: "interface"
+      #Data-out interfaces
+      - id: "vdu02:eth2"
+        type: "interface"
+##
+## The virtual links that interconnect
+## the different connections points.
+##
+virtual_links:
+  - id: "mgmt"
+    connectivity_type: "E-LAN"
+    connection_points_reference:
+      - "vdu01:eth0"
+      - "vdu02:eth0"
+    dhcp: True
+  - id: "input"
+    connectivity_type: "E-Line"
+    connection_points_reference:
+      - "vdu02:eth1"
+      - "input"
+    dhcp: True
+  - id: "output"
+    connectivity_type: "E-Line"
+    connection_points_reference:
+      - "vdu02:eth2"
+      - "output"
+    dhcp: True
+
+##
+## The monitoring rules that react
+## to the monitoring parameters
+##
+monitoring_rules:
+  - name: "mon:rule:vm_cpu_perc"
+    description: "Trigger events if CPU load is above 10 percent."
+    duration: 10
+    duration_unit: "s"
+    condition: "vdu01:vm_cpu_perc > 10"
+    notification:
+      - name: "notification01"
+        type: "rabbitmq_message"
+  - name: "mon:rule:vm_mem_perc"
+    description: "Trigger events if memory consumption is above 10 percent."
+    duration: 10
+    duration_unit: "s"
+    condition: "vdu01:vm_mem_perc > 10"
+    notification:
+      - name: "notification02"
+        type: "rabbitmq_message"
+  - name: "mon:rule:rx"
+    duration: 10
+    duration_unit: "s"
+    condition: "vdu01:vm_net_rx_MB > 10"
+    notification:
+      - name: "notification03"
+        type: "rabbitmq_message"
+  - name: "mon:rule:tx"
+    duration: 10
+    duration_unit: "s"
+    condition: "vdu01:vm_net_tx_MB > 10"
+    notification:
+      - name: "notification04"
+        type: "rabbitmq_message"

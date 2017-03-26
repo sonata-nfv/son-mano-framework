@@ -27,33 +27,33 @@ partner consortium (www.sonata-nfv.eu).
 """
 
 import logging
-import json
+import yaml
 import time
 import os
 from sonmanobase import messaging
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("son-mano-fakeslm")
+
 LOG.setLevel(logging.DEBUG)
 logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
 
-class fakealert(object):
+class fakeslm(object):
     def __init__(self):
 
-        self.name = 'fake-alert'
+        self.name = 'fake-slm'
         self.version = '0.1-dev'
         self.description = 'description'
 
-        LOG.info("Starting alert:...")
+        LOG.info("Starting SLM1:...")
 
         # create and initialize broker connection
         self.manoconn = messaging.ManoBrokerRequestResponseConnection(self.name)
 
-        self.path_descriptors = 'test/test_descriptors/'
         self.end = False
 
-        self.publish_nsd()
+        self.publish_updating()
 
         self.run()
 
@@ -64,21 +64,33 @@ class fakealert(object):
         while self.end == False:
             time.sleep(1)
 
-    def publish_nsd(self):
+    def publish_updating(self):
 
-        LOG.info("Sending alert request")
+        LOG.info("Sending updating request")
+        nsd = open('test_descriptors/nsdu.yml', 'r')
+        message = {'NSD': yaml.load(nsd), 'UUID':'2233'}
+        self.manoconn.call_async(self._on_publish_ins_response,
+                                 'specific.manager.registry.ssm.update',
+                                 yaml.dump(message))
 
-        message = {"exported_instance": "fw-vnf","core": "cpu","group": "development","exported_job": "vnf","value": "1",
-                   "instance": "pushgateway:9091","job": "sonata","serviceID": "263fd6b7-8cfb-4149-b6c1-fb082553ca71",
-                   "alertname": "mon_rule_vm_cpu_usage_85_perc","time": "2016-09-13T17:29:22.807Z","inf": "None","alertstate": "firing",
-                   "id": "01ccc69f-c925-42f5-9418-e1adb075527e","monitor": "sonata-monitor"}
 
+        vnfd1 = open('test_descriptors/vnfdu.yml', 'r')
+        message = {'VNFD': yaml.load(vnfd1), 'UUID':'9900'}
+        self.manoconn.call_async(self._on_publish_ins_response,
+                                 'specific.manager.registry.fsm.update',
+                                 yaml.dump(message))
 
-        self.manoconn.publish('son.monitoring',json.dumps(message))
+    def _on_publish_ins_response(self, ch, method, props, response):
 
+        response = yaml.load(str(response))
+        if type(response) == dict:
+            try:
+                print(response)
+            except BaseException as error:
+                print(error)
 
 def main():
-    fakealert()
+    fakeslm()
 
 
 if __name__ == '__main__':
