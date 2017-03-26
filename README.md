@@ -32,6 +32,7 @@ Each micro service of the framework is executed in its own Docker container. So 
 1. `docker build -t registry.sonata-nfv.eu:5000/pluginmanager -f son-mano-pluginmanager/Dockerfile .`
 2. `docker build -t registry.sonata-nfv.eu:5000/testplugin -f plugins/son-mano-test-plugin/Dockerfile .`
 3. `docker build -t registry.sonata-nfv.eu:5000/servicelifecyclemanagement -f plugins/son-mano-service-lifecycle-management/Dockerfile .`
+4. `docker build -t registry.sonata-nfv.eu:5000/specificmanagerregistry -f son-mano-specific-manager-registry/Dockerfile .`
 
 
 ### Dependencies
