@@ -195,7 +195,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # To be removed when transition to new SLM is completed
         self.manoconn.register_async_endpoint(
             self.on_gk_service_update,
-			GK_INSTANCE_UPDATE)
+            GK_INSTANCE_UPDATE)
 
     def on_lifecycle_start(self, ch, mthd, prop, msg):
         """
@@ -413,16 +413,20 @@ class ServiceLifecycleManager(ManoBasePlugin):
         
         add_schedule.append('validate_deploy_request')
         add_schedule.append('contact_gk')
+
+        #Onboard and instantiate the SSMs, if required.
+        if self.services[serv_id]['service']['ssm'] != None:
+           add_schedule.append('onboard_ssms')
+           add_schedule.append('instant_ssms')
+
         add_schedule.append('request_topology')
 
-        add_schedule.append('SLM_mapping')
-
-        if 'service_specific_managers' in self.services[serv_id]['service']['nsd']:
-            # TODO
-            pass
-        else:
-            # If no SSMs are defined, the SLM performs the mapping
+        #Perform the placement
+        if self.services[serv_id]['service']['ssm'] is None:
             add_schedule.append('SLM_mapping')
+        else:
+            if 'placement' in self.services[serv_id]['service']['ssm'].keys():
+                add_schedule.append('req_placement_from_ssm')
 
         add_schedule.append('ia_prepare')
         add_schedule.append('vnf_deploy')
@@ -431,14 +435,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
         add_schedule.append('instruct_monitoring')
         add_schedule.append('inform_gk')
 
-#        if 'service_specific_managers' in self.services[serv_id]['NSD']:
-#            add_schedule.append('onboard_ssms')
-#            add_schedule.append('instant_ssms')
-#            add_schedule.append('trigger_master_ssm')
-
 
         self.services[serv_id]['schedule'].extend(add_schedule)
 
+        LOG.info("New GK request received, deployment started")
         # Start the chain of tasks
         self.start_next_task(serv_id)
 
@@ -485,10 +485,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         #TODO: Test this method
 
+        LOG.info("Onboarding response received from SMR.")
         # Retrieve the service uuid
         serv_id = tools.serv_id_from_corr_id(self.services, prop.correlation_id)
 
         message = yaml.load(payload)
+        print(message)
 
         # TODO: What to do if onboarding fails?
 
@@ -500,25 +502,23 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This function handles responses to a request to onboard the ssms
         of a new service.
         """
-        #TODO: Test this method
+        LOG.info("Instantiating response received from SMR.")
 
         # Retrieve the service uuid
         serv_id = tools.serv_id_from_corr_id(self.services, prop.correlation_id)
 
         message = yaml.load(payload)
+        print(message)
+        for ssm_type in self.services[serv_id]['service']['ssm'].keys():
+            ssm = self.services[serv_id]['service']['ssm'][ssm_type]
+            response = message[ssm['id']]
+            ssm['instantiated'] = False
+            if response['error'] is None:
+                ssm['instantiated'] = True
+            else:
+                LOG.info("Error during ssm instantiation: " + response['error'])
 
-        # TODO: What to do inf instantiation of SSM fails?
-        # TODO: SRM should respond with a list of SSM uuids, so the SLM
-        # knows which topics to use to contact the SSMs
-
-        new_active_ssm = {}
-        new_active_ssm['id'] = message['id']
-        new_active_ssm['uuid'] = message['uuid']
-        new_active_ssm['executive'] = message['executive']
-        self.services[serv_id]['service']['SSMs'].append(new_active_ssm)
-
-        # Add SSM uuids to ledger with their names.
-#        ssm_list = self.services[serv_id]['service']['nsd']['service_specific_managers']
+            ssm['uuid'] = response['uuid']
 
         # Continue with the scheduled tasks
         self.start_next_task(serv_id)
@@ -650,6 +650,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Pause the chain of tasks to wait for response
         self.services[serv_id]['pause_chain'] = True
 
+        LOG.info("Topology requested from IA.")
+
     def ia_prepare(self, serv_id):
         """
         This method informs the IA which PoPs will be used and which
@@ -735,7 +737,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Pause the chain of tasks to wait for response
         self.services[serv_id]['pause_chain'] = True
 
-    def instant_ssms(self, serv_id, ssm_id):
+        LOG.info("SSM on-boarding trigger sent to SMR.")
+
+    def instant_ssms(self, serv_id):
         """
         This method instructs the ssm registry manager to instantiate the
         required SSMs.
@@ -745,10 +749,18 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
 
         corr_id = str(uuid.uuid4())        
-        #find ssm descriptor in NSD from ssm_id
-        for ssm in self.services[serv_id]['service']['nsd']['servic_specific_managers']:
-            if ssm['id'] == ssm_id:
-                msg = {'id':ssm_id, 'image': ssm['image']}
+        # Sending the NSD to the SRM triggers it to instantiate the ssms
+
+        print(self.services[serv_id]['service']['ssm'].keys())
+        for ssm in self.services[serv_id]['service']['ssm'].keys():
+            ssm_dict = self.services[serv_id]['service']['ssm'][ssm]
+            msg = {}
+            msg['id'] = ssm_dict['id']
+            msg['image'] = ssm_dict['image']
+#            msg['NSD'] = self.services[serv_id]['service']['nsd']
+#        msg['VNFD'] = []
+#        for function in self.services[serv_id]['function']:
+#            msg['VNFD'].append(function['vnfd'])
 
         pyld = yaml.dump(msg)
 
@@ -762,6 +774,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Pause the chain of tasks to wait for response
         self.services[serv_id]['pause_chain'] = True
+
+        LOG.info("SSM instantiation trigger sent to SMR")
 
     def trigger_master_ssm(self, serv_id):
         """
@@ -803,22 +817,21 @@ class ServiceLifecycleManager(ManoBasePlugin):
         corr_id = str(uuid.uuid4())
         self.services[serv_id]['act_corr_id'] = corr_id
 
+        #Check if placement SSM is available
+        ssm_place = self.services[serv_id]['service']['ssm']['placement']
+        #If not available, fall back on SLM placement
+        if ssm_place['instantiated'] == False:
+            return self.SLM_mapping(serv_id)         
         # build message for placement SSM
         nsd = self.services[serv_id]['service']['nsd']
         top = self.services[serv_id]['infrastructure']['topology']
-        message = {'NSD': nsd, 'Topology': top}
-
-        # Create topic to reach placement SSM on. This topic is set
-        # by the master ssm
-        func_name = sys._getframe().f_code.co_name
-        ssm = self.services[serv_id][func_name]['ssm']
-        ssm_uuid = str(self.services[serv_id]['service']['ssm'][ssm])
-        topic = 'ssm.management.' + ssm_uuid + '.place'
+        ssm_uuid = ssm_place['uuid']
+        message = {'NSD': nsd, 'Topology': top, 'uuid': ssm_uuid}
 
         # Contact SSM
         payload = yaml.dump(message)
         self.manoconn.call_async(self.resp_place,
-                                 topic,
+                                 t.EXEC_PLACE,
                                  payload,
                                  correlation_id=corr_id)
 
@@ -1015,8 +1028,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         ledger = self.services[serv_id]
 
-        message = {}
-        message['uuid'] = serv_id
+        message = serv_id['gk_message']
         message['status'] = ledger['status']
         message['error'] = ledger['error']
         message['timestamp'] = time.time()
@@ -1071,9 +1083,23 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Create a log for the task results
         self.services[serv_id]['task_log'] = []
 
-        # Create the SSM dict
-        self.services[serv_id]['service']['ssm'] = {}
+        # Create the SSM dict if SSMs are defined in NSD
+        self.services[serv_id]['service']['ssm'] = None
 
+        if 'service_specific_managers' in payload['NSD']:
+            ssm_dict = {}
+            for ssm in payload['NSD']['service_specific_managers']:
+                for option in ssm['options']:
+                    if option['key'] == 'type':
+                        ssm_dict[option['value']] = {}
+                        ssm_dict[option['value']]['id'] = ssm['id']
+                        ssm_dict[option['value']]['image'] = ssm['image']
+
+
+            self.services[serv_id]['service']['ssm'] = ssm_dict
+
+        print(self.services[serv_id]['service']['ssm'])
+                            
         # Create counter for vnfs
         self.services[serv_id]['vnfs_to_deploy'] = 0
 
@@ -1098,6 +1124,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # The service request in the yaml file should be a dictionary
         if not isinstance(payload, dict):
+            LOG.info("Validation of request completed. Status: Not a Dict")
             response = "Request " + corr_id + ": payload is not a dict."
             self.services[serv_id]['status'] = 'ERROR'
             self.services[serv_id]['error'] = response
@@ -1105,6 +1132,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # The dictionary should contain a 'NSD' key
         if 'NSD' not in payload.keys():
+            LOG.info("Validation of request completed. Status: No NSD")
             response = "Request " + corr_id + ": NSD is not a dict."
             self.services[serv_id]['status'] = 'ERROR'
             self.services[serv_id]['error'] = response
@@ -1118,6 +1146,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 number_of_vnfds = number_of_vnfds + 1
 
         if len(payload['NSD']['network_functions']) != number_of_vnfds:
+            LOG.info("Validation of request completed. Status: Number of VNFDs incorrect")
             response = "Request " + corr_id + ": # of VNFDs doesn't match NSD."
             self.services[serv_id]['status'] = 'ERROR'
             self.services[serv_id]['error'] = response
@@ -1127,11 +1156,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
         for key in payload.keys():
             if key[:4] == 'VNFD':
                 if payload[key] is None:
+                    LOG.info("Validation of request completed. Status: Empty VNFD")
                     response = "Request " + corr_id + ": empty VNFD."
                     self.services[serv_id]['status'] = 'ERROR'
                     self.services[serv_id]['error'] = response
                     return
 
+        LOG.info("Validation of request completed. Status: Instantiating")
         # If all tests succeed, the status changes to 'INSTANTIATING'
         message = {'status': 'INSTANTIATING', 'error': None}
         self.services[serv_id]['status'] = 'INSTANTIATING'
@@ -1156,8 +1187,21 @@ class ServiceLifecycleManager(ManoBasePlugin):
         mapping = tools.placement(NSD, functions, topology)
 
         if mapping is None:
-            # TODO: no mapping was possible, reject request
-            pass
+            # The GK should be informed that the placement failed and the
+            # deployment was aborted.
+            message = {}
+            message['error'] = 'Unable to perform placement.'
+            message['time'] = time.time()
+            message['status'] = 'ERROR'
+
+            corr_id = self.services[serv_id]['original_corr_id']
+            self.manoconn.notify(t.GK_create, 
+                                 yaml.dump(message), 
+                                 correlation_id=corr_id)
+
+            # The deployment must be aborted
+            del self.services['serv_id']
+            
         else:
             # Add mapping to ledger
             self.services[serv_id]['service']['mapping'] = mapping
@@ -1166,6 +1210,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 function['vim_uuid'] = mapping[vnf_id]['vim']
 
         return
+
 
     def update_slm_configuration(self, plugin_dict):
         """
@@ -1331,8 +1376,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 self.service_requests_being_handled[properties.correlation_id][key]['instance_uuid'] = str(uuid.uuid4())
                 LOG.info("instance uuid for vnf <" + key + "> generated: " + self.service_requests_being_handled[properties.correlation_id][key]['instance_uuid'])
 
-	    #SSM handling: if NSD has service_specific_managers field,
-	    #then SLM contacts the SMR with this NSD.
+        #SSM handling: if NSD has service_specific_managers field,
+        #then SLM contacts the SMR with this NSD.
         #'ssms_ready_to_start' is set to false. This flag is used
         #To make sure that both the ssm onboarding is finished and
         #the service deployed before the ssm start trigger is made.
