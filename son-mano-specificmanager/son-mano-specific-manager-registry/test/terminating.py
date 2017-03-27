@@ -29,30 +29,31 @@ partner consortium (www.sonata-nfv.eu).
 import logging
 import yaml
 import time
+import os
 from sonmanobase import messaging
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("son-mano-fakeslm")
+
 LOG.setLevel(logging.DEBUG)
 logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
 
-class fakeslmu(object):
+class fakeslm(object):
     def __init__(self):
 
         self.name = 'fake-slm'
         self.version = '0.1-dev'
         self.description = 'description'
 
-        LOG.info("Starting SLM2:...")
+        LOG.info("Starting SLM1:...")
 
         # create and initialize broker connection
         self.manoconn = messaging.ManoBrokerRequestResponseConnection(self.name)
 
-        self.path_descriptors = 'test/test_descriptors/'
         self.end = False
 
-        self.publish_nsd()
+        self.publish_updating()
 
         self.run()
 
@@ -63,30 +64,31 @@ class fakeslmu(object):
         while self.end == False:
             time.sleep(1)
 
+    def publish_updating(self):
 
-    def publish_nsd(self):
-
-        LOG.info("sending update request")
-        nsd = open(self.path_descriptors + 'nsd2.yml', 'r')
-        nsr = open(self.path_descriptors + 'nsr.yml', 'r')
-        vnfr = open(self.path_descriptors + 'vnfr.yml', 'r')
-        message = {'NSD':yaml.load(nsd),'NSR':yaml.load(nsr),'VNFR':yaml.load(vnfr)}
-        self.manoconn.call_async(self._on_publish_nsd_response,
-                                 'specific.manager.registry.ssm.update',
+        nsd = open('test_descriptors/nsdt.yml', 'r')
+        message = {'NSD': yaml.load(nsd)}
+        self.manoconn.call_async(self._on_publish_ins_response,
+                                 'specific.manager.registry.ssm.terminate',
                                  yaml.dump(message))
 
-    def _on_publish_nsd_response(self, ch, method, props, response):
+        vnfd1 = open('test_descriptors/vnfdt.yml', 'r')
+        message = {'VNFD': yaml.load(vnfd1)}
+        self.manoconn.call_async(self._on_publish_ins_response,
+                                 'specific.manager.registry.fsm.terminate',
+                                 yaml.dump(message))
+
+    def _on_publish_ins_response(self, ch, method, props, response):
 
         response = yaml.load(str(response))
         if type(response) == dict:
-            if response['status'] == 'Updated':
-                LOG.info("update done")
-                self.end = True
-            else:
-                LOG.error("SSM update failed.'{0}'".format(response['error']))
-                self.end = True
+            try:
+                print(response)
+            except BaseException as error:
+                print(error)
+
 def main():
-    fakeslmu()
+    fakeslm()
 
 
 if __name__ == '__main__':

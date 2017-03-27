@@ -39,15 +39,36 @@ network_functions:
 ## image: Specifies the DockerHub URI (user/image name) to fetch the SSM image from.
 ##
 service_specific_managers:
-  - id: "ssmsmart"
-    description: "An empty example SSM."
-    image: "sonatanfv/ssmsmart"
+
+  - id: "sonssmemptydumb1"
+    description: "An empty example FSM."
+    image: "hadik3r/sonssmemptydumb1"
     options:
       - key: "myKey"
         value: "myValue"
 
+  - id: "sonssmemptydumb2"
+    description: "An empty example FSM."
+    image: "hadik3r/sonssmemptydumb2"
+    options:
+      - key: "myKey"
+        value: "myValue"
+
+  - id: "sonssmemptydumb3"
+    description: "An empty example FSM."
+    image: "hadik3r/sonssmemptydumb3"
+    options:
+      - key: "termination"
+        value: "true"
+
+  - id: "sonssmemptydumb4"
+    description: "An empty example FSM."
+    image: "hadik3r/sonssmemptydumb4"
+    options:
+      - key: "termination"
+        value: "true"
 ##
-## The NS connection points to the 
+## The NS connection points to the
 ## outside world.
 ##
 connection_points:
@@ -98,7 +119,7 @@ forwarding_graphs:
   - fg_id: "ns:fg01"
     number_of_endpoints: 2
     number_of_virtual_links: 4
-    constituent_virtual_links: 
+    constituent_virtual_links:
       - "mgmt"
       - "input-2-iperf"
       - "iperf-2-firewall"

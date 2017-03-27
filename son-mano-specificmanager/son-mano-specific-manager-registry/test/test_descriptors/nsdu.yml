@@ -40,20 +40,37 @@ network_functions:
 ##
 service_specific_managers:
 
-  - id: "sonfsmdumb1"
-    description: "An empty example FSM."
-    image: "hadik3r/sonfsmdumb1"
+  - id: "sonssmemptydumb1"
+    description: "An empty SSM."
+    image: "hadik3r/sonssmemptydumb1"
     options:
       - key: "myKey"
         value: "myValue"
 
-  - id: "sonssmplacement1"
-    description: "An empty example SSM."
-    image: "hadik3r/sonssmplacement1"
+  - id: "sonssmemptydumb2"
+    description: "An empty SSM."
+    image: "hadik3r/sonssmemptydumb2"
     options:
       - key: "myKey"
         value: "myValue"
 
+  - id: "sonssmemptydumb3"
+    description: "An empty SSM."
+    image: "hadik3r/sonssmemptydumb3"
+    options:
+      - key: "currentId"
+        value: "sonssmemptydumb1"
+      - key: "currentImage"
+        value: "hadik3r/sonssmemptydumb1"
+
+  - id: "sonssmemptydumb4"
+    description: "An empty SSM."
+    image: "hadik3r/sonssmemptydumb4"
+    options:
+      - key: "currentId"
+        value: "sonssmemptydumb2"
+      - key: "currentImage"
+        value: "hadik3r/sonssmemptydumb2"
 ##
 ## The NS connection points to the
 ## outside world.

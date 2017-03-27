@@ -32,6 +32,7 @@ Each micro service of the framework is executed in its own Docker container. So 
 1. `docker build -t registry.sonata-nfv.eu:5000/pluginmanager -f son-mano-pluginmanager/Dockerfile .`
 2. `docker build -t registry.sonata-nfv.eu:5000/testplugin -f plugins/son-mano-test-plugin/Dockerfile .`
 3. `docker build -t registry.sonata-nfv.eu:5000/servicelifecyclemanagement -f plugins/son-mano-service-lifecycle-management/Dockerfile .`
+4. `docker build -t registry.sonata-nfv.eu:5000/specificmanagerregistry -f son-mano-specificmanager/son-mano-specific-manager-registry/Dockerfile .`
 
 
 ### Dependencies
@@ -87,6 +88,7 @@ To run all components of the MANO framework you have to start their containers. 
 2. `docker run -d -p 27017:27017 --name mongo mongo`
 3. `docker run -it --rm --link broker:broker --link mongo:mongo --name pluginmanager registry.sonata-nfv.eu:5000/pluginmanager`
 4. `docker run -it --rm --link broker:broker --name slm registry.sonata-nfv.eu:5000/servicelifecyclemanagement`
+5. `sudo docker run -it --rm --link broker:broker -e broker_name:broker,broker -v '/var/run/docker.sock:/var/run/docker.sock' --name specificmanagerregistry registry.sonata-nfv.eu:5000/specificmanagerregistry`
 
 ### Unit tests
 #### Container-based unit tests
