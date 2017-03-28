@@ -1014,14 +1014,17 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Get the serv_id of this service
         serv_id = tools.serv_id_from_corr_id(self.services, prop.correlation_id)
 
-        # TODO: handle negative status
         message = yaml.load(payload)
 
         nsd = self.services[serv_id]['service']['nsd']
-        error = message['error']
+
+        error = None
+        if message['message'] != '':
+            error = message['message']
 
         # Store the record
-        if message['status'] != 'failed':
+        if message['request_status'] == "COMPLETED":
+
             # List the vnfr ids
             vnfr_ids = []
             for function in self.services[serv_id]['function']:
@@ -1030,20 +1033,22 @@ class ServiceLifecycleManager(ManoBasePlugin):
             nsr = tools.build_nsr(message['nsr'], nsd, vnfr_ids)
 
             # Store nsr in the repository, catch exception when time-out occurs
-            try:
-                nsr_response = requests.post(t.NSR_REPOSITORY_URL + 'ns-instances', data=json.dumps(nsr), headers={'Content-Type':'application/json'}, timeout=1.0)
-                if (nsr_response.status_code == 200):
-                    pass
-                else:
-                    error = {'http_code': nsr_response.status_code, 'message': nsr_response.json()}
-                    LOG.info('nsr to repo failed: ' + str(message_for_gk['error']['nsr']))
-            except:
-                error = {'http_code': '0', 'message': 'Timeout when contacting server'}
+            # try:
+            #     nsr_response = requests.post(t.NSR_REPOSITORY_URL + 'ns-instances', data=json.dumps(nsr), headers={'Content-Type':'application/json'}, timeout=1.0)
+            #     if (nsr_response.status_code == 200):
+            #         pass
+            #     else:
+            #         error = {'http_code': nsr_response.status_code, 'message': nsr_response.json()}
+            #         LOG.info('nsr to repo failed: ' + str(message_for_gk['error']['nsr']))
+            # except:
+            #     error = {'http_code': '0', 'message': 'Timeout when contacting server'}
 
-        # TODO: what to do with the errors?
-
-        self.services[serv_id]['service']['nsr'] = nsr
-        self.services[serv_id]['service']['vim_uuid'] = message['nsr']['instanceVimUuid']
+        if error != None:
+            #TODO: inform GK
+            self.services[serv_id]['kill_chain'] = True
+        else:            
+            self.services[serv_id]['service']['nsr'] = nsr
+            self.services[serv_id]['service']['vim_uuid'] = message['nsr']['instanceVimUuid']
 
         self.start_next_task(serv_id)
 
