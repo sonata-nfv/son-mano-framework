@@ -572,11 +572,17 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method handles a response from the FLM to a vnf deploy request.
         """
 
-        LOG.info('VNF deployed')
+        LOG.info('VNF deployed ' + payload)
         message = yaml.load(payload)
 
         # Retrieve the service uuid
         serv_id = tools.serv_id_from_corr_id(self.services, prop.correlation_id)
+
+        #Inform GK if VNF deployment failed
+        if message['status'] != "COMPLETED":
+            LOG.info("Deployment of VNF failed")
+            #TODO: inform GK, kill task chain
+            return
 
         for function in self.services[serv_id]['function']:
             if function['id'] == message['vnfr']['id']:
@@ -916,42 +922,42 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # When the IA responses, the FLM builds the record and then 
         # forwards this to the SLM.
-        # TODO: situation where the status is negative    
         # TODO: build record
+        LOG.info("IA reply on VNF deploy received")
 
         inc_message = yaml.load(payload)
+
+        # Build the message for the SLM
+        outg_message = {}
+        outg_message['status'] = inc_message['request_status']
 
         # Getting vnfd from the FLM ledger
         vnfd = self.flm_ledger[prop.correlation_id]['vnfd']
 
-        error = inc_message['error']
+        error = inc_message['message']
 
-        if inc_message['status'] != 'failed':
+        if inc_message['request_status'] == "COMPLETED":
 
             # Build the record
             vnfr = tools.build_vnfr(inc_message['vnfr'], vnfd)
-        
-            # Store the record
-            try:
-                vnfr_response = requests.post(t.VNFR_REPOSITORY_URL + 'vnf-instances', data=yaml.dump(vnfr), headers={'Content-Type':'application/x-yaml'}, timeout=1.0)
-                LOG.info('repo response for vnfr: ' + str(vnfr_response))
+            outg_message['vnfr'] = vnfr      
 
-                if (vnfr_response.status_code == 200):
-                    pass
-                #If storage fails, add error code and message to rply to gk
-                else:
-                    error = {'http_code': vnfr_response.status_code, 'message': vnfr_response.json()}
-                    LOG.info('vnfr to repo failed: ' + str(message_for_gk['error']['vnfr']))
-            except:
-                error = {'http_code': '0', 'message': 'Timeout when contacting server'}
-                LOG.info('time-out on vnfr to repo')
+        #     # Store the record
+        #     try:
+        #         vnfr_response = requests.post(t.VNFR_REPOSITORY_URL + 'vnf-instances', data=yaml.dump(vnfr), headers={'Content-Type':'application/x-yaml'}, timeout=1.0)
+        #         LOG.info('repo response for vnfr: ' + str(vnfr_response))
 
+        #         if (vnfr_response.status_code == 200):
+        #             outg_message['vnfr'] = vnfr
+        #         #If storage fails, add error code and message to rply to gk
+        #         else:
+        #             error = {'http_code': vnfr_response.status_code, 'message': vnfr_response.json()}
+        #             LOG.info('vnfr to repo failed: ' + str(message_for_gk['error']['vnfr']))
+        #     except:
+        #         error = {'http_code': '0', 'message': 'Timeout when contacting server'}
+        #         LOG.info('time-out on vnfr to repo')
 
-        # Build the message for the SLM
-        outg_message = {}
-        outg_message['status'] = inc_message['status']
         outg_message['error'] = error
-        outg_message['vnfr'] = vnfr
         outg_message['inst_id'] = vnfd['instance_uuid']
 
         self.manoconn.notify(t.MANO_DEPLOY,
