@@ -735,6 +735,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             self.services[serv_id]['act_corr_id'].append(corr_id)
 
             message = function
+            message['service_id'] = serv_id
             self.manoconn.call_async(self.resp_vnf_depl,
                                      t.MANO_DEPLOY, 
                                      yaml.dump(message), 
@@ -892,6 +893,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             outg_message['vnfd'] = message['vnfd']
             outg_message['vnfd']['instance_uuid'] = message['id']
             outg_message['vim_uuid'] = message['vim_uuid']
+            outg_message['service_instance_id'] = message['service_id']
 
             payload = yaml.dump(outg_message)
 
