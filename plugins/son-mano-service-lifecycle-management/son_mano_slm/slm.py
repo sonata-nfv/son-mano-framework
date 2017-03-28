@@ -263,6 +263,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # If the kill field is active, the chain is killed
         if self.services[serv_id]['kill_chain']:
+            LOG.info("Killing workflow with id: " + serv_id)
             del self.services[serv_id]
             return
 
@@ -571,25 +572,34 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         This method handles a response from the FLM to a vnf deploy request.
         """
-
-        LOG.info('VNF deployed ' + payload)
+        LOG.info('VNF deploy response: ' + payload)
         message = yaml.load(payload)
 
         # Retrieve the service uuid
         serv_id = tools.serv_id_from_corr_id(self.services, prop.correlation_id)
 
         #Inform GK if VNF deployment failed
-        if message['status'] != "COMPLETED":
+        if message['error'] != None:
             LOG.info("Deployment of VNF failed")
-            #TODO: inform GK, kill task chain
-            return
+            self.services[serv_id]['kill_chain'] = True
 
-        for function in self.services[serv_id]['function']:
-            if function['id'] == message['vnfr']['id']:
-                function['vnfr'] = message['vnfr']
+            response = {'status': 'ERROR', 
+                        'error': message['error'],
+                        "timestamp": time.time()}
+
+            corr_id = self.services[serv_id]['original_corr_id']
+
+            LOG.info("Informing GK of VNF Failure")
+            self.manoconn.notify(t.GK_CREATE, 
+                                 yaml.dump(response), 
+                                 correlation_id=corr_id)
+
+        else:
+            LOG.info("VNF correctly Deployed.")
+            for function in self.services[serv_id]['function']:
+                if function['id'] == message['vnfr']['id']:
+                    function['vnfr'] = message['vnfr']
                 
-        # TODO: implement what to do if deployment failed
-
         vnfs_to_depl = self.services[serv_id]['vnfs_to_deploy'] - 1 
         self.services[serv_id]['vnfs_to_deploy'] = vnfs_to_depl
 
@@ -934,7 +944,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Getting vnfd from the FLM ledger
         vnfd = self.flm_ledger[prop.correlation_id]['vnfd']
 
-        error = inc_message['message']
+        error = None
+        if inc_message['message'] != '':
+            error = inc_message['message']
 
         if inc_message['request_status'] == "COMPLETED":
 
@@ -972,14 +984,26 @@ class ServiceLifecycleManager(ManoBasePlugin):
         corr_id = str(uuid.uuid4())
         self.services[serv_id]['act_corr_id'] = corr_id
 
-        # TODO: what is the format of the chain?
         chain = {}
+        chain["service_instance_id"] = serv_id
+        chain["nsd"] = self.services[serv_id]['service']['nsd']
+
+        vnfrs = []
+        vnfds = []
+
+        for function in self.services[serv_id]['function']:
+            vnfrs.append(function['vnfr'])
+            vnfds.append(function['vnfd'])
+
+        chain['vnfrs'] = vnfrs
+        chain['vnfds'] = vnfds
 
         self.manoconn.call_async(self.IA_chain_response,
                                  t.IA_CHAIN,
                                  yaml.dump(chain),
                                  correlation_id=corr_id)
 
+        LOG.info("Requested the Chaining of the VNFs.")
         # Pause the chain of tasks to wait for response
         self.services[serv_id]['pause_chain'] = True
 
