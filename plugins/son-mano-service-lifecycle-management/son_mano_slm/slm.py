@@ -600,16 +600,26 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Retrieve the service uuid
         serv_id = tools.serv_id_from_corr_id(self.services, prop.correlation_id)
 
-        message = yaml.load(payload)
+        response = yaml.load(payload)
 
-        if message['error'] is None:
+        if response['request_status'] == "COMPLETED":
             LOG.info("Infrastructure is prepared , continuing with workflow")
             self.start_next_task(serv_id)
         else:
             LOG.info("Error occured while preparing vims, aborting workflow")
-            self.services[serv_id]['status'] = 'ABORTED'
-            self.services[serv_id]['error'] = message['error']
-            self.services[serv_id]['schedule'] = ['contact_gk']
+            message = {}
+            message['error'] = response['message']
+            message['time'] = time.time()
+            message['status'] = 'ERROR'
+
+            #Inform GK of failure
+            corr_id = self.services[serv_id]['original_corr_id']
+            self.manoconn.notify(t.GK_CREATE, 
+                                 yaml.dump(message), 
+                                 correlation_id=corr_id)
+
+            # The deployment must be aborted
+            self.services[serv_id]['kill_chain'] = True
             self.start_next_task(serv_id)
 
 
