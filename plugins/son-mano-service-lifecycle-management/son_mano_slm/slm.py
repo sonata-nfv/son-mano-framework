@@ -667,15 +667,34 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Build mapping message for IA
         IA_mapping = {}
+
+        # Add the service instance uuid
+        IA_mapping['instance_id'] = serv_id
+
+        # Create the VIM list
+        IA_mapping['vim_list'] = []
+
+        # Add the vnfs
         for function in self.services[serv_id]['function']:
             vim_uuid = function['vim_uuid']
-            vm_image = function['vnfd']['virtual_deployment_units'][0]['vm_image']
 
-            if vim_uuid in IA_mapping.keys():
-                IA_mapping[vim_uuid]['vm_images'].append(vm_image)
-            else:
-                IA_mapping[vim_uuid] = {}
-                IA_mapping[vim_uuid]['vm_images'] = [vm_image]
+            #Add VIM uuid if new
+            new_vim = True
+            for vim in IA_mapping['vim_list']:
+                if vim['uuid'] == vim_uuid:
+                    new_vim = False
+                    index = IA_mapping['vim_list'].index(vim)
+
+            if new_vim:
+                IA_mapping['vim_list'].append({'uuid': vim_uuid, 'vm_images': []})
+                index = len(IA_mapping['vim_list']) - 1
+
+            for vdu in function['vnfd']['virtual_deployment_units']:
+                url = vdu['vm_image']
+                vm_uuid = tools.generate_image_uuid(vdu, function['vnfd'])
+
+                IA_mapping['vim_list'][index]['vm_images'].append({'image_uuid': vm_uuid,'image_url': url})
+
 
         # Add correlation id to the ledger for future reference
         corr_id = str(uuid.uuid4())

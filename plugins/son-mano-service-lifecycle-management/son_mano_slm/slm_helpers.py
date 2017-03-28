@@ -62,6 +62,18 @@ def serv_id_from_corr_id(ledger, corr_id):
 
     return serv_id
 
+def generate_image_uuid(vdu, vnfd):
+    """
+    This method creates the image_uuid based on the vdu info in the
+    vnfd
+    """
+
+    new_string = vnfd['vendor'] + '_' + vnfd['name'] + '_' + vnfd['version']
+    new_string = new_string + '_' + vdu['id']
+
+    return new_string
+
+
 def placement(NSD, functions, topology):
     """
     This is the default placement algorithm that is used if the SLM
