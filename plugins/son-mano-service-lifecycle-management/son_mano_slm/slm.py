@@ -261,6 +261,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
         :param first: indicates whether this is the first task in a chain.
         """
 
+        # If the kill field is active, the chain is killed
+        if self.services[serv_id]['kill_chain']:
+            del self.services[serv_id]
+            return
+
         # Select the next task, only if task list is not empty
         if len(self.services[serv_id]['schedule']) > 0:
 
@@ -1103,9 +1108,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Create counter for vnfs
         self.services[serv_id]['vnfs_to_deploy'] = 0
 
-        # Create the chain pause flag
+        # Create the chain pause and kill flag
 
         self.services[serv_id]['pause_chain'] = False
+        self.services[serv_id]['kill_chain'] = False
 
         return serv_id
 
@@ -1200,9 +1206,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                                  correlation_id=corr_id)
 
             # The deployment must be aborted
-            del self.services[serv_id]
-
-            #TODO: stop the chain for this workflow
+            self.services[serv_id]['kill_chain'] = True
             
         else:
             # Add mapping to ledger
