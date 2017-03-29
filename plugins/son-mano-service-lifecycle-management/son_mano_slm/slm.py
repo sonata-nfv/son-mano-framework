@@ -216,7 +216,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         Send a deregister request to the plugin manager.
         """
-        LOG.info('Deregistering SLM with uuid ' + self.uuid)
+        LOG.info('Deregistering SLM with uuid ' + str(self.uuid))
         message = {"uuid": self.uuid}
         self.manoconn.notify("platform.management.plugin.deregister",
                             json.dumps(message))
@@ -993,13 +993,16 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         for function in self.services[serv_id]['function']:
             vnfrs.append(function['vnfr'])
-            vnfds.append(function['vnfd'])
+
+            vnfd = function['vnfd']
+            vnfd['instance_uuid'] = function['id']
+            vnfds.append(vnfd)
 
         chain['vnfrs'] = vnfrs
         chain['vnfds'] = vnfds
 
         self.manoconn.call_async(self.IA_chain_response,
-                                 t.IA_CHAIN,
+                                 t.IA_CONF_CHAIN,
                                  yaml.dump(chain),
                                  correlation_id=corr_id)
 
