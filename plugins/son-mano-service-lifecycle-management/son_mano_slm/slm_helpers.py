@@ -147,7 +147,7 @@ def replace_old_corr_id_by_new(dictionary, old_correlation_id):
     return new_correlation_id, dictionary
 
 
-def build_nsr(ia_nsr, nsd, vnfr_ids):
+def build_nsr(ia_message, nsd, vnfr_ids, service_instance_id):
     """
     This method builds the whole NSR from the payload (stripped nsr and vnfrs)
     returned by the Infrastructure Adaptor (IA).
@@ -156,8 +156,8 @@ def build_nsr(ia_nsr, nsd, vnfr_ids):
     nsr = {}
     # nsr mandatory fields
     nsr['descriptor_version'] = 'nsr-schema-01'
-    nsr['id'] = ia_nsr['id']
-    nsr['status'] = ia_nsr['status']
+    nsr['id'] = service_instance_id
+    nsr['status'] = ia_message['request_status']
     # Building the nsr makes it the first version of this nsr
     nsr['version'] = '1'
     nsr['descriptor_reference'] = nsd['uuid']

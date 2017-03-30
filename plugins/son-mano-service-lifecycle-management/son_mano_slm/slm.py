@@ -1033,7 +1033,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             for function in self.services[serv_id]['function']:
                 vnfr_ids.append(function['id'])
 
-            nsr = tools.build_nsr(message['nsr'], nsd, vnfr_ids)
+            nsr = tools.build_nsr(message, nsd, vnfr_ids, serv_id)
 
             # Store nsr in the repository, catch exception when time-out occurs
             # try:
@@ -1051,7 +1051,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
             self.services[serv_id]['kill_chain'] = True
         else:            
             self.services[serv_id]['service']['nsr'] = nsr
-            self.services[serv_id]['service']['vim_uuid'] = message['nsr']['instanceVimUuid']
 
         self.start_next_task(serv_id)
 
