@@ -40,7 +40,6 @@ logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
 
 class fakeslm(object):
-
     def __init__(self):
 
         self.name = 'fake-slm'
@@ -52,9 +51,9 @@ class fakeslm(object):
         # create and initialize broker connection
         self.manoconn = messaging.ManoBrokerRequestResponseConnection(self.name)
 
-        self.publish_nsd()
-        #self.manoconn.subscribe(self.publish_nsd, "specific.manager.registry.ssm.instantiate")
         self.end = False
+
+        self.publish_nsd()
 
         self.run()
 
@@ -65,24 +64,32 @@ class fakeslm(object):
         while self.end == False:
             time.sleep(1)
 
-
     def publish_nsd(self):
-        # response = yaml.load(str(response))
-        # if type(response) == dict:
-        #     if response['status'] == 'Instantiated':
-        #         LOG.info("instantiation done- uuid: {0}".format(response['uuid']))
-        #         self.end = True
-        #     else:
-        #         LOG.error("SSM instantiation failed.==> '{0}'".format(response['error']))
-        #         self.end = True
-        #
-        #     if response['name']=='sonssmplacement1':
-        message = {'NSD':'nsd','Topology':'topology', 'uuid': 'fe9b968b-28d2-40bd-b326-74677477cc46'}
-        self.manoconn.call_async(self.on_place_res,topic= "placement.executive.request", msg= yaml.dump(message))
 
-    def on_place_res(self, ch, method, props, response):
-        res = yaml.load(response)
-        print(res)
+        LOG.info("Sending onboard request")
+        nsd = open('test_descriptors/nsd.yml', 'r')
+        message = {'NSD': yaml.load(nsd)}
+        self.manoconn.call_async(self._on_publish_nsd_response,
+                                 'specific.manager.registry.ssm.on-board',
+                                 yaml.dump(message))
+
+        vnfd1 = open('test_descriptors/vnfd1.yml', 'r')
+        message = {'VNFD': yaml.load(vnfd1)}
+        self.manoconn.call_async(self._on_publish_nsd_response,
+                                 'specific.manager.registry.fsm.on-board',
+                                 yaml.dump(message))
+
+        vnfd2 = open('test_descriptors/vnfd2.yml', 'r')
+        message = {'VNFD': yaml.load(vnfd2)}
+        self.manoconn.call_async(self._on_publish_nsd_response,
+                                 'specific.manager.registry.fsm.on-board',
+                                 yaml.dump(message))
+
+    def _on_publish_nsd_response(self, ch, method, props, response):
+
+        response = yaml.load(str(response))
+        if type(response) == dict:
+            print(response)
 
 
 def main():

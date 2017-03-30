@@ -120,15 +120,15 @@ class testSMREngine(unittest.TestCase):
 
     def test_container_onboarding(self):
         e = engine_connection(self)
-        e.pull(ssm_uri="hadik3r/ssmexample", ssm_name='ssmexample')
+        e.pull(image="hadik3r/ssmexample")
         img = e.dc.get_image('hadik3r/ssmexample')
         self.assertIsNotNone(img)
         e.dc.close()
 
     def test_container_instantiation(self):
         e = engine_connection(self)
-        e.pull(ssm_uri="hadik3r/ssmexample", ssm_name='ssmexample')
-        e.start(image_name="hadik3r/ssmexample", ssm_name='ssmexample', host_ip= None)
+        e.pull( image ="hadik3r/ssmexample")
+        e.start(id='ssmexample', image="hadik3r/ssmexample", uuid= None)
         con = e.dc.containers(filters={'name': 'ssmexample'})
         self.assertIsNotNone(con)
         e.dc.close()

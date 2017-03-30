@@ -1,0 +1,137 @@
+##
+## This is the network service descriptor of the
+## SONATA demo example that comprises a traffic
+## source, namely iperf, a firewall, and a traffic
+## sink, namely tcpdump.
+##
+## @author Manuel Peuster
+##
+---
+descriptor_version: "1.0"
+
+vendor: "eu.sonata-nfv.service-descriptor"
+name: "sonata-demo"
+version: "0.2.1"
+author: "Manuel Peuster, Paderborn University"
+description: >
+  "The network service descriptor for the SONATA demo,
+   comprising iperf, a firewall, and tcpump."
+##
+## The various network functions this service
+## is composed of.
+##
+network_functions:
+  - vnf_id: "vnf_firewall"
+    vnf_vendor: "eu.sonata-nfv"
+    vnf_name: "firewall-vnf"
+    vnf_version: "0.3"
+  - vnf_id: "vnf_iperf"
+    vnf_vendor: "eu.sonata-nfv"
+    vnf_name: "iperf-vnf"
+    vnf_version: "0.2"
+  - vnf_id: "vnf_tcpdump"
+    vnf_vendor: "eu.sonata-nfv"
+    vnf_name: "tcpdump-vnf"
+    vnf_version: "0.2"
+
+##
+## Some service specific managers.
+## image: Specifies the DockerHub URI (user/image name) to fetch the SSM image from.
+##
+service_specific_managers:
+
+  - id: "sonssmemptydumb1"
+    description: "An empty example FSM."
+    image: "hadik3r/sonssmemptydumb1"
+    options:
+      - key: "myKey"
+        value: "myValue"
+
+  - id: "sonssmemptydumb2"
+    description: "An empty example FSM."
+    image: "hadik3r/sonssmemptydumb2"
+    options:
+      - key: "myKey"
+        value: "myValue"
+##
+## The NS connection points to the
+## outside world.
+##
+connection_points:
+  - id: "ns:mgmt"
+    type: "interface"
+  - id: "ns:input"
+    type: "interface"
+  - id: "ns:output"
+    type: "interface"
+
+##
+## The virtual links that interconnect
+## the different connections points.
+##
+virtual_links:
+  - id: "mgmt"
+    connectivity_type: "E-LAN"
+    connection_points_reference:
+      - "vnf_iperf:mgmt"
+      - "vnf_firewall:mgmt"
+      - "vnf_tcpdump:mgmt"
+      - "ns:mgmt"
+  - id: "input-2-iperf"
+    connectivity_type: "E-Line"
+    connection_points_reference:
+      - "ns:input"
+      - "vnf_iperf:input"
+  - id: "iperf-2-firewall"
+    connectivity_type: "E-Line"
+    connection_points_reference:
+      - "vnf_iperf:output"
+      - "vnf_firewall:input"
+  - id: "firewall-2-tcpdump"
+    connectivity_type: "E-Line"
+    connection_points_reference:
+      - "vnf_firewall:output"
+      - "vnf_tcpdump:input"
+  - id: "tcpdump-2-output"
+    connectivity_type: "E-Line"
+    connection_points_reference:
+      - "vnf_tcpdump:output"
+      - "ns:output"
+
+##
+## The forwarding graphs.
+##
+forwarding_graphs:
+  - fg_id: "ns:fg01"
+    number_of_endpoints: 2
+    number_of_virtual_links: 4
+    constituent_virtual_links:
+      - "mgmt"
+      - "input-2-iperf"
+      - "iperf-2-firewall"
+      - "firewall-2-tcpdump"
+      - "tcpdump-2-output"
+    constituent_vnfs:
+      - "vnf_iperf"
+      - "vnf_firewall"
+      - "vnf_tcpdump"
+    network_forwarding_paths:
+      - fp_id: "ns:fg01:fp01"
+        policy: "none"
+        connection_points:
+          - connection_point_ref: "ns:input"
+            position: 1
+          - connection_point_ref: "vnf_iperf:input"
+            position: 2
+          - connection_point_ref: "vnf_iperf:output"
+            position: 3
+          - connection_point_ref: "vnf_firewall:input"
+            position: 4
+          - connection_point_ref: "vnf_firewall:output"
+            position: 5
+          - connection_point_ref: "vnf_tcpdump:input"
+            position: 6
+          - connection_point_ref: "vnf_tcpdump:output"
+            position: 7
+          - connection_point_ref: "ns:output"
+            position: 8

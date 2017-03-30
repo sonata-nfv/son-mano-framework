@@ -26,7 +26,7 @@ acknowledge the contributions of their colleagues of the SONATA
 partner consortium (www.sonata-nfv.eu).
 """
 '''
-This is the SMR engine module.
+This is the engine module of SONATA's Specific Manager Registry.
 '''
 
 import logging
@@ -72,7 +72,7 @@ class SMREngine(object):
         LOG.info("Connected to Docker host: {0}".format(dc.base_url))
         return dc
 
-    def pull(self, ssm_uri, ssm_name):
+    def pull(self, image):#, ssm_name):
 
         """
         Process of pulling / importing a SSM given as Docker image.
@@ -83,19 +83,19 @@ class SMREngine(object):
         - ssm_uri = "file://this/is/a/path/my-ssm.tar" -> Docker LOAD (opt A)
         :return: ssm_image_name
         """
-        if "file://" in ssm_uri:
+        if "file://" in image:
             # opt A: file based import
-            ssm_path = ssm_uri.replace("file://", "")
+            ssm_path = image.replace("file://", "")
             ssm_image_name = os.path.splitext(os.path.basename(ssm_path))[0]
-            img = self.dc.images(name=ssm_uri)
-            self.dc.import_image(ssm_path, repository=ssm_image_name)
-            LOG.debug('{0} pull: succeeded'.format( ssm_name))
+            img = self.dc.images(name=image)
+            return self.dc.import_image(ssm_path, repository=ssm_image_name)
+            #LOG.debug('{0} pull: succeeded'.format( ssm_name))
         else:
             # opt B: repository pull
-            self.dc.pull(ssm_uri) # image name and uri are the same
-            LOG.debug('{0} pull: succeeded'.format(ssm_name))
+            return self.dc.pull(image) # image name and uri are the same
+            #LOG.debug('{0} pull: succeeded'.format(ssm_name))
 
-    def start(self, image_name, ssm_name, host_ip):
+    def start(self, id, image, uuid):
 
         if 'broker_host' in os.environ:
             broker_host = os.environ['broker_host']
@@ -107,19 +107,24 @@ class SMREngine(object):
         else:
             broker = {'name':'broker', 'alias':'broker'}
 
-        if "file://" in image_name:
-            image_name = image_name.replace("file://", "")
+        if "file://" in image:
+            image_name = image.replace("file://", "")
 
-        container = self.dc.create_container(image=image_name,
+        container = self.dc.create_container(image=image,
                                              tty=True,
-                                             name=ssm_name,
-                                             environment={'broker_host':broker_host})
+                                             name=id,
+                                             environment={'broker_host':broker_host, 'sf_uuid':uuid})
 
         self.dc.start(container=container.get('Id'), links= [(broker['name'], broker['alias'])])
-        LOG.debug("{0} instantiation: succeeded".format(ssm_name))
+        #LOG.debug("{0} instantiation: succeeded".format(image))
 
     def stop(self, ssm_name):
         self.dc.kill(ssm_name)
+
+    def rm (self,id, image):
+        self.dc.stop(container=id)
+        self.dc.remove_container(container= id, force= True)
+        self.dc.remove_image(image= image, force= True)
 
     def retrieve_broker_name(self, broker):
         mid = broker.find(',')
