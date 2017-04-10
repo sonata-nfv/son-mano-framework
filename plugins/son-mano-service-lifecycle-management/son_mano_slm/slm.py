@@ -425,6 +425,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
            add_schedule.append('onboard_ssms')
            add_schedule.append('instant_ssms')
 
+        if self.services[serv_id]['service']['ssm'] != None:
+            if 'task' in self.services[serv_id]['service']['ssm'].keys():
+                add_schedule.append('trigger_task_ssm')
+
         add_schedule.append('request_topology')
 
         #Perform the placement
@@ -433,6 +437,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         else:
             if 'placement' in self.services[serv_id]['service']['ssm'].keys():
                 add_schedule.append('req_placement_from_ssm')
+            else:
+                add_schedule.append('SLM_mapping')
 
         add_schedule.append('ia_prepare')
         add_schedule.append('vnf_deploy')
@@ -474,6 +480,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         message = yaml.load(payload)
 
+        LOG.info("Requested info on topology: " + str(message))
+
         # Retrieve the service uuid
         serv_id = tools.serv_id_from_corr_id(self.services, prop.correlation_id)
 
@@ -514,12 +522,14 @@ class ServiceLifecycleManager(ManoBasePlugin):
         serv_id = tools.serv_id_from_corr_id(self.services, prop.correlation_id)
 
         message = yaml.load(payload)
-        print(message)
+        LOG.info(message)
         for ssm_type in self.services[serv_id]['service']['ssm'].keys():
             ssm = self.services[serv_id]['service']['ssm'][ssm_type]
             response = message[ssm['id']]
             ssm['instantiated'] = False
+            LOG.info("error content: " + str(response['error']))
             if response['error'] is None:
+                LOG.info("Instantiated True")
                 ssm['instantiated'] = True
             else:
                 LOG.info("Error during ssm instantiation: " + response['error'])
@@ -535,21 +545,22 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         #TODO: Test this method
 
-        message = yaml.load(payload)
+        LOG.info("Response from task ssm: " + payload)
 
         # Retrieve the service uuid
         serv_id = tools.serv_id_from_corr_id(self.services, prop.correlation_id)
 
-        # Convert method string names into method pointers and add to ledger
-        schedule = [getattr(self, x['task']) for x in message]
-        self.services[serv_id]['schedule'] = schedule
+        message = yaml.load(payload)
+        self.services[serv_id]['schedule'] = message['schedule']
 
-        # Add attributes for these methods to the ledger.
-        for task in message:
-            if task['attributes'] != None:
-                self.services[serv_id][task['task']] = task['attributes']
+        LOG.info("Printing current schedule: " + str(self.services[serv_id]['schedule']))
 
-        # Continue with the scheduled tasks
+        # # Add attributes for these methods to the ledger.
+        # for task in message:
+        #     if task['attributes'] != None:
+        #         self.services[serv_id][task['task']] = task['attributes']
+
+        # # Continue with the scheduled tasks
         self.start_next_task(serv_id)
 
     def resp_place(self, ch, method, prop, payload):
@@ -558,21 +569,62 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         #TODO: Test this method
 
+        LOG.info(payload)
         message = yaml.load(payload)
+
+        is_dict = isinstance(message, dict)
+        LOG.info("Type Dict: " + str(is_dict))
 
         # Retrieve the service uuid
         serv_id = tools.serv_id_from_corr_id(self.services, prop.correlation_id)
 
-        # Add placement information to the ledger
-        self.services[serv_id]['service']['mapping'] = message['placement']
+        mapping = message['mapping']
+        error = message['error']
 
+        if error != None:
+            # The GK should be informed that the placement failed and the
+            # deployment was aborted.
+            message = {}
+            message['error'] = error
+            message['time'] = time.time()
+            message['status'] = 'ERROR'
+
+            corr_id = self.services[serv_id]['original_corr_id']
+            self.manoconn.notify(t.GK_CREATE, 
+                                 yaml.dump(message), 
+                                 correlation_id=corr_id)
+
+            # The deployment must be aborted
+            self.services[serv_id]['kill_chain'] = True
+            
+        else:
+            # Add mapping to ledger
+            LOG.info("Calculated SSM mapping: " + str(mapping))
+            self.services[serv_id]['service']['mapping'] = mapping
+            for function in self.services[serv_id]['function']:
+                vnf_id = function['id']
+                function['vim_uuid'] = mapping[vnf_id]['vim']
+
+        self.start_next_task(serv_id)
+
+    def resp_ssm_configure(self, ch, method, prop, payload):
+        """
+        This method handles an ssm configuration response
+        """
+        #TODO: Test this method
+
+        LOG.info(payload)
+        message = yaml.load(payload)
+
+        # Retrieve the service uuid
+        serv_id = tools.serv_id_from_corr_id(self.services, prop.correlation_id)
         self.start_next_task(serv_id)
 
     def resp_vnf_depl(self, ch, method, prop, payload):
         """
         This method handles a response from the FLM to a vnf deploy request.
         """
-        LOG.info('VNF deploy response: ' + payload)
+        LOG.info('VNF deployed.')
         message = yaml.load(payload)
 
         # Retrieve the service uuid
@@ -599,6 +651,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             for function in self.services[serv_id]['function']:
                 if function['id'] == message['vnfr']['id']:
                     function['vnfr'] = message['vnfr']
+                    LOG.info("Added vnfr: " + yaml.dump(message['vnfr']))
                 
         vnfs_to_depl = self.services[serv_id]['vnfs_to_deploy'] - 1 
         self.services[serv_id]['vnfs_to_deploy'] = vnfs_to_depl
@@ -617,6 +670,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         serv_id = tools.serv_id_from_corr_id(self.services, prop.correlation_id)
 
         response = yaml.load(payload)
+
+        LOG.info("Response to ia_prepare: " + str(response))
 
         if response['request_status'] == "COMPLETED":
             LOG.info("Infrastructure is prepared , continuing with workflow")
@@ -802,17 +857,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
         corr_id = str(uuid.uuid4())        
         # Sending the NSD to the SRM triggers it to instantiate the ssms
 
-        print(self.services[serv_id]['service']['ssm'].keys())
-        for ssm in self.services[serv_id]['service']['ssm'].keys():
-            ssm_dict = self.services[serv_id]['service']['ssm'][ssm]
-            msg = {}
-            msg['id'] = ssm_dict['id']
-            msg['image'] = ssm_dict['image']
-#            msg['NSD'] = self.services[serv_id]['service']['nsd']
-#        msg['VNFD'] = []
-#        for function in self.services[serv_id]['function']:
-#            msg['VNFD'].append(function['vnfd'])
-
+        msg = {}
+        msg['NSD'] = self.services[serv_id]['service']['nsd']
+        msg['UUID'] = serv_id
+        
+        LOG.info("Keys in message for SSM instantiation: " + str(msg.keys()))
         pyld = yaml.dump(msg)
 
         self.manoconn.call_async(self.resp_instant,
@@ -828,7 +877,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         LOG.info("SSM instantiation trigger sent to SMR")
 
-    def trigger_master_ssm(self, serv_id):
+    def trigger_task_ssm(self, serv_id):
         """
         This method contacts the master SSM and allows it to update
         the task schedule.
@@ -840,13 +889,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['act_corr_id'] = corr_id
 
         # Select the master SSM and create topic to reach it on
-        master_ssm = self.services[serv_id]['service']['ssm'][0]
-        topic = str(master_ssm['executive']) + '.executive.request'
+        ssm_id = self.services[serv_id]['service']['ssm']['task']['uuid']
+        topic = "task.ssm" + str(ssm_id)
 
-        # Convert schedule of method pointers into list of method string names
-        schedule_pointer = self.services[serv_id]['schedule']
-        schedule_string = [x.__name__ for x in schedule_pointer]
-        message = {'uuid': master_ssm['uuid'], 'schedule': schedule_string}
+        # Adding the schedule to the message
+        message = {'schedule': self.services[serv_id]['schedule']}
 
         # Contact SSM
         payload = yaml.dump(message)
@@ -877,10 +924,20 @@ class ServiceLifecycleManager(ManoBasePlugin):
         nsd = self.services[serv_id]['service']['nsd']
         top = self.services[serv_id]['infrastructure']['topology']
         ssm_uuid = ssm_place['uuid']
-        message = {'NSD': nsd, 'Topology': top, 'uuid': ssm_uuid}
+
+        vnfds = []
+        for function in self.services[serv_id]['function']:
+            vnfd_to_add = function['vnfd']
+            vnfd_to_add['instance_uuid'] = function['id']
+            vnfds.append(function['vnfd'])
+
+        message = {'nsd': nsd, 'topology': top, 'uuid': ssm_uuid, 'vnfds': vnfds}
 
         # Contact SSM
         payload = yaml.dump(message)
+
+        LOG.info("Placement requested from SSM: " + str(message.keys()))
+
         self.manoconn.call_async(self.resp_place,
                                  t.EXEC_PLACE,
                                  payload,
@@ -888,6 +945,41 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Pause the chain of tasks to wait for response
         self.services[serv_id]['pause_chain'] = True
+
+    def configure_ssm(self, serv_id):
+        """
+        This method contacts a configuration ssm with the descriptors
+        and the records if they are available.
+
+        :param serv_id: The instance uuid of the service.
+        """
+
+        corr_id = str(uuid.uuid4())
+        self.services[serv_id]['act_corr_id'] = corr_id
+
+        if self.services[serv_id]['service']['ssm']['configure'] is None:
+            LOG.info("Configuration SSM requested but not available")
+            return
+
+        if not self.services[serv_id]['service']['ssm']['configure']['instantiated']:
+            LOG.info("Configuration SSM not instantiated")
+            return
+
+        # Building the content message for the configuration ssm
+        content = {'service': self.services[serv_id]['service'],
+                   'functions': self.services[serv_id]['function']}
+
+        payload = yaml.dump(content)
+        ssm_id = self.services[serv_id]['service']['ssm']['configure']['uuid']
+        topic = "configure.ssm" + str(ssm_id)
+        self.manoconn.call_async(self.resp_ssm_configure,
+                                 topic,
+                                 payload,
+                                 correlation_id=corr_id)
+
+        # Pause the chain of tasks to wait for response
+        self.services[serv_id]['pause_chain'] = True
+
 
     def slm_share(self, status, content):
 
@@ -919,6 +1011,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             self.flm_ledger[corr_id]['vnfd'] = message['vnfd']
             self.flm_ledger[corr_id]['orig_corr_id'] = prop.correlation_id
 
+            LOG.info("Outgoing IA vnf call: " + payload)
             # Contact the IA
             self.manoconn.call_async(self.IA_deploy_response,
                                      t.IA_DEPLOY,
@@ -934,6 +1027,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # forwards this to the SLM.
         # TODO: build record
         LOG.info("IA reply on VNF deploy received")
+        LOG.info(payload)
 
         inc_message = yaml.load(payload)
 
@@ -1019,6 +1113,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         message = yaml.load(payload)
 
+        LOG.info("Response to chaining request: " + payload)
+
         nsd = self.services[serv_id]['service']['nsd']
 
         error = None
@@ -1034,6 +1130,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 vnfr_ids.append(function['id'])
 
             nsr = tools.build_nsr(message, nsd, vnfr_ids, serv_id)
+            LOG.info("nsr: " + yaml.dump(nsr))
 
             # Store nsr in the repository, catch exception when time-out occurs
             # try:
@@ -1254,6 +1351,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         :param serv_id: The instance uuid of the service
         """
 
+        LOG.info("In SLM Mapping...")
         topology = self.services[serv_id]['infrastructure']['topology']
         NSD = self.services[serv_id]['service']['nsd']
         functions = self.services[serv_id]['function']
@@ -1278,6 +1376,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             
         else:
             # Add mapping to ledger
+            LOG.info("Calculated SLM mapping: " + str(mapping))
             self.services[serv_id]['service']['mapping'] = mapping
             for function in self.services[serv_id]['function']:
                 vnf_id = function['id']

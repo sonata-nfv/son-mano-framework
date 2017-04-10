@@ -278,7 +278,34 @@ def build_vnfr(ia_vnfr, vnfd):
                 vnfc['vim_id'] = ia_vnfc['vim_id']
                 vnfc['vc_id'] = ia_vnfc['vc_id']
                 vnfc['connection_points'] = ia_vnfc['connection_points']
+                # vnfc['connection_points'] = []
+                # for cp_ia in ia_vnfc['connection_points']:
+                #     new_cp = {}
+                #     new_cp['id'] = cp_ia['id']
+                #     cp_vnfd = get_vdu_cp_by_ref(vnfd, vdu['id'], new_cp['id'])
+                #     new_cp['type'] = cp_vnfd['type']
+                #     new_cp['interface'] = {}
+
+                #     if cp_vnfd['interface'] == 'ipv4':
+                #         new_cp['interface']['ipv4'] = {}
+                #         new_cp['interface']['ipv4']['address'] = cp_ia['type']['address']
+                #         new_cp['interface']['ipv4']['netmask'] = cp_ia['type']['netmask']
+                #         new_cp['interface']['ipv4']['hardware_address'] = cp_ia['type']['hardware_address']
+
+                #     if cp_vnfd['interface'] == 'ipv6':
+                #         new_cp['interface']['ipv4'] = {}
+                #         new_cp['interface']['ipv4']['address'] = cp_ia['type']['address']
+                #         new_cp['interface']['ipv4']['hardware_address'] = cp_ia['type']['hardware_address']
+
+                #     if cp_vnfd['interface'] == 'ethernet':
+                #         new_cp['interface']['ipv4'] = {}
+                #         new_cp['interface']['ipv4']['address'] = cp_ia['type']['address']
+
+                #     vnfc['connection_points'].append(new_cp)
+
                 vdu['vnfc_instance'].append(vnfc)
+
+
 
         # vdu monitoring-parameters (optional)
 
@@ -310,6 +337,16 @@ def get_vnfd_vdu_by_reference(vnfd, vdu_reference):
                 return vnfd_vdu
     return None
 
+def get_vdu_cp_by_ref(vnfd, vdu_id, cp_id):
+
+    if 'virtual_deployment_units' in vnfd:
+        for vdu in vnfd['virtual_deployment_units']:
+            if vdu['id'] == vdu_id:
+                for cp in vdu['connection_points']:
+                    if cp['id'] == cp_id:
+                        return cp
+
+    return None
 
 def get_vnfd_by_reference(gk_request, vnfd_reference):
 

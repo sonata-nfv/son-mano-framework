@@ -155,6 +155,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
 
     def on_ssm_register(self, ch, method, properties, message):
 
+        LOG.info("Instantiation response received: " + str(message))
         try:
             message = yaml.load(str(message))
             keys = self.ssm_repo.keys()
@@ -182,7 +183,12 @@ class SpecificManagerRegistry(ManoBasePlugin):
         except BaseException as err:
             result = {'status': 'Failed', 'error': str(err)}
             LOG.exception("'{0}' registration Failed: ".format(message['name']))
-        return yaml.dump(result)
+
+        LOG.info("Responding to registration call: " + str(result))
+        self.manoconn.notify(topic.SSM_REGISTRATION, yaml.dump(result), correlation_id=properties.correlation_id)
+
+        return
+
 
     def onboard(self, message):
 
@@ -232,16 +238,20 @@ class SpecificManagerRegistry(ManoBasePlugin):
             try:
                 self.smrengine.start( id= m_id, image=m_image, uuid=message['UUID'])
             except BaseException as error:
+                LOG.info("Test1")
                 LOG.error('Instantiation failed for: {0}, Error: {1}'.format(m_id, error))
                 result_dict.update({m_id: {'status': 'Failed', 'uuid': 'None', 'error': str(error)}})
             else:
                 self._wait_for_ssm_registration(name=m_id)
+                LOG.info("m_id: " + str(m_id))
+                LOG.info("ssm repo keys: " + str(self.ssm_repo.keys()))
                 if m_id in self.ssm_repo.keys():
                     LOG.debug('Registration & instantiation succeeded for: {0}'.format(m_id))
                     self.ssm_repo[m_id]['status'] = 'running'
                     result_dict.update({m_id: {'status': 'Instantiated',
-                                         'uuid': self.ssm_repo[m_id]['uuid'], 'error': 'None'}})
+                                         'uuid': self.ssm_repo[m_id]['uuid'], 'error': None}})
                 else:
+                    LOG.info("Test2")
                     LOG.error('Instantiation failed for: {0}, Error: Registration failed'.format(m_id))
                     result_dict.update({m_id: {'status': 'Failed', 'uuid': 'None', 'error': 'Registration failed'}})
                     self.smrengine.rm(id=m_id, image=m_image)
