@@ -67,9 +67,9 @@ class PlacementExecutive(ManoBasePlugin):
 
     def on_placement_result(self, ch, method, properties, payload):
             print ('Placement result recieved')
-            # message = yaml.load(payload)
-            # resp = yaml.dump(payload)
-            self.manoconn.notify(topic = "placement.executive.request", msg= payload, correlation_id=properties.correlation_id)
+            message = yaml.load(payload)
+            resp = yaml.dump(message)
+            self.manoconn.notify(topic = "placement.executive.request", msg= resp, correlation_id=properties.correlation_id)
             print ('Placement result sent to SLM')
 
 

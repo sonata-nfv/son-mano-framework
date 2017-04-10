@@ -43,19 +43,21 @@ description: >
 ##
 
 function_specific_managers:
-  - id: "sonfsmemptydumb1"
-    description: "An empty FSM"
-    image: "hadik3r/sonfsmemptydumb1"
+
+  - id: "sonfsmservice1function1dumb1"
+    description: "An empty FSM example"
+    image: "hadik3r/sonfsmservice1function1dumb1"
     options:
       - key: "myKey"
         value: "myValue"
 
-  - id: "sonfsmemptydumb2"
-    description: "An empty FSM"
-    image: "hadik3r/sonfsmemptydumb2"
-    options:
-      - key: "myKey"
-        value: "myValue"
+#  - id: "sonfsmservice1function1dumb2"
+#    description: "An empty FSM"
+#    image: "hadik3r/sonfsmservice1function1dumb2"
+#    options:
+#      - key: "myKey"
+#        value: "myValue"
+
 
 
 ##

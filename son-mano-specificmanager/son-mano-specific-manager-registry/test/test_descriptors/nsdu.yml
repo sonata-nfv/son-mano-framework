@@ -40,37 +40,37 @@ network_functions:
 ##
 service_specific_managers:
 
-  - id: "sonssmemptydumb1"
-    description: "An empty SSM."
-    image: "hadik3r/sonssmemptydumb1"
+  - id: "sonssmservice1dumb1"
+    description: "An empty SSM example."
+    image: "hadik3r/sonssmservice1dumb1"
     options:
       - key: "myKey"
         value: "myValue"
 
-  - id: "sonssmemptydumb2"
-    description: "An empty SSM."
-    image: "hadik3r/sonssmemptydumb2"
+  - id: "sonssmservice1placement1"
+    description: "Placement FSM example."
+    image: "hadik3r/sonssmservice1placement1"
     options:
       - key: "myKey"
         value: "myValue"
 
-  - id: "sonssmemptydumb3"
-    description: "An empty SSM."
-    image: "hadik3r/sonssmemptydumb3"
+  - id: "sonssmservice1dumb1"
+    description: "An empty SSM example."
+    image: "hadik3r/sonssmservice1updateddumb1"
     options:
       - key: "currentId"
-        value: "sonssmemptydumb1"
+        value: "sonssmservice1dumb1"
       - key: "currentImage"
-        value: "hadik3r/sonssmemptydumb1"
+        value: "hadik3r/sonssmservice1dumb1"
 
-  - id: "sonssmemptydumb4"
-    description: "An empty SSM."
-    image: "hadik3r/sonssmemptydumb4"
-    options:
-      - key: "currentId"
-        value: "sonssmemptydumb2"
-      - key: "currentImage"
-        value: "hadik3r/sonssmemptydumb2"
+#  - id: "sonssmservice1placement1"
+#    description: "Placement FSM example."
+#    image: "hadik3r/sonssmservice1placement2"
+#    options:
+#      - key: "currentId"
+#        value: "sonssmservice1placement1"
+#      - key: "currentImage"
+#        value: "hadik3r/sonssmservice1placement1"
 ##
 ## The NS connection points to the
 ## outside world.
