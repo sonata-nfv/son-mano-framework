@@ -680,7 +680,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             LOG.info("Error occured while preparing vims, aborting workflow")
             message = {}
             message['error'] = response['message']
-            message['time'] = time.time()
+            message['timestamp'] = time.time()
             message['status'] = 'ERROR'
 
             #Inform GK of failure
