@@ -131,3 +131,6 @@ class SMREngine(object):
         name = broker[:mid]
         alias = broker[mid+1:]
         return {'name':name, 'alias':alias}
+
+    def rename(self, current_name, new_name):
+        self.dc.rename(current_name,new_name)
