@@ -75,7 +75,6 @@ class fakeslm(object):
                                  'specific.manager.registry.ssm.instantiate',
                                  yaml.dump(message))
 
-
         vnfd1 = open('test_descriptors/vnfd1.yml', 'r')
         message = {'VNFD': yaml.load(vnfd1), 'UUID':'9012'}
         self.manoconn.call_async(self._on_publish_sid_response,

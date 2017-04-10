@@ -43,33 +43,35 @@ description: >
 
 function_specific_managers:
 
-  - id: "sonfsmemptydumb1"
-    description: "An empty FSM"
-    image: "hadik3r/sonfsmemptydumb1"
+  - id: "sonfsmservice1firewallconfiguration1"
+    description: "Configuration FSM example"
+    image: "hadik3r/sonfsmservice1firewallconfiguration1"
     options:
       - key: "myKey"
         value: "myValue"
 
-  - id: "sonfsmemptydumb2"
-    description: "An empty FSM"
-    image: "hadik3r/sonfsmemptydumb2"
+  - id: "sonfsmservice1function1monitoring1"
+    description: "Monitoring FSM exampl"
+    image: "hadik3r/sonfsmservice1function1monitoring1"
     options:
       - key: "myKey"
         value: "myValue"
 
-  - id: "sonfsmemptydumb5"
-    description: "An empty FSM"
-    image: "hadik3r/sonfsmemptydumb5"
+  - id: "sonfsmservice1firewallconfiguration2"
+    description: "Configuration FSM example"
+    image: "hadik3r/sonfsmservice1firewallconfiguration2"
     options:
       - key: "termination"
         value: "true"
 
-  - id: "sonfsmemptydumb6"
-    description: "An empty FSM"
-    image: "hadik3r/sonfsmemptydumb6"
+
+  - id: "sonfsmservice1function1monitoring2"
+    description: "Monitoring FSM exampl"
+    image: "hadik3r/sonfsmservice1function1monitoring2"
     options:
       - key: "termination"
         value: "true"
+
 
 
 ##
