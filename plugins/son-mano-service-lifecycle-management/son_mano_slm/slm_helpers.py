@@ -62,6 +62,18 @@ def serv_id_from_corr_id(ledger, corr_id):
 
     return serv_id
 
+def generate_image_uuid(vdu, vnfd):
+    """
+    This method creates the image_uuid based on the vdu info in the
+    vnfd
+    """
+
+    new_string = vnfd['vendor'] + '_' + vnfd['name'] + '_' + vnfd['version']
+    new_string = new_string + '_' + vdu['id']
+
+    return new_string
+
+
 def placement(NSD, functions, topology):
     """
     This is the default placement algorithm that is used if the SLM
@@ -87,8 +99,7 @@ def placement(NSD, functions, topology):
 #            print(str(vim['memory_total']) + ' ' + str(vim['memory_used']))
 
             if cpu_req and mem_req:
-                print('function embeddable: ' + function['id'])
-                print('selected vim: ' + vim['vim_uuid'])
+                print('VNF ' + function['id'] + ' mapped on VIM ' + vim['vim_uuid'])
                 mapping[function['id']] = {}
                 mapping[function['id']]['vim'] = vim['vim_uuid']
                 vim['core_used'] = vim['core_used'] + needed_cpu
@@ -136,7 +147,7 @@ def replace_old_corr_id_by_new(dictionary, old_correlation_id):
     return new_correlation_id, dictionary
 
 
-def build_nsr(ia_nsr, nsd, vnfr_ids):
+def build_nsr(ia_message, nsd, vnfr_ids, service_instance_id):
     """
     This method builds the whole NSR from the payload (stripped nsr and vnfrs)
     returned by the Infrastructure Adaptor (IA).
@@ -145,8 +156,8 @@ def build_nsr(ia_nsr, nsd, vnfr_ids):
     nsr = {}
     # nsr mandatory fields
     nsr['descriptor_version'] = 'nsr-schema-01'
-    nsr['id'] = ia_nsr['id']
-    nsr['status'] = ia_nsr['status']
+    nsr['id'] = service_instance_id
+    nsr['status'] = ia_message['request_status']
     # Building the nsr makes it the first version of this nsr
     nsr['version'] = '1'
     nsr['descriptor_reference'] = nsd['uuid']
@@ -267,7 +278,34 @@ def build_vnfr(ia_vnfr, vnfd):
                 vnfc['vim_id'] = ia_vnfc['vim_id']
                 vnfc['vc_id'] = ia_vnfc['vc_id']
                 vnfc['connection_points'] = ia_vnfc['connection_points']
+                # vnfc['connection_points'] = []
+                # for cp_ia in ia_vnfc['connection_points']:
+                #     new_cp = {}
+                #     new_cp['id'] = cp_ia['id']
+                #     cp_vnfd = get_vdu_cp_by_ref(vnfd, vdu['id'], new_cp['id'])
+                #     new_cp['type'] = cp_vnfd['type']
+                #     new_cp['interface'] = {}
+
+                #     if cp_vnfd['interface'] == 'ipv4':
+                #         new_cp['interface']['ipv4'] = {}
+                #         new_cp['interface']['ipv4']['address'] = cp_ia['type']['address']
+                #         new_cp['interface']['ipv4']['netmask'] = cp_ia['type']['netmask']
+                #         new_cp['interface']['ipv4']['hardware_address'] = cp_ia['type']['hardware_address']
+
+                #     if cp_vnfd['interface'] == 'ipv6':
+                #         new_cp['interface']['ipv4'] = {}
+                #         new_cp['interface']['ipv4']['address'] = cp_ia['type']['address']
+                #         new_cp['interface']['ipv4']['hardware_address'] = cp_ia['type']['hardware_address']
+
+                #     if cp_vnfd['interface'] == 'ethernet':
+                #         new_cp['interface']['ipv4'] = {}
+                #         new_cp['interface']['ipv4']['address'] = cp_ia['type']['address']
+
+                #     vnfc['connection_points'].append(new_cp)
+
                 vdu['vnfc_instance'].append(vnfc)
+
+
 
         # vdu monitoring-parameters (optional)
 
@@ -299,6 +337,16 @@ def get_vnfd_vdu_by_reference(vnfd, vdu_reference):
                 return vnfd_vdu
     return None
 
+def get_vdu_cp_by_ref(vnfd, vdu_id, cp_id):
+
+    if 'virtual_deployment_units' in vnfd:
+        for vdu in vnfd['virtual_deployment_units']:
+            if vdu['id'] == vdu_id:
+                for cp in vdu['connection_points']:
+                    if cp['id'] == cp_id:
+                        return cp
+
+    return None
 
 def get_vnfd_by_reference(gk_request, vnfd_reference):
 

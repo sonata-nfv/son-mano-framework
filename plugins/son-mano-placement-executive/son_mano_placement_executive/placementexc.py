@@ -58,11 +58,12 @@ class PlacementExecutive(ManoBasePlugin):
 
     def on_placement_request(self, ch, method, properties, payload):
         if properties.app_id != self.name:
-            print ('Placement request recieved')
             message = yaml.load(payload)
+            LOG.info('Placement request received: ' + str(message.keys()))
             topic = 'placement.ssm'+ message['uuid']
             req = yaml.dump(message)
             self.manoconn.call_async(self.on_placement_result, topic= topic, msg=req, correlation_id= properties.correlation_id)
+            LOG.info("Placement request forwarded to SSM on topic: " + str(topic))
 
     def on_placement_result(self, ch, method, properties, payload):
             print ('Placement result recieved')

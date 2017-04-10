@@ -410,7 +410,8 @@ class testSlmFunctionality(unittest.TestCase):
         orig_corr_id = str(uuid.uuid4())
         service_dict[service_id] = {'corr_id':corr_id,
                                     'original_corr_id': orig_corr_id,
-                                    'pause_chain': True}
+                                    'pause_chain': True,
+                                    'kill_chain': False}
 
         #SUBTEST1: Check if next task is correctly called
         message = self.createGkNewServiceRequestMessage()
@@ -446,7 +447,8 @@ class testSlmFunctionality(unittest.TestCase):
         orig_corr_id = str(uuid.uuid4())
         service_dict[service_id] = {'corr_id':corr_id,
                                     'original_corr_id': orig_corr_id,
-                                    'pause_chain': False}
+                                    'pause_chain': False,
+                                    'kill_chain': False}
 
         #SUBTEST2: Check behavior if there is no next task
         message = self.createGkNewServiceRequestMessage()
@@ -534,7 +536,8 @@ class testSlmFunctionality(unittest.TestCase):
                                     'infrastructure': {'topology':None},
                                     'schedule': ['get_ledger'],
                                     'original_corr_id':corr_id,
-                                    'pause_chain': True}
+                                    'pause_chain': True,
+                                    'kill_chain': False}
 
         self.slm_proc.set_services(service_dict)
 
@@ -583,7 +586,8 @@ class testSlmFunctionality(unittest.TestCase):
                                     'vnfs_to_deploy': 1,
                                     'schedule': ['get_ledger'],
                                     'original_corr_id':corr_id,
-                                    'pause_chain': True}
+                                    'pause_chain': True,
+                                    'kill_chain': False}
 
         self.slm_proc.set_services(service_dict)
 
@@ -629,7 +633,8 @@ class testSlmFunctionality(unittest.TestCase):
                                     'vnfs_to_deploy': 2,
                                     'schedule': ['get_ledger'],
                                     'original_corr_id':corr_id,
-                                    'pause_chain': True}
+                                    'pause_chain': True,
+                                    'kill_chain': False}
 
         self.slm_proc.set_services(service_dict)
 
@@ -670,7 +675,7 @@ class testSlmFunctionality(unittest.TestCase):
         #SUBTEST 1: Successful response message
         #Setup
         #Create the message
-        message = {'status': 'PREPARED',
+        message = {'request_status': 'COMPLETED',
                    'error': None,
                    }
 
@@ -683,7 +688,8 @@ class testSlmFunctionality(unittest.TestCase):
         service_dict[service_id] = {'act_corr_id':corr_id,
                                     'schedule': ['get_ledger'],
                                     'original_corr_id':corr_id,
-                                    'pause_chain': True}
+                                    'pause_chain': True,
+                                    'kill_chain': False}
 
         self.slm_proc.set_services(service_dict)
 
@@ -708,13 +714,38 @@ class testSlmFunctionality(unittest.TestCase):
                          msg="Key in dictionary SUBTEST 1")
 
         #SUBTEST 2: Failed response message
+
+        def on_test_resp_prepare_subtest2(ch, mthd, prop, payload):
+
+            message = yaml.load(payload)
+
+            self.assertEqual(message['status'],
+                             'ERROR',
+                             msg="Status not correct in SUBTEST 1")
+
+            self.assertEqual(message['error'],
+                             'BAR',
+                             msg="Error not correct in SUBTEST 1")
+
+            self.assertTrue('timestamp' in message.keys(),
+                             msg="Timestamp missing in SUBTEST 1")
+
+            self.assertEqual(len(message.keys()),
+                             3,
+                            msg="Number of keys not correct in SUBTEST1")
+            self.firstEventFinished()
+
         #Setup
         #Create the message
-        message = {'status': 'FAILED',
-                   'error': 'Vim not available',
+
+        message = {'request_status': 'FOO',
+                   'message': 'BAR',
                    }
 
         payload = yaml.dump(message)
+
+        #Listen on feedback topic
+        self.manoconn_gk.subscribe(on_test_resp_prepare_subtest2,'service.instances.create')
 
         #Create ledger
         service_dict = {}
@@ -723,7 +754,8 @@ class testSlmFunctionality(unittest.TestCase):
         service_dict[service_id] = {'act_corr_id':corr_id,
                                     'schedule': ['get_ledger'],
                                     'original_corr_id':corr_id,
-                                    'pause_chain': True}
+                                    'pause_chain': True,
+                                    'kill_chain': False}
 
         self.slm_proc.set_services(service_dict)
 
@@ -738,18 +770,9 @@ class testSlmFunctionality(unittest.TestCase):
         #Run method
         self.slm_proc.resp_prepare('foo', 'bar', properties, payload)
 
-        #Check result
-        result = self.slm_proc.get_services()
+        #Wait for the test to finish
+        self.waitForFirstEvent(timeout=5)
 
-        self.assertTrue('status' in result[service_id].keys(),
-                         msg="Key in dictionary SUBTEST 2")
-
-        self.assertTrue('error' in result[service_id].keys(),
-                         msg="Key in dictionary SUBTEST 2")
-
-        self.assertEqual(result[service_id]['error'],
-                         'Vim not available',
-                          msg='Error message not equal in SUBTEST 2')
 
 ###############################################################
 #TEST7: test contact_gk
@@ -815,7 +838,8 @@ class testSlmFunctionality(unittest.TestCase):
                                     'original_corr_id':corr_id,
                                     'pause_chain': True,
                                     'status': 'FOO',
-                                    'error': 'BAR'}
+                                    'error': 'BAR',
+                                    'kill_chain': False}
 
         #Set the ledger
         self.slm_proc.set_services(service_dict)
@@ -888,6 +912,7 @@ class testSlmFunctionality(unittest.TestCase):
         service_dict[service_id] = {'schedule': ['get_ledger'],
                                     'original_corr_id':corr_id,
                                     'pause_chain': True,
+                                    'kill_chain': False,
                                     'status': 'FOO',
                                     'error': 'BAR',
                                     'infrastructure':{}}
@@ -911,108 +936,113 @@ class testSlmFunctionality(unittest.TestCase):
 ###############################################################
 #TEST9: test ia_prepare
 ###############################################################
-    def test_ia_prepare(self):
-        """
-        This method tests the request_topology method.
-        """
+    # def test_ia_prepare(self):
+    #     """
+    #     This method tests the request_topology method.
+    #     """
 
-        #Check result SUBTEST 1
-        def on_ia_prepare_subtest1(ch, mthd, prop, payload):
+    #     #Check result SUBTEST 1
+    #     def on_ia_prepare_subtest1(ch, mthd, prop, payload):
 
-            message = yaml.load(payload)
+    #         message = yaml.load(payload)
 
-            for func in service_dict[service_id]['function']:
-                self.assertIn(func['vim_uuid'], 
-                              message.keys(), 
-                              msg="VIM uuid missing from keys")
+    #         for func in service_dict[service_id]['function']:
+    #             self.assertIn(func['vim_uuid'], 
+    #                           message.keys(), 
+    #                           msg="VIM uuid missing from keys")
 
-                image = func['vnfd']['virtual_deployment_units'][0]['vm_image']
+    #             image = func['vnfd']['virtual_deployment_units'][0]['vm_image']
 
-                self.assertIn(image,
-                              message[func['vim_uuid']]['vm_images'],
-                              msg="image not on correct Vim")
+    #             self.assertIn(image,
+    #                           message[func['vim_uuid']]['vm_images'],
+    #                           msg="image not on correct Vim")
 
-            self.firstEventFinished()
+    #         self.firstEventFinished()
 
-        #SUBTEST1: Check ia_prepare message if functions are mapped on
-        # different VIMs.
-        #Setup
-        #Create the ledger
-        self.wait_for_first_event.clear()
-        service_dict = {}
-        service_id = str(uuid.uuid4())
-        corr_id = str(uuid.uuid4())
-        service_dict[service_id] = {'schedule': ['get_ledger'],
-                                    'original_corr_id':corr_id,
-                                    'pause_chain': True,
-                                    'function': []}
-
-
-        path = '/plugins/son-mano-service-lifecycle-management/test/'
-
-        vnfd1 = open(path + 'test_descriptors/firewall-vnfd.yml', 'r')
-        vnfd2 = open(path + 'test_descriptors/iperf-vnfd.yml', 'r')
-        vnfd3 = open(path + 'test_descriptors/tcpdump-vnfd.yml', 'r')
-
-        service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd1)})
-        service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd2)})
-        service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd3)})
-
-        for vnfd in service_dict[service_id]['function']:
-            vnfd['vim_uuid'] = str(uuid.uuid4())
-
-        #Set the ledger
-        self.slm_proc.set_services(service_dict)
-
-        #Spy the message bus
-        self.manoconn_spy.subscribe(on_ia_prepare_subtest1, 
-                                    'infrastructure.service.prepare')
-
-        #Wait until subscription is completed
-        time.sleep(0.1)
-
-        #Run the method
-        self.slm_proc.ia_prepare(service_id)
-
-        #Wait for the test to finish
-        self.waitForFirstEvent(timeout=5)
-
-        #SUBTEST2: Check ia_prepare message if functions are mapped on
-        # same VIMs.
-        #Setup
-        #Create the ledger
-        self.wait_for_first_event.clear()
-        service_dict = {}
-        service_id = str(uuid.uuid4())
-        corr_id = str(uuid.uuid4())
-        service_dict[service_id] = {'schedule': ['get_ledger'],
-                                    'original_corr_id':corr_id,
-                                    'pause_chain': True,
-                                    'function': []}
+    #     #SUBTEST1: Check ia_prepare message if functions are mapped on
+    #     # different VIMs.
+    #     #Setup
+    #     #Create the ledger
+    #     self.wait_for_first_event.clear()
+    #     service_dict = {}
+    #     service_id = str(uuid.uuid4())
+    #     corr_id = str(uuid.uuid4())
+    #     service_dict[service_id] = {'schedule': ['get_ledger'],
+    #                                 'original_corr_id':corr_id,
+    #                                 'pause_chain': True,
+    #                                 'kill_chain': False,
+    #                                 'function': []}
 
 
-        path = '/plugins/son-mano-service-lifecycle-management/test/'
+    #     path = '/plugins/son-mano-service-lifecycle-management/test/'
 
-        vnfd1 = open(path + 'test_descriptors/firewall-vnfd.yml', 'r')
-        vnfd2 = open(path + 'test_descriptors/iperf-vnfd.yml', 'r')
-        vnfd3 = open(path + 'test_descriptors/tcpdump-vnfd.yml', 'r')
+    #     message = {}
+    #     message['instance_id'] = service_id
+    #     vnfd1 = open(path + 'test_descriptors/firewall-vnfd.yml', 'r')
+    #     vnfd2 = open(path + 'test_descriptors/iperf-vnfd.yml', 'r')
+    #     vnfd3 = open(path + 'test_descriptors/tcpdump-vnfd.yml', 'r')
 
-        service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd1)})
-        service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd2)})
-        service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd3)})
+    #     service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd1)})
+    #     service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd2)})
+    #     service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd3)})
 
-        vim_uuid = str(uuid.uuid4())
-        for vnfd in service_dict[service_id]['function']:
-            vnfd['vim_uuid'] = vim_uuid
+    #     for vnfd in service_dict[service_id]['function']:
+    #         vim_uuid = str(uuid.uuid4())
+    #         vnfd['vim_uuid'] = vim_uuid
 
-        #Set the ledger
-        self.slm_proc.set_services(service_dict)
+    #     #Set the ledger
+    #     self.slm_proc.set_services(service_dict)
 
-        #Run the method
-        self.slm_proc.ia_prepare(service_id)
+    #     #Spy the message bus
+    #     self.manoconn_spy.subscribe(on_ia_prepare_subtest1, 
+    #                                 'infrastructure.service.prepare')
 
-        #Wait for the test to finish
-        self.waitForFirstEvent(timeout=5)
+    #     #Wait until subscription is completed
+    #     time.sleep(0.1)
+
+    #     #Run the method
+    #     self.slm_proc.ia_prepare(service_id)
+
+    #     #Wait for the test to finish
+    #     self.waitForFirstEvent(timeout=5)
+
+    #     #SUBTEST2: Check ia_prepare message if functions are mapped on
+    #     # same VIMs.
+    #     #Setup
+    #     #Create the ledger
+    #     self.wait_for_first_event.clear()
+    #     service_dict = {}
+    #     service_id = str(uuid.uuid4())
+    #     corr_id = str(uuid.uuid4())
+    #     service_dict[service_id] = {'schedule': ['get_ledger'],
+    #                                 'original_corr_id':corr_id,
+    #                                 'pause_chain': True,
+    #                                 'kill_chain': False,
+    #                                 'function': []}
+
+
+    #     path = '/plugins/son-mano-service-lifecycle-management/test/'
+
+    #     vnfd1 = open(path + 'test_descriptors/firewall-vnfd.yml', 'r')
+    #     vnfd2 = open(path + 'test_descriptors/iperf-vnfd.yml', 'r')
+    #     vnfd3 = open(path + 'test_descriptors/tcpdump-vnfd.yml', 'r')
+
+    #     service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd1)})
+    #     service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd2)})
+    #     service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd3)})
+
+    #     vim_uuid = str(uuid.uuid4())
+    #     for vnfd in service_dict[service_id]['function']:
+    #         vnfd['vim_uuid'] = vim_uuid
+
+    #     #Set the ledger
+    #     self.slm_proc.set_services(service_dict)
+
+    #     #Run the method
+    #     self.slm_proc.ia_prepare(service_id)
+
+    #     #Wait for the test to finish
+    #     self.waitForFirstEvent(timeout=5)
 
 ###############################################################
 #TEST10: test vnf_deploy
@@ -1046,6 +1076,7 @@ class testSlmFunctionality(unittest.TestCase):
         service_dict[service_id] = {'schedule': ['get_ledger'],
                                     'original_corr_id':corr_id,
                                     'pause_chain': True,
+                                    'kill_chain': False,
                                     'function': []}
 
 
@@ -1146,7 +1177,7 @@ class testSlmFunctionality(unittest.TestCase):
         vnfr_ids = ['645db4fa-a714-4cba-9617-4001477d0000','6a15313f-cb0a-4540-baa2-77cc6b3f0000', '8a0aa837-ec1c-44e5-9907-898f64010000']
 
         #Call method
-        message = tools.build_nsr(ia_message['nsr'], nsd, vnfr_ids)
+        message = tools.build_nsr(ia_message, nsd, vnfr_ids, ia_message['nsr']['id'])
 
         #Check result
         self.assertEqual(message, expected_nsr, "Built NSR is not equal to the expected one")

@@ -55,9 +55,10 @@ WC_UPDATE = "*.instances.update"
 IA_DEPLOY = 'infrastructure.function.deploy'
 IA_TOPO = 'infrastructure.management.compute.list'
 IA_PREPARE = 'infrastructure.service.prepare'
-IA_CHAIN = 'infrastructure.service.chain'
-IA_CONF_WAN = 'infrastructure.wan.configure'
-IA_DECONF_WAN = 'infrastructure.wan.deconfigure'
+IA_CONF_CHAIN = 'infrastructure.service.chain.configure'
+IA_DECONF_CHAIN = 'infrastructure.service.chain.deconfigure'
+IA_CONF_WAN = 'infrastructure.service.wan.configure'
+IA_DECONF_WAN = 'infrastructure.service.wan.deconfigure'
 
 # With specific manager registry
 SRM_ONBOARD = 'specific.manager.registry.ssm.on-board'
