@@ -41,29 +41,29 @@ network_functions:
 service_specific_managers:
 
   - id: "sonssmservice1dumb1"
-    description: "An empty SSM example."
+    description: "Dumb SSM."
     image: "hadik3r/sonssmservice1dumb1"
     options:
       - key: "myKey"
         value: "myValue"
 
   - id: "sonssmservice1placement1"
-    description: "Placement FSM example."
+    description: "Placement SSM example."
     image: "hadik3r/sonssmservice1placement1"
     options:
       - key: "myKey"
         value: "myValue"
 
-  - id: "sonssmservice1dumb2"
-    description: "An empty SSM example."
-    image: "hadik3r/sonssmservice1dumb2"
+  - id: "sonssmservice1placement1"
+    description: "Placement SSM example."
+    image: "hadik3r/sonssmservice1placement1"
     options:
       - key: "termination"
         value: "true"
 
-  - id: "sonssmservice1placement2"
-    description: "Placement FSM example."
-    image: "hadik3r/sonssmservice1placement2"
+  - id: "sonssmservice1dumb1"
+    description: "Dumb SSM"
+    image: "hadik3r/sonssmservice1updateddumb1"
     options:
       - key: "termination"
         value: "true"
