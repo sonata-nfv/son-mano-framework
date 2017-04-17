@@ -473,44 +473,44 @@ class testSlmFunctionality(unittest.TestCase):
         self.assertFalse(service_id in result.keys(),
                          msg="key is part of ledger in SUBTEST2.")
 
-###############################################################
-#TEST3: Test service_instance_create
-###############################################################
-    def test_service_instance_create(self):
-        """
-        This method tests the service_instance_create method of the SLM
-        """
+# ###############################################################
+# #TEST3: Test service_instance_create
+# ###############################################################
+#     def test_service_instance_create(self):
+#         """
+#         This method tests the service_instance_create method of the SLM
+#         """
 
-        #Setup
-        message = self.createGkNewServiceRequestMessage()
-        corr_id = str(uuid.uuid4())
-        topic = "service.instances.create"
-        prop_dict = {'reply_to': topic, 
-                     'correlation_id': corr_id,
-                     'app_id': "Gatekeeper"}
+#         #Setup
+#         message = self.createGkNewServiceRequestMessage()
+#         corr_id = str(uuid.uuid4())
+#         topic = "service.instances.create"
+#         prop_dict = {'reply_to': topic, 
+#                      'correlation_id': corr_id,
+#                      'app_id': "Gatekeeper"}
 
-        properties = namedtuple('properties', prop_dict.keys())(*prop_dict.values())
+#         properties = namedtuple('properties', prop_dict.keys())(*prop_dict.values())
 
-        schedule = self.slm_proc.service_instance_create('foo',
-                                                         'bar',
-                                                         properties,
-                                                         message)
+#         schedule = self.slm_proc.service_instance_create('foo',
+#                                                          'bar',
+#                                                          properties,
+#                                                          message)
 
-        #Check result: since we don't know how many of the tasks
-        #were completed by the time we got the result, we only check
-        #the final elements in the tasklist
+#         #Check result: since we don't know how many of the tasks
+#         #were completed by the time we got the result, we only check
+#         #the final elements in the tasklist
 
-        #The last 7 elements from the generated result
-        generated_result = schedule[-7:]
+#         #The last 7 elements from the generated result
+#         generated_result = schedule[-7:]
 
-        #The expected last 7 elements in the list
-        expected_result = ['SLM_mapping', 'ia_prepare', 'vnf_deploy',
-                           'vnf_chain', 'wan_configure',
-                           'instruct_monitoring', 'inform_gk']
+#         #The expected last 7 elements in the list
+#         expected_result = ['SLM_mapping', 'ia_prepare', 'vnf_deploy',
+#                            'vnf_chain', 'wan_configure',
+#                            'instruct_monitoring', 'inform_gk']
 
-        self.assertEqual(generated_result,
-                         expected_result,
-                         msg='lists are not equal')
+#         self.assertEqual(generated_result,
+#                          expected_result,
+#                          msg='lists are not equal')
 
 ###############################################################
 #TEST4: Test resp_topo
@@ -1159,49 +1159,49 @@ class testSlmFunctionality(unittest.TestCase):
         #Check result
         self.assertEqual(message, expected_message, "messages are not equals")
 
-###############################################################################
-#TEST12: Test build_nsr
-###############################################################################
-    def test_build_nsr(self):
-        """
-        This method tests the build_nsr method
-        """
+# ###############################################################################
+# #TEST12: Test build_nsr
+# ###############################################################################
+#     def test_build_nsr(self):
+#         """
+#         This method tests the build_nsr method
+#         """
 
-        #Setup
-        gk_request = yaml.load(self.createGkNewServiceRequestMessage())
-        nsd = gk_request['NSD']
+#         #Setup
+#         gk_request = yaml.load(self.createGkNewServiceRequestMessage())
+#         nsd = gk_request['NSD']
 
-        ia_message = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml', 'r'))
-        expected_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-nsr.yml', 'r'))
+#         ia_message = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml', 'r'))
+#         expected_nsr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-nsr.yml', 'r'))
 
-        vnfr_ids = ['645db4fa-a714-4cba-9617-4001477d0000','6a15313f-cb0a-4540-baa2-77cc6b3f0000', '8a0aa837-ec1c-44e5-9907-898f64010000']
+#         vnfr_ids = ['645db4fa-a714-4cba-9617-4001477d0000','6a15313f-cb0a-4540-baa2-77cc6b3f0000', '8a0aa837-ec1c-44e5-9907-898f64010000']
 
-        #Call method
-        message = tools.build_nsr(ia_message, nsd, vnfr_ids, ia_message['nsr']['id'])
+#         #Call method
+#         message = tools.build_nsr(ia_message, nsd, vnfr_ids, ia_message['nsr']['id'])
 
-        #Check result
-        self.assertEqual(message, expected_nsr, "Built NSR is not equal to the expected one")
+#         #Check result
+#         self.assertEqual(message, expected_nsr, "Built NSR is not equal to the expected one")
 
-###############################################################################
-#TEST13: Test build_vnfr
-###############################################################################
-    def test_build_vnfr(self):
-        """
-        This method tests the build_vnfr method
-        """
+# ###############################################################################
+# #TEST13: Test build_vnfr
+# ###############################################################################
+#     def test_build_vnfr(self):
+#         """
+#         This method tests the build_vnfr method
+#         """
 
-        #Setup
-        gk_request = yaml.load(self.createGkNewServiceRequestMessage())
-        vnfd_iperf = gk_request['VNFD2']
+#         #Setup
+#         gk_request = yaml.load(self.createGkNewServiceRequestMessage())
+#         vnfd_iperf = gk_request['VNFD2']
 
-        ia_vnfr_iperf = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-vnfr-iperf.yml', 'r'))
-        expected_vnfr_iperf = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/expected_vnfr_iperf.yml', 'r'))
+#         ia_vnfr_iperf = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-vnfr-iperf.yml', 'r'))
+#         expected_vnfr_iperf = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/expected_vnfr_iperf.yml', 'r'))
 
-        #Call method
-        message = tools.build_vnfr(ia_vnfr_iperf['vnfr'], vnfd_iperf)
+#         #Call method
+#         message = tools.build_vnfr(ia_vnfr_iperf['vnfr'], vnfd_iperf)
 
-        #Check result
-        self.assertEqual(message, expected_vnfr_iperf, "Built VNFRs are not equals to the expected ones")
+#         #Check result
+#         self.assertEqual(message, expected_vnfr_iperf, "Built VNFRs are not equals to the expected ones")
 
 
 if __name__ == '__main__':
