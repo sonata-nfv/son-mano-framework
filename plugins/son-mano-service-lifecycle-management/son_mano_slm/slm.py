@@ -443,6 +443,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         add_schedule.append('ia_prepare')
         add_schedule.append('vnf_deploy')
         add_schedule.append('vnf_chain')
+        add_schedule.append('store_nsr')
         add_schedule.append('wan_configure')
         add_schedule.append('instruct_monitoring')
         add_schedule.append('inform_gk')
@@ -902,6 +903,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
                                  payload,
                                  correlation_id=corr_id)
 
+        LOG.info("task registered on " + str(topic))
+
         # Pause the chain of tasks to wait for response
         self.services[serv_id]['pause_chain'] = True
 
@@ -1048,20 +1051,25 @@ class ServiceLifecycleManager(ManoBasePlugin):
             vnfr = tools.build_vnfr(inc_message['vnfr'], vnfd)
             outg_message['vnfr'] = vnfr      
 
-        #     # Store the record
-        #     try:
-        #         vnfr_response = requests.post(t.VNFR_REPOSITORY_URL + 'vnf-instances', data=yaml.dump(vnfr), headers={'Content-Type':'application/x-yaml'}, timeout=1.0)
-        #         LOG.info('repo response for vnfr: ' + str(vnfr_response))
+#            t.VNFR_REPOSITORY_URL = 'http://192.168.1.153:4002/records/vnfr/'
 
-        #         if (vnfr_response.status_code == 200):
-        #             outg_message['vnfr'] = vnfr
-        #         #If storage fails, add error code and message to rply to gk
-        #         else:
-        #             error = {'http_code': vnfr_response.status_code, 'message': vnfr_response.json()}
-        #             LOG.info('vnfr to repo failed: ' + str(message_for_gk['error']['vnfr']))
-        #     except:
-        #         error = {'http_code': '0', 'message': 'Timeout when contacting server'}
-        #         LOG.info('time-out on vnfr to repo')
+            # Store the record
+            try:
+                LOG.info("VNFR topic " + str(t.VNFR_REPOSITORY_URL))
+                vnfr_response = requests.post(t.VNFR_REPOSITORY_URL + 'vnf-instances', data=yaml.dump(vnfr), headers={'Content-Type':'application/x-yaml'}, timeout=1.0)
+                LOG.info('repo response for vnfr: ' + str(vnfr_response))
+
+                if (vnfr_response.status_code == 200):
+                    LOG.info("VNFR storage completed")
+                    LOG.info(yaml.dump(vnfr))
+                    outg_message['vnfr'] = vnfr
+                #If storage fails, add error code and message to rply to gk
+                else:
+                    error = {'http_code': vnfr_response.status_code, 'message': vnfr_response.json()}
+                    LOG.info('vnfr to repo failed: ' + str(message_for_gk['error']['vnfr']))
+            except:
+                error = {'http_code': '0', 'message': 'Timeout when contacting server'}
+                LOG.info('time-out on vnfr to repo')
 
         outg_message['error'] = error
         outg_message['inst_id'] = vnfd['instance_uuid']
@@ -1069,6 +1077,35 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.manoconn.notify(t.MANO_DEPLOY,
                              yaml.dump(outg_message),
                              correlation_id=self.flm_ledger[prop.correlation_id]['orig_corr_id'])    
+
+    def store_nsr(self, serv_id):
+
+        #TODO: get request_status from response from IA on chain
+        request_status = 'normal operation'
+
+        nsd = self.services[serv_id]['service']['nsd']
+
+        vnfr_ids = []
+        for function in self.services[serv_id]['function']:
+            vnfr_ids.append(function['id'])
+
+        nsr = tools.build_nsr(request_status, nsd, vnfr_ids, serv_id)
+        LOG.info("nsr: " + yaml.dump(nsr))
+
+#        t.NSR_REPOSITORY_URL = 'http://192.168.1.153:4002/records/nsr/'
+
+        try:
+            nsr_response = requests.post(t.NSR_REPOSITORY_URL + 'ns-instances', data=json.dumps(nsr), headers={'Content-Type':'application/json'}, timeout=1.0)
+            LOG.info('repo response for nsr: ' + str(nsr_response))
+            LOG.info(str(nsr_response.json()))
+            if (nsr_response.status_code == 200):
+                LOG.info("nsr stored")
+                pass
+            else:
+                error = {'http_code': nsr_response.status_code, 'message': nsr_response.json()}
+                LOG.info('nsr to repo failed: ' + str(message_for_gk['error']['nsr']))
+        except:
+            error = {'http_code': '0', 'message': 'Timeout when contacting server'}
 
     def vnf_chain(self, serv_id):
         """

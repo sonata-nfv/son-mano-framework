@@ -147,7 +147,7 @@ def replace_old_corr_id_by_new(dictionary, old_correlation_id):
     return new_correlation_id, dictionary
 
 
-def build_nsr(ia_message, nsd, vnfr_ids, service_instance_id):
+def build_nsr(request_status, nsd, vnfr_ids, service_instance_id):
     """
     This method builds the whole NSR from the payload (stripped nsr and vnfrs)
     returned by the Infrastructure Adaptor (IA).
@@ -157,7 +157,7 @@ def build_nsr(ia_message, nsd, vnfr_ids, service_instance_id):
     # nsr mandatory fields
     nsr['descriptor_version'] = 'nsr-schema-01'
     nsr['id'] = service_instance_id
-    nsr['status'] = ia_message['request_status']
+    nsr['status'] = request_status
     # Building the nsr makes it the first version of this nsr
     nsr['version'] = '1'
     nsr['descriptor_reference'] = nsd['uuid']
@@ -173,14 +173,14 @@ def build_nsr(ia_message, nsd, vnfr_ids, service_instance_id):
         function['vnfr_id'] = vnfr_id
         nsr['network_functions'].append(function)
 
-    # connection points
-    if 'connection_points' in nsd:
-        nsr['connection_points'] = []
-        for connection_point in nsd['connection_points']:
-            cp = {}
-            cp['id'] = connection_point['id']
-            cp['type'] = connection_point['type']
-            nsr['connection_points'].append(cp)
+    # # connection points
+    # if 'connection_points' in nsd:
+    #     nsr['connection_points'] = []
+    #     for connection_point in nsd['connection_points']:
+    #         cp = {}
+    #         cp['id'] = connection_point['id']
+    #         cp['type'] = connection_point['type']
+    #         nsr['connection_points'].append(cp)
 
     # virtual links
     if 'virtual_links' in nsd:
@@ -277,7 +277,7 @@ def build_vnfr(ia_vnfr, vnfd):
                 vnfc['id'] = ia_vnfc['id']
                 vnfc['vim_id'] = ia_vnfc['vim_id']
                 vnfc['vc_id'] = ia_vnfc['vc_id']
-                vnfc['connection_points'] = ia_vnfc['connection_points']
+#                vnfc['connection_points'] = ia_vnfc['connection_points']
                 # vnfc['connection_points'] = []
                 # for cp_ia in ia_vnfc['connection_points']:
                 #     new_cp = {}
@@ -314,11 +314,11 @@ def build_vnfr(ia_vnfr, vnfd):
 
         vnfr['virtual_deployment_units'].append(vdu)
 
-    # connection points && virtual links (optional)
-    if 'connection_points' in ia_vnfr:
-        vnfr['connection_points'] = ia_vnfr['connection_points']
-    if 'virtual_links' in vnfd:
-        vnfr['virtual_links'] = vnfd['virtual_links']
+    # # connection points && virtual links (optional)
+    # if 'connection_points' in ia_vnfr:
+    #     vnfr['connection_points'] = ia_vnfr['connection_points']
+    # if 'virtual_links' in vnfd:
+    #     vnfr['virtual_links'] = vnfd['virtual_links']
 
     # TODO vnf_address ???
 
