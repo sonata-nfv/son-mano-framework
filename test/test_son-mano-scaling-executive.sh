@@ -53,10 +53,12 @@ docker rm -fv test.scalingexecutive
 
 #  always abort if an error occurs
 set -e
-echo "test_son-mano-placement-executive.sh"
+echo "test_son-mano-scaling-executive.sh"
 #create test.sonata-plugins network
 if ! [[ "$(docker network inspect -f {{.Name}} test.sonata-plugins 2> /dev/null)" == "" ]]
-then docker network rm test.sonata-plugins ; fi
+then docker network rm test.sonata-plugins
+fi
+
 docker network create test.sonata-plugins
 
 # spin up container with broker (in daemon mode)

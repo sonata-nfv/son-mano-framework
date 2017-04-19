@@ -107,7 +107,10 @@ class SMREngine(object):
         else:
             network_id = 'sonata-plugins'
 
-        #broker = {'name': 'broker', 'alias': 'broker'}
+        if 'broker_name' in os.environ:
+            broker = self.retrieve_broker_name(os.environ['broker_name'])
+        else:
+            broker = {'name': 'broker', 'alias': 'broker'}
 
 
         if "file://" in image:
@@ -118,12 +121,14 @@ class SMREngine(object):
                                              name=id,
                                              environment={'broker_host':broker_host, 'sf_uuid':uuid})
 
-        if 'broker_name' in os.environ:
-            broker = self.retrieve_broker_name(os.environ['broker_name'])
-            self.dc.start(container=container.get('Id'), links=[(broker['name'], broker['alias'])])
+        networks = self.dc.networks(names= [network_id])
+
+        if len (networks) != 0 and networks[0]['Name'] == network_id:
+                self.dc.connect_container_to_network(container=container, net_id=network_id, aliases=[id])
+                self.dc.start(container=container.get('Id'))
         else:
-            self.dc.connect_container_to_network(container=container, net_id=network_id, aliases=[id])
-            self.dc.start(container = container.get('Id'))
+            LOG.warning('Docker --link is deprecated. use docker network instead')
+            self.dc.start(container=container.get('Id'), links=[(broker['name'], broker['alias'])])
 
 
 

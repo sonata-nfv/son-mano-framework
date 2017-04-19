@@ -5,6 +5,7 @@ MAINTAINER SONATA
 ENV mongo_host mongo
 ENV mongo_port 27017
 ENV network_id sonata-plugins
+ENV network_name broker,broker
 ENV broker_host amqp://guest:guest@broker:5672/%2F
 ENV broker_exchange son-kernel
 ENV DOCKER_HOST unix://var/run/docker.sock
