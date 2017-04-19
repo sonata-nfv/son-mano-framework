@@ -26,16 +26,6 @@
 # acknowledge the contributions of their colleagues of the SONATA
 # partner consortium (www.sonata-nfv.eu).
 
-# This script runs the son-mano-slm plugin related tests.
-#
-# It starts three Docker containers:
-# - RabbitMQ
-# - MongoDB
-# - son-mano-pluginmanager/Dockerfile
-#
-# It triggers the unittest execution in son-mano-pluginmanager
-#
-
 trap "set +e
 docker rm -fv test.broker
 docker rm -fv test.mongo
