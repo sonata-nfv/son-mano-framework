@@ -1054,22 +1054,22 @@ class ServiceLifecycleManager(ManoBasePlugin):
 #            t.VNFR_REPOSITORY_URL = 'http://192.168.1.153:4002/records/vnfr/'
 
             # Store the record
-            try:
-                LOG.info("VNFR topic " + str(t.VNFR_REPOSITORY_URL))
-                vnfr_response = requests.post(t.VNFR_REPOSITORY_URL + 'vnf-instances', data=yaml.dump(vnfr), headers={'Content-Type':'application/x-yaml'}, timeout=1.0)
-                LOG.info('repo response for vnfr: ' + str(vnfr_response))
+            # try:
+            #     LOG.info("VNFR topic " + str(t.VNFR_REPOSITORY_URL))
+            #     vnfr_response = requests.post(t.VNFR_REPOSITORY_URL + 'vnf-instances', data=yaml.dump(vnfr), headers={'Content-Type':'application/x-yaml'}, timeout=1.0)
+            #     LOG.info('repo response for vnfr: ' + str(vnfr_response))
 
-                if (vnfr_response.status_code == 200):
-                    LOG.info("VNFR storage completed")
-                    LOG.info(yaml.dump(vnfr))
-                    outg_message['vnfr'] = vnfr
-                #If storage fails, add error code and message to rply to gk
-                else:
-                    error = {'http_code': vnfr_response.status_code, 'message': vnfr_response.json()}
-                    LOG.info('vnfr to repo failed: ' + str(message_for_gk['error']['vnfr']))
-            except:
-                error = {'http_code': '0', 'message': 'Timeout when contacting server'}
-                LOG.info('time-out on vnfr to repo')
+            #     if (vnfr_response.status_code == 200):
+            #         LOG.info("VNFR storage completed")
+            #         LOG.info(yaml.dump(vnfr))
+            #         outg_message['vnfr'] = vnfr
+            #     #If storage fails, add error code and message to rply to gk
+            #     else:
+            #         error = {'http_code': vnfr_response.status_code, 'message': vnfr_response.json()}
+            #         LOG.info('vnfr to repo failed: ' + str(message_for_gk['error']['vnfr']))
+            # except:
+            #     error = {'http_code': '0', 'message': 'Timeout when contacting server'}
+            #     LOG.info('time-out on vnfr to repo')
 
         outg_message['error'] = error
         outg_message['inst_id'] = vnfd['instance_uuid']
@@ -1106,6 +1106,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 LOG.info('nsr to repo failed: ' + str(message_for_gk['error']['nsr']))
         except:
             error = {'http_code': '0', 'message': 'Timeout when contacting server'}
+
+        self.services[serv_id]['service']['nsr'] = nsr
+
 
     def vnf_chain(self, serv_id):
         """
@@ -1158,33 +1161,33 @@ class ServiceLifecycleManager(ManoBasePlugin):
         if message['message'] != '':
             error = message['message']
 
-        # Store the record
-        if message['request_status'] == "COMPLETED":
+        # # Store the record
+        # if message['request_status'] == "COMPLETED":
 
-            # List the vnfr ids
-            vnfr_ids = []
-            for function in self.services[serv_id]['function']:
-                vnfr_ids.append(function['id'])
+        #     # List the vnfr ids
+        #     vnfr_ids = []
+        #     for function in self.services[serv_id]['function']:
+        #         vnfr_ids.append(function['id'])
 
-            nsr = tools.build_nsr(message, nsd, vnfr_ids, serv_id)
-            LOG.info("nsr: " + yaml.dump(nsr))
+        #     nsr = tools.build_nsr(message, nsd, vnfr_ids, serv_id)
+        #     LOG.info("nsr: " + yaml.dump(nsr))
 
-            # Store nsr in the repository, catch exception when time-out occurs
-            # try:
-            #     nsr_response = requests.post(t.NSR_REPOSITORY_URL + 'ns-instances', data=json.dumps(nsr), headers={'Content-Type':'application/json'}, timeout=1.0)
-            #     if (nsr_response.status_code == 200):
-            #         pass
-            #     else:
-            #         error = {'http_code': nsr_response.status_code, 'message': nsr_response.json()}
-            #         LOG.info('nsr to repo failed: ' + str(message_for_gk['error']['nsr']))
-            # except:
-            #     error = {'http_code': '0', 'message': 'Timeout when contacting server'}
+        #     # Store nsr in the repository, catch exception when time-out occurs
+        #     # try:
+        #     #     nsr_response = requests.post(t.NSR_REPOSITORY_URL + 'ns-instances', data=json.dumps(nsr), headers={'Content-Type':'application/json'}, timeout=1.0)
+        #     #     if (nsr_response.status_code == 200):
+        #     #         pass
+        #     #     else:
+        #     #         error = {'http_code': nsr_response.status_code, 'message': nsr_response.json()}
+        #     #         LOG.info('nsr to repo failed: ' + str(message_for_gk['error']['nsr']))
+        #     # except:
+        #     #     error = {'http_code': '0', 'message': 'Timeout when contacting server'}
 
-        if error != None:
-            #TODO: inform GK
-            self.services[serv_id]['kill_chain'] = True
-        else:            
-            self.services[serv_id]['service']['nsr'] = nsr
+        # if error != None:
+        #     #TODO: inform GK
+        #     self.services[serv_id]['kill_chain'] = True
+        # else:            
+        #     self.services[serv_id]['service']['nsr'] = nsr
 
         self.start_next_task(serv_id)
 
@@ -1193,18 +1196,19 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method configures the WAN of a service
         """
 
+        LOG.info("WAN Configuration")
         corr_id = str(uuid.uuid4())
         self.services[serv_id]['act_corr_id'] = corr_id
 
         message = {'service_instance_id':serv_id}
 
-        self.manoconn.call_async(self.wan_configure_response,
-                                 t.IA_CONF_WAN,
-                                 yaml.dump(message),
-                                 correlation_id=corr_id)
+        # self.manoconn.call_async(self.wan_configure_response,
+        #                          t.IA_CONF_WAN,
+        #                          yaml.dump(message),
+        #                          correlation_id=corr_id)
 
-        # Pause the chain of tasks to wait for response
-        self.services[serv_id]['pause_chain'] = True
+        # # Pause the chain of tasks to wait for response
+        # self.services[serv_id]['pause_chain'] = True
 
     def wan_configure_response(self, ch, method, prop, payload):
         """
@@ -1224,28 +1228,38 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         This method instructs the monitoring manager to start monitoring
         """
-        service = self.services[serv_id]['service']
-        functions = self.services[serv_id]['function']
 
-        monitoring_message = tools.build_monitoring_message(service, functions)
+        LOG.info("Setting Monitoring")
+        # service = self.services[serv_id]['service']
+        # functions = self.services[serv_id]['function']
+
+        # monitoring_message = tools.build_monitoring_message(service, functions)
+
+        return
 
     def inform_gk(self, serv_id):
         """
         This method informs the gatekeeper.
         """
-        ledger = self.services[serv_id]
+        LOG.info("Reporting result to GK")
 
-        message = serv_id['gk_message']
-        message['status'] = ledger['status']
-        message['error'] = ledger['error']
+        message = {}
+
+        message['status'] = 'READY'
+        message['error'] = None
         message['timestamp'] = time.time()
-        message['NSR'] = ledger['service']['nsr']
+        message['nsr'] = self.services[serv_id]['service']['nsr']
+        message['vnfrs'] = []
+
+        for function in self.services[serv_id]['function']:
+            message['vnfrs'].append(function['vnfr'])
+
 
         # TODO: add the VNFRs
 
         self.manoconn.notify(t.GK_CREATE,
                              yaml.dump(message),
-                             correlation_id=ledger['corr_id'])
+                             correlation_id=self.services[serv_id]['original_corr_id'])
 
 
 ###########

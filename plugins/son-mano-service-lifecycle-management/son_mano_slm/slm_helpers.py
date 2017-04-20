@@ -277,7 +277,7 @@ def build_vnfr(ia_vnfr, vnfd):
                 vnfc['id'] = ia_vnfc['id']
                 vnfc['vim_id'] = ia_vnfc['vim_id']
                 vnfc['vc_id'] = ia_vnfc['vc_id']
-#                vnfc['connection_points'] = ia_vnfc['connection_points']
+                vnfc['connection_points'] = ia_vnfc['connection_points']
                 # vnfc['connection_points'] = []
                 # for cp_ia in ia_vnfc['connection_points']:
                 #     new_cp = {}
@@ -314,11 +314,11 @@ def build_vnfr(ia_vnfr, vnfd):
 
         vnfr['virtual_deployment_units'].append(vdu)
 
-    # # connection points && virtual links (optional)
-    # if 'connection_points' in ia_vnfr:
-    #     vnfr['connection_points'] = ia_vnfr['connection_points']
-    # if 'virtual_links' in vnfd:
-    #     vnfr['virtual_links'] = vnfd['virtual_links']
+    # connection points && virtual links (optional)
+    if 'connection_points' in ia_vnfr:
+        vnfr['connection_points'] = ia_vnfr['connection_points']
+    if 'virtual_links' in vnfd:
+        vnfr['virtual_links'] = vnfd['virtual_links']
 
     # TODO vnf_address ???
 
