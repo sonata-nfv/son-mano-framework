@@ -67,6 +67,7 @@ class testSMRRegistration(unittest.TestCase):
         platform.management.plugin.register topic to register to the plugin
         manager.
         """
+        
 
         #STEP3a: When receiving the message, we need to check whether all fields present.
         def on_register_receive(ch, method, properties, message):
