@@ -117,7 +117,7 @@ class testSMREngine(unittest.TestCase):
         e = engine_connection(self)
         self.assertIsNotNone(e.dc.info().get("ServerVersion"))
         e.dc.close()
-        
+
 
     def test_container_onboarding(self):
         e = engine_connection(self)

@@ -35,28 +35,77 @@
 # It triggers the unittest execution in son-mano-base.
 #
 
-# setup cleanup mechanism
-trap "set +e; docker rm -fv test.broker; docker rm -fv test.sonmanobase" INT TERM EXIT
+trap "set +e
+docker rm -fv test.broker
+docker rm -fv test.sonmanobase" INT TERM EXIT
+#docker network rm test.sonata-plugins" INT TERM EXIT
 
 # ensure cleanup
 set +e
 docker rm -fv test.broker
 docker rm -fv test.mongo
 docker rm -fv test.pluginmanager
-docker rm -fv test.sonmanobase
+docker rm -fv test.placementexecutive
+#docker network rm test.sonata-plugins
 
 #  always abort if an error occurs
 set -e
 
 echo "test_son-mano-base.sh"
+#create test.sonata-plugins network
+if ! [[ "$(docker network inspect -f {{.Name}} test.sonata-plugins 2> /dev/null)" == "" ]]
+then docker network rm test.sonata-plugins ; fi
+docker network create test.sonata-plugins
+
 # spin up container with broker (in daemon mode)
-docker run -d -p 5672:5672 --name test.broker rabbitmq:3
+docker run -d -p 5672:5672 --name test.broker --net=test.sonata-plugins --network-alias=broker rabbitmq:3
 # wait a bit for broker startup
 while ! nc -z localhost 5672; do
 sleep 1 && echo -n .; # waiting for rabbitmq
 done;
-sleep 5
+# spin up container with MongoDB (in daemon mode)
+docker run -d -p 27017:27017 --name test.mongo --net=test.sonata-plugins --network-alias=mongo mongo
+
+# wait a bit for db startup
+while ! nc -z localhost 27017; do
+sleep 1 && echo -n .; # waiting for mongo
+done;
+sleep 3
+# spin up the plugin manager
+docker run -d --name test.pluginmanager --net=test.sonata-plugins --network-alias=pluginmanager \
+registry.sonata-nfv.eu:5000/pluginmanager
+# wait a bit for manager startup
+sleep 3
 # spin up the son-mano-base test container and execute its unittests
-docker run --link test.broker:broker -v '/var/run/docker.sock:/var/run/docker.sock' --name test.sonmanobase registry.sonata-nfv.eu:5000/sonmanobase py.test -v
+docker run --name test.sonmanobase --net=test.sonata-plugins --net-alias=sonmanobase \
+-v '/var/run/docker.sock:/var/run/docker.sock' \
+registry.sonata-nfv.eu:5000/sonmanobase py.test -v
 
 echo "done."
+
+
+## setup cleanup mechanism
+#trap "set +e; docker rm -fv test.broker; docker rm -fv test.sonmanobase" INT TERM EXIT
+#
+## ensure cleanup
+#set +e
+#docker rm -fv test.broker
+#docker rm -fv test.mongo
+#docker rm -fv test.pluginmanager
+#docker rm -fv test.sonmanobase
+#
+##  always abort if an error occurs
+#set -e
+#
+#echo "test_son-mano-base.sh"
+## spin up container with broker (in daemon mode)
+#docker run -d -p 5672:5672 --name test.broker rabbitmq:3
+## wait a bit for broker startup
+#while ! nc -z localhost 5672; do
+#sleep 1 && echo -n .; # waiting for rabbitmq
+#done;
+#sleep 5
+## spin up the son-mano-base test container and execute its unittests
+#docker run --link test.broker:broker -v '/var/run/docker.sock:/var/run/docker.sock' --name test.sonmanobase registry.sonata-nfv.eu:5000/sonmanobase py.test -v
+#
+#echo "done."

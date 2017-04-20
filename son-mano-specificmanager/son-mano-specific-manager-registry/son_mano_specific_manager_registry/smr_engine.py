@@ -102,10 +102,16 @@ class SMREngine(object):
         else:
             broker_host = 'amqp://guest:guest@broker:5672/%2F'
 
+        if 'network_id' in os.environ:
+            network_id = os.environ['network_id']
+        else:
+            network_id = 'sonata-plugins'
+
         if 'broker_name' in os.environ:
             broker = self.retrieve_broker_name(os.environ['broker_name'])
         else:
-            broker = {'name':'broker', 'alias':'broker'}
+            broker = {'name': 'broker', 'alias': 'broker'}
+
 
         if "file://" in image:
             image_name = image.replace("file://", "")
@@ -115,8 +121,17 @@ class SMREngine(object):
                                              name=id,
                                              environment={'broker_host':broker_host, 'sf_uuid':uuid})
 
-        self.dc.start(container=container.get('Id'), links= [(broker['name'], broker['alias'])])
-        #LOG.debug("{0} instantiation: succeeded".format(image))
+        networks = self.dc.networks(names= [network_id])
+
+        if len (networks) != 0 and networks[0]['Name'] == network_id:
+                self.dc.connect_container_to_network(container=container, net_id=network_id, aliases=[id])
+                self.dc.start(container=container.get('Id'))
+        else:
+            LOG.warning('Docker --link is deprecated. use docker network instead')
+            self.dc.start(container=container.get('Id'), links=[(broker['name'], broker['alias'])])
+
+
+
 
     def stop(self, ssm_name):
         self.dc.kill(ssm_name)

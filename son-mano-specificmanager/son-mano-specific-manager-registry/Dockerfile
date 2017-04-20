@@ -4,7 +4,8 @@ MAINTAINER SONATA
 # configrurations
 ENV mongo_host mongo
 ENV mongo_port 27017
-ENV broker_name broker,broker
+ENV network_id sonata-plugins
+ENV network_name broker,broker
 ENV broker_host amqp://guest:guest@broker:5672/%2F
 ENV broker_exchange son-kernel
 ENV DOCKER_HOST unix://var/run/docker.sock
@@ -19,8 +20,6 @@ WORKDIR /son-mano-base
 RUN python setup.py install
 
 WORKDIR /son-mano-specific-manager-registry
-
-#RUN pip3 install docker-py==1.9.0
 RUN python setup.py develop
 
 CMD ["son-mano-specific-manager-registry"]
