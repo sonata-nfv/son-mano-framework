@@ -300,24 +300,24 @@ def build_vnfr(ia_vnfr, vnfd):
                 vnfc['vim_id'] = ia_vnfc['vim_id']
                 vnfc['vc_id'] = ia_vnfc['vc_id']
 #                vnfc['connection_points'] = ia_vnfc['connection_points']
-                vnfc['connection_points'] = []
-                for cp_ia in ia_vnfc['connection_points']:
-                    new_cp = {}
-                    new_cp['id'] = cp_ia['id']
-                    cp_vnfd = get_vdu_cp_by_ref(vnfd, vdu['id'], new_cp['id'])
-                    new_cp['type'] = cp_vnfd['type']
-                    new_cp['interface'] = {}
+                vnfc['connection_points'] = ia_vnfc['connection_points']
+#                for cp_ia in ia_vnfc['connection_points']:
+#                    new_cp = 
+                    # new_cp['id'] = cp_ia['id']
+                    # cp_vnfd = get_vdu_cp_by_ref(vnfd, vdu['id'], new_cp['id'])
+                    # new_cp['type'] = cp_vnfd['type']
+                    # new_cp['interface'] = cp_vnfd['interface']
 
-                    new_cp['interface']['address'] = cp_ia['type']['address']
-                    if 'netmask' in cp_ia['type'].keys():
-                        new_cp['interface']['netmask'] = cp_ia['type']['netmask']
-                    else:
-                        new_cp['interface']['netmask'] = '255.255.255.248'
+                    # new_cp['interface']['address'] = cp_ia['type']['address']
+                    # if 'netmask' in cp_ia['type'].keys():
+                    #     new_cp['interface']['netmask'] = cp_ia['type']['netmask']
+                    # else:
+                    #     new_cp['interface']['netmask'] = '255.255.255.248'
 
-                    if 'hardware_address' in cp_ia['type'].keys():
-                        new_cp['interface']['hardware_address'] = cp_ia['type']['hardware_address']
+                    # if 'hardware_address' in cp_ia['type'].keys():
+                    #     new_cp['interface']['hardware_address'] = cp_ia['type']['hardware_address']
 
-                    vnfc['connection_points'].append(new_cp)
+#                    vnfc['connection_points'].append(cp_ia)
 
                 vdu['vnfc_instance'].append(vnfc)
 
