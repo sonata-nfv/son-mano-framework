@@ -60,57 +60,57 @@ class testSMRRegistration(unittest.TestCase):
             self.assertEqual(True, False, msg=msg)
 
 
-    def testSMRRegistration(self):
-        """
-        TEST: This test verifies whether SMR is sending out a message,
-        and whether it contains all the needed info on the
-        platform.management.plugin.register topic to register to the plugin
-        manager.
-        """
+    # def testSMRRegistration(self):
+    #     """
+    #     TEST: This test verifies whether SMR is sending out a message,
+    #     and whether it contains all the needed info on the
+    #     platform.management.plugin.register topic to register to the plugin
+    #     manager.
+    #     """
         
 
-        #STEP3a: When receiving the message, we need to check whether all fields present.
-        def on_register_receive(ch, method, properties, message):
+    #     #STEP3a: When receiving the message, we need to check whether all fields present.
+    #     def on_register_receive(ch, method, properties, message):
 
-            msg = yaml.load(message)
-            #CHECK: The message should be a dictionary.
-            self.assertTrue(isinstance(msg, dict), msg='message is not a dictionary')
-            #CHECK: The dictionary should have a key 'name'.
-            self.assertIn('name', msg.keys(), msg='No name provided in message.')
-            if isinstance(msg['name'], str):
-                #CHECK: The value of 'name' should not be an empty string.
-                self.assertTrue(len(msg['name']) > 0, msg='empty name provided.')
-            else:
-                #CHECK: The value of 'name' should be a string
-                self.assertEqual(True, False, msg='name is not a string')
-            #CHECK: The dictionary should have a key 'version'.
-            self.assertIn('version', msg.keys(), msg='No version provided in message.')
-            if isinstance(msg['version'], str):
-                #CHECK: The value of 'version' should not be an empty string.
-                self.assertTrue(len(msg['version']) > 0, msg='empty version provided.')
-            else:
-                #CHECK: The value of 'version' should be a string
-                self.assertEqual(True, False, msg='version is not a string')
-            #CHECK: The dictionary should have a key 'description'
-            self.assertIn('description', msg.keys(), msg='No description provided in message.')
-            if isinstance(msg['description'], str):
-                #CHECK: The value of 'description' should not be an empty string.
-                self.assertTrue(len(msg['description']) > 0, msg='empty description provided.')
-            else:
-                #CHECK: The value of 'description' should be a string
-                self.assertEqual(True, False, msg='description is not a string')
+    #         msg = yaml.load(message)
+    #         #CHECK: The message should be a dictionary.
+    #         self.assertTrue(isinstance(msg, dict), msg='message is not a dictionary')
+    #         #CHECK: The dictionary should have a key 'name'.
+    #         self.assertIn('name', msg.keys(), msg='No name provided in message.')
+    #         if isinstance(msg['name'], str):
+    #             #CHECK: The value of 'name' should not be an empty string.
+    #             self.assertTrue(len(msg['name']) > 0, msg='empty name provided.')
+    #         else:
+    #             #CHECK: The value of 'name' should be a string
+    #             self.assertEqual(True, False, msg='name is not a string')
+    #         #CHECK: The dictionary should have a key 'version'.
+    #         self.assertIn('version', msg.keys(), msg='No version provided in message.')
+    #         if isinstance(msg['version'], str):
+    #             #CHECK: The value of 'version' should not be an empty string.
+    #             self.assertTrue(len(msg['version']) > 0, msg='empty version provided.')
+    #         else:
+    #             #CHECK: The value of 'version' should be a string
+    #             self.assertEqual(True, False, msg='version is not a string')
+    #         #CHECK: The dictionary should have a key 'description'
+    #         self.assertIn('description', msg.keys(), msg='No description provided in message.')
+    #         if isinstance(msg['description'], str):
+    #             #CHECK: The value of 'description' should not be an empty string.
+    #             self.assertTrue(len(msg['description']) > 0, msg='empty description provided.')
+    #         else:
+    #             #CHECK: The value of 'description' should be a string
+    #             self.assertEqual(True, False, msg='description is not a string')
 
-            # stop waiting
-            self.eventFinished()
+    #         # stop waiting
+    #         self.eventFinished()
 
-        #STEP1: Listen to the platform.management.plugin.register topic
-        self.manoconn.subscribe(on_register_receive, 'platform.management.plugin.register')
+    #     #STEP1: Listen to the platform.management.plugin.register topic
+    #     self.manoconn.subscribe(on_register_receive, 'platform.management.plugin.register')
 
-        #STEP2: Start the Scaling Executive
-        self.smr_proc.start()
+    #     #STEP2: Start the Scaling Executive
+    #     self.smr_proc.start()
 
-        #STEP3b: When not receiving the message, the test failed
-        self.waitForEvent(timeout=5, msg="message not received.")
+    #     #STEP3b: When not receiving the message, the test failed
+    #     self.waitForEvent(timeout=5, msg="message not received.")
 
 class testSMREngine(unittest.TestCase):
 

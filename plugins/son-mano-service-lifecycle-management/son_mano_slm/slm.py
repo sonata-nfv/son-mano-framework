@@ -80,8 +80,8 @@ SRM_UPDATE = 'specific.manager.registry.ssm.update'
 
 # The NSR Repository can be accessed through a RESTful
 # API. Links are red from ENV variables.
-NSR_REPOSITORY_URL = os.environ.get("url_nsr_repository")
-VNFR_REPOSITORY_URL = os.environ.get("url_vnfr_repository")
+#NSR_REPOSITORY_URL = os.environ.get("url_nsr_repository")
+#VNFR_REPOSITORY_URL = os.environ.get("url_vnfr_repository")
 
 # Monitoring repository, can be accessed throught a RESTful
 # API. Link is red from ENV variable.
@@ -264,6 +264,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # If the kill field is active, the chain is killed
         if self.services[serv_id]['kill_chain']:
             LOG.info("Killing workflow with id: " + serv_id)
+            #TODO: delete SSMs, already deployed fucntions, records, stop monitoring
+            #TODO: Or, jump into the kill workflow.
             del self.services[serv_id]
             return
 
@@ -466,8 +468,48 @@ class ServiceLifecycleManager(ManoBasePlugin):
         pass
 
     def service_instance_kill(self, ch, method, prop, payload):
+        """
+        This function handles a received message on the *.instance.kill
+        topic.
+        """
 
-        pass
+        # Check if the messages comes from the GK or is forward by another SLM
+        message_from_gk = True
+        if prop.app_id == self.name:
+            message_from_gk = False     
+            if properties.reply_to is None:
+                return
+
+        content = yaml.load(payload)
+        serv_id = content['instance_id']
+        LOG.info("Termination request received for service " + str(serv_id))
+
+        # Check if the ledger has an entry for this instance, as this method can
+        # be called from multiple paths
+        if serv_id not in self.services.keys():
+            # Based on the received payload, the ledger entry is recreated.
+            LOG.info("Recreating ledger.")
+            self.recreate_ledger(serv_id)
+
+        # Schedule the tasks that the SLM should do for this request.
+        add_schedule = []
+
+        add_schedule.append("stop_monitoring")
+        add_schedule.append("vnf_unchain")
+        add_schedule.append("terminate_ssms")
+        add_schedule.append("terminate_vnfs")
+        add_schedule.append("terminate_fsms")
+        add_schedule.append("IA_cleanup")
+        add_schedule.append("update_records")
+        add_schedule.append("inform_gk")
+
+        self.services[serv_id]['schedule'].extend(add_schedule)
+
+        LOG.info("Termination workflow started for service " + str(serv_id))
+        # Start the chain of tasks
+        self.start_next_task(serv_id)
+
+        return self.services[serv_id]['schedule']
 
     def service_update(self, ch, method, prop, payload):
 
@@ -891,7 +933,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Select the master SSM and create topic to reach it on
         ssm_id = self.services[serv_id]['service']['ssm']['task']['uuid']
-        topic = "task.ssm" + str(ssm_id)
+        topic = "task.ssm." + str(serv_id)
 
         # Adding the schedule to the message
         message = {'schedule': self.services[serv_id]['schedule']}
@@ -926,7 +968,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # build message for placement SSM
         nsd = self.services[serv_id]['service']['nsd']
         top = self.services[serv_id]['infrastructure']['topology']
-        ssm_uuid = ssm_place['uuid']
 
         vnfds = []
         for function in self.services[serv_id]['function']:
@@ -934,7 +975,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             vnfd_to_add['instance_uuid'] = function['id']
             vnfds.append(function['vnfd'])
 
-        message = {'nsd': nsd, 'topology': top, 'uuid': ssm_uuid, 'vnfds': vnfds}
+        message = {'nsd': nsd, 'topology': top, 'uuid': serv_id, 'vnfds': vnfds}
 
         # Contact SSM
         payload = yaml.dump(message)
@@ -974,7 +1015,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         payload = yaml.dump(content)
         ssm_id = self.services[serv_id]['service']['ssm']['configure']['uuid']
-        topic = "configure.ssm" + str(ssm_id)
+        topic = "configure.ssm." + str(serv_id)
         self.manoconn.call_async(self.resp_ssm_configure,
                                  topic,
                                  payload,
@@ -1049,27 +1090,26 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
             # Build the record
             vnfr = tools.build_vnfr(inc_message['vnfr'], vnfd)
+            LOG.info(yaml.dump(vnfr))
             outg_message['vnfr'] = vnfr      
 
-#            t.VNFR_REPOSITORY_URL = 'http://192.168.1.153:4002/records/vnfr/'
-
             # Store the record
-            # try:
-            #     LOG.info("VNFR topic " + str(t.VNFR_REPOSITORY_URL))
-            #     vnfr_response = requests.post(t.VNFR_REPOSITORY_URL + 'vnf-instances', data=yaml.dump(vnfr), headers={'Content-Type':'application/x-yaml'}, timeout=1.0)
-            #     LOG.info('repo response for vnfr: ' + str(vnfr_response))
+            try:
+                LOG.info("VNFR topic " + str(t.VNFR_REPOSITORY_URL))
+                vnfr_response = requests.post(t.VNFR_REPOSITORY_URL + 'vnf-instances', data=yaml.dump(vnfr), headers={'Content-Type':'application/x-yaml'}, timeout=1.0)
+                LOG.info('repo response for vnfr: ' + str(vnfr_response))
 
-            #     if (vnfr_response.status_code == 200):
-            #         LOG.info("VNFR storage completed")
-            #         LOG.info(yaml.dump(vnfr))
-            #         outg_message['vnfr'] = vnfr
-            #     #If storage fails, add error code and message to rply to gk
-            #     else:
-            #         error = {'http_code': vnfr_response.status_code, 'message': vnfr_response.json()}
-            #         LOG.info('vnfr to repo failed: ' + str(message_for_gk['error']['vnfr']))
-            # except:
-            #     error = {'http_code': '0', 'message': 'Timeout when contacting server'}
-            #     LOG.info('time-out on vnfr to repo')
+                if (vnfr_response.status_code == 200):
+                    LOG.info("VNFR storage completed")
+                    LOG.info(yaml.dump(vnfr))
+                    outg_message['vnfr'] = vnfr
+                #If storage fails, add error code and message to rply to gk
+                else:
+                    error = {'http_code': vnfr_response.status_code, 'message': vnfr_response.json()}
+                    LOG.info('vnfr to repo failed: ' + str(error))
+            except:
+                error = {'http_code': '0', 'message': 'Timeout when contacting server'}
+                LOG.info('time-out on vnfr to repo')
 
         outg_message['error'] = error
         outg_message['inst_id'] = vnfd['instance_uuid']
@@ -1143,6 +1183,16 @@ class ServiceLifecycleManager(ManoBasePlugin):
         LOG.info("Requested the Chaining of the VNFs.")
         # Pause the chain of tasks to wait for response
         self.services[serv_id]['pause_chain'] = True
+
+    def vnf_unchain(self, serv_id):
+        """
+        This method instructs the IA to unchain the functions in the service.        
+        """
+
+        #TODO:
+
+        pass
+
 
     def IA_chain_response(self, ch, method, prop, payload):
         """
@@ -1330,6 +1380,82 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['kill_chain'] = False
 
         return serv_id
+
+    def recreate_ledger(self, corr_id, serv_id):
+        """
+        This method recreates an entry in the ledger for a service
+        based on the service instance id.
+
+        :param corr_id: the correlation id of the received message
+        :param serv_id: the service instance id
+        """
+
+        def request_returned_with_error(request):
+            code = str(request['error'])
+            mess = str(request['content'])
+            LOG.info("Retrieving of NSR failed: " + code + " " + mess)
+            #TODO: get out of this
+
+        self.services[serv_id] = {}
+        self.services[serv_id]['original_corr_id'] = corr_id
+
+        # Retrieve the service record based on the service instance id
+        base = t.NSR_REPOSITORY_URL + "ns-instances/"
+        request = tools.getRestData(base, serv_id)
+
+        if request['error'] != None:
+            request_returned_with_error(request)            
+            return
+
+        self.services[serv_id]['service']['nsr'] = request['content']
+        LOG.info("Recreating ledger: NSR retrieved.")
+
+        # Retrieve the NSD based on the service record
+        nsd_id = self.services[serv_id]['service']['nsr']['descriptor_reference']
+        base = t.GK_SERVICES_URL
+        request = tools.getRestData(base, nsd_id)
+
+        if request['error'] != None:
+            request_returned_with_error(request)            
+            return
+
+        self.services[serv_id]['service']['nsd'] = request['content']
+        LOG.info("Recreating ledger: NSD retrieved.")
+        LOG.info(request['content'])
+
+        # Retrieve the function records based on the service record
+        self.services[serv_id]['function'] = []
+        for vnf in self.services['service']['nsr']['network_functions']:
+            base = t.VNFR_REPOSITORY_URL + "vnf-instances/" 
+            request = tools.getRestData(base, vnf['vnfr_id'])
+
+            if request['error'] != None:
+                request_returned_with_error(request)            
+                return
+
+            new_function = {'id': vnf['vnfr_id'], 'vnfr': request['content']}
+            self.services[serv_id]['function'].append(new_function)
+            LOG.info("Recreating ledger: VNFR retrieved.")
+
+        # Retrieve the VNFDS based on the function records
+        for vnf in self.services['service']['function']:
+            base = t.GK_FUNCTIONS_URL
+            request = tools.getRestData(base, vnf['id'])
+
+            if request['error'] != None:
+                request_returned_with_error(request)            
+                return
+
+            vnf['vnfd'] = request['content']
+            LOG.info("Recreating ledger: VNFD retrieved.")
+            LOG.info(request['content'])
+
+        # Retrieve the deployed SSMs based on the NSD
+
+        # Create the service schedule
+        self.services[serv_id]['schedule'] = []
+
+
 
     def validate_deploy_request(self, serv_id):
         """
