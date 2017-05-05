@@ -80,8 +80,8 @@ SRM_UPDATE = 'specific.manager.registry.ssm.update'
 
 # The NSR Repository can be accessed through a RESTful
 # API. Links are red from ENV variables.
-NSR_REPOSITORY_URL = os.environ.get("url_nsr_repository")
-VNFR_REPOSITORY_URL = os.environ.get("url_vnfr_repository")
+#NSR_REPOSITORY_URL = os.environ.get("url_nsr_repository")
+#VNFR_REPOSITORY_URL = os.environ.get("url_vnfr_repository")
 
 # Monitoring repository, can be accessed throught a RESTful
 # API. Link is red from ENV variable.
@@ -475,19 +475,20 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Check if the messages comes from the GK or is forward by another SLM
         message_from_gk = True
-        if properties.app_id == self.name:
+        if prop.app_id == self.name:
             message_from_gk = False     
             if properties.reply_to is None:
                 return
 
-        content = yaml.load(playload)
+        content = yaml.load(payload)
         serv_id = content['instance_id']
         LOG.info("Termination request received for service " + str(serv_id))
 
         # Check if the ledger has an entry for this instance, as this method can
         # be called from multiple paths
-        if serv_id not in self.ledger.keys():
+        if serv_id not in self.services.keys():
             # Based on the received payload, the ledger entry is recreated.
+            LOG.info("Recreating ledger.")
             self.recreate_ledger(serv_id)
 
         # Schedule the tasks that the SLM should do for this request.
@@ -1380,7 +1381,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         return serv_id
 
-    def recreate_ledger(corr_id, serv_id):
+    def recreate_ledger(self, corr_id, serv_id):
         """
         This method recreates an entry in the ledger for a service
         based on the service instance id.
@@ -1389,16 +1390,65 @@ class ServiceLifecycleManager(ManoBasePlugin):
         :param serv_id: the service instance id
         """
 
-        self.ledger[serv_id] = {}
-        self.ledger['original_corr_id'] = corr_id
+        def request_returned_with_error(request):
+            code = str(request['error'])
+            mess = str(request['content'])
+            LOG.info("Retrieving of NSR failed: " + code + " " + mess)
+            #TODO: get out of this
+
+        self.services[serv_id] = {}
+        self.services[serv_id]['original_corr_id'] = corr_id
 
         # Retrieve the service record based on the service instance id
+        base = t.NSR_REPOSITORY_URL + "ns-instances/"
+        request = tools.getRestData(base, serv_id)
+
+        if request['error'] != None:
+            request_returned_with_error(request)            
+            return
+
+        self.services[serv_id]['service']['nsr'] = request['content']
+        LOG.info("Recreating ledger: NSR retrieved.")
 
         # Retrieve the NSD based on the service record
+        nsd_id = self.services[serv_id]['service']['nsr']['descriptor_reference']
+        base = t.GK_SERVICES_URL
+        request = tools.getRestData(base, nsd_id)
+
+        if request['error'] != None:
+            request_returned_with_error(request)            
+            return
+
+        self.services[serv_id]['service']['nsd'] = request['content']
+        LOG.info("Recreating ledger: NSD retrieved.")
+        LOG.info(request['content'])
 
         # Retrieve the function records based on the service record
+        self.services[serv_id]['function'] = []
+        for vnf in self.services['service']['nsr']['network_functions']:
+            base = t.VNFR_REPOSITORY_URL + "vnf-instances/" 
+            request = tools.getRestData(base, vnf['vnfr_id'])
+
+            if request['error'] != None:
+                request_returned_with_error(request)            
+                return
+
+            new_function = {'id': vnf['vnfr_id'], 'vnfr': request['content']}
+            self.services[serv_id]['function'].append(new_function)
+            LOG.info("Recreating ledger: VNFR retrieved.")
 
         # Retrieve the VNFDS based on the function records
+        for vnf in self.services['service']['function']:
+            base = t.GK_FUNCTIONS_URL
+            request = tools.getRestData(base, vnf['id'])
+
+            if request['error'] != None:
+                request_returned_with_error(request)            
+                return
+
+            vnf['vnfd'] = request['content']
+            LOG.info("Recreating ledger: VNFD retrieved.")
+            LOG.info(request['content'])
 
         # Retrieve the deployed SSMs based on the NSD
 

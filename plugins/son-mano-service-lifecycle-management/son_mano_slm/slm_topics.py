@@ -68,19 +68,26 @@ SRM_UPDATE = 'specific.manager.registry.ssm.update'
 # With Executive
 EXEC_PLACE = 'placement.executive.request'
 
-# With Repositories
-# TODO: Secure this get against failure
-NSR_REPOSITORY_URL = os.environ.get("url_nsr_repository")
-if NSR_REPOSITORY_URL is None:
-	NSR_REPOSITORY_URL = "http://api.int.sonata-nfv.eu:4002/records/nsr/"
+# With plugin mananger
+PL_STATUS = "platform.management.plugin.status"
 
-VNFR_REPOSITORY_URL = os.environ.get("url_vnfr_repository")
-if VNFR_REPOSITORY_URL is None:
-	VNFR_REPOSITORY_URL = "http://api.int.sonata-nfv.eu:4002/records/vnfr/"
+## REST APIs
+
+temp = os.environ.get("url_nsr_repository")
+if temp is None:
+	temp = "http://api.int.sonata-nfv.eu:4002/records/nsr/"
+
+BASE_URL = temp[:-18]
+
+# REST API with GK
+GK_SERVICES_URL = BASE_URL + '/api/v2/services/'
+GK_FUNCTIONS_URL = BASE_URL + '/api/v2/functions/'
+
+# With Repositories
+NSR_REPOSITORY_URL = BASE_URL + ":4002/records/nsr/"
+VNFR_REPOSITORY_URL = BASE_URL + ":4002/records/vnfr/"
 
 # With Monitoring Manager
 # TODO: Secure this get against failure
 MONITORING_REPOSITORY_URL = os.environ.get("url_monitoring_server")
 
-# With plugin mananger
-PL_STATUS = "platform.management.plugin.status"

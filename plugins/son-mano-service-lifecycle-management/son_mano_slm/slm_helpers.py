@@ -230,6 +230,28 @@ def build_nsr(request_status, nsd, vnfr_ids, service_instance_id):
 
     return nsr
 
+def getRestData(base, path, expected_code=200):
+    """
+    This method can be used to retrieve data through a rest api.
+    """
+
+    url = base + path
+    try:
+        get_response = requests.get(url, timeout=1.0)
+        content = get_response.json()
+        code = get_response.status_code
+
+        if (code == expected_code):
+            print("GET for " + str(path) + " succeeded: " + str(content))
+            return {'error':None, "content": content}
+        else:
+            print("GET returned with status_code: " + str(code))
+            return{'error': code, "content": content}
+    except:
+        print("GET request timed out")
+        return{'error': '400', content:'request timed out'}
+
+
 
 def build_vnfr(ia_vnfr, vnfd):
     """
