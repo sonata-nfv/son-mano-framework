@@ -39,7 +39,7 @@ LOG.setLevel(logging.DEBUG)
 logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
 
-class fakeslm(object):
+class fakeslm_onboarding(object):
     def __init__(self):
 
         self.name = 'fake-slm'
@@ -67,23 +67,26 @@ class fakeslm(object):
     def publish_nsd(self):
 
         LOG.info("Sending onboard request")
-        nsd = open('test_descriptors/nsd.yml', 'r')
+        nsd = open('test/test_descriptors/nsd.yml', 'r')
         message = {'NSD': yaml.load(nsd)}
         self.manoconn.call_async(self._on_publish_nsd_response,
                                  'specific.manager.registry.ssm.on-board',
                                  yaml.dump(message))
 
-        vnfd1 = open('test_descriptors/vnfd1.yml', 'r')
+        vnfd1 = open('test/test_descriptors/vnfd1.yml', 'r')
         message = {'VNFD': yaml.load(vnfd1)}
         self.manoconn.call_async(self._on_publish_nsd_response,
                                  'specific.manager.registry.fsm.on-board',
                                  yaml.dump(message))
 
-        vnfd2 = open('test_descriptors/vnfd2.yml', 'r')
+        vnfd2 = open('test/test_descriptors/vnfd2.yml', 'r')
         message = {'VNFD': yaml.load(vnfd2)}
         self.manoconn.call_async(self._on_publish_nsd_response,
                                  'specific.manager.registry.fsm.on-board',
                                  yaml.dump(message))
+        nsd.close()
+        vnfd1.close()
+        vnfd2.close()
 
     def _on_publish_nsd_response(self, ch, method, props, response):
 
@@ -93,7 +96,7 @@ class fakeslm(object):
 
 
 def main():
-    fakeslm()
+    fakeslm_onboarding()
 
 
 if __name__ == '__main__':
