@@ -71,7 +71,6 @@ done;
 # spin up container with MongoDB (in daemon mode)
 docker run -d -p 27017:27017 --name test.mongo --net=test.sonata-plugins --network-alias=mongo mongo
 
-
 # wait a bit for db startup
 while ! nc -z localhost 27017; do
 sleep 1 && echo -n .; # waiting for mongo
