@@ -39,7 +39,7 @@ LOG.setLevel(logging.DEBUG)
 logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
 
-class fakeslm(object):
+class fakeslm_termination(object):
     def __init__(self):
 
         self.name = 'fake-slm'
@@ -66,17 +66,20 @@ class fakeslm(object):
 
     def publish_updating(self):
 
-        nsd = open('test_descriptors/nsdt.yml', 'r')
+        nsd = open('test/test_descriptors/nsdt.yml', 'r')
         message = {'NSD': yaml.load(nsd)}
         self.manoconn.call_async(self._on_publish_ins_response,
                                  'specific.manager.registry.ssm.terminate',
                                  yaml.dump(message))
 
-        vnfd1 = open('test_descriptors/vnfdt.yml', 'r')
+        vnfd1 = open('test/test_descriptors/vnfdt.yml', 'r')
         message = {'VNFD': yaml.load(vnfd1)}
         self.manoconn.call_async(self._on_publish_ins_response,
                                  'specific.manager.registry.fsm.terminate',
                                  yaml.dump(message))
+
+        nsd.close()
+        vnfd1.close()
 
     def _on_publish_ins_response(self, ch, method, props, response):
 
@@ -88,7 +91,7 @@ class fakeslm(object):
                 print(error)
 
 def main():
-    fakeslm()
+    fakeslm_termination()
 
 
 if __name__ == '__main__':
