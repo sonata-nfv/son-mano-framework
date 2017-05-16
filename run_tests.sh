@@ -33,6 +33,7 @@
 #
 set -x
 set -e
+
 # We have to build the containers locally (done by Jenkins job in CI)
 docker build -t registry.sonata-nfv.eu:5000/sonmanobase -f son-mano-base/Dockerfile .
 docker build -t registry.sonata-nfv.eu:5000/pluginmanager \
