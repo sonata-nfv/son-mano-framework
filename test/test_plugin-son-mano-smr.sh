@@ -42,7 +42,6 @@ docker rm -fv test.mongo
 docker rm -fv test.pluginmanager
 docker rm -fv test.smr
 
-
 # ensure f/ssms cleanup
 set +e
 docker rm -fv ssmexample
