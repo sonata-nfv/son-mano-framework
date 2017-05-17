@@ -53,6 +53,7 @@ WC_UPDATE = "*.instances.update"
 
 # With infrastructure adaptor
 IA_DEPLOY = 'infrastructure.function.deploy'
+IA_REMOVE = 'infrastructure.service.remove'
 IA_TOPO = 'infrastructure.management.compute.list'
 IA_PREPARE = 'infrastructure.service.prepare'
 IA_CONF_CHAIN = 'infrastructure.service.chain.configure'
@@ -71,13 +72,16 @@ EXEC_PLACE = 'placement.executive.request'
 # With plugin mananger
 PL_STATUS = "platform.management.plugin.status"
 
+# With monitoring
+MON_RECEIVE = "son.monitoring"
+
 ## REST APIs
 
 temp = os.environ.get("url_nsr_repository")
 if temp is None:
 	temp = "http://api.int.sonata-nfv.eu:4002/records/nsr/"
 
-BASE_URL = temp[:-18]
+BASE_URL = temp.split(":")[0] + ':' + temp.split(":")[1]
 
 # REST API with GK
 GK_SERVICES_URL = BASE_URL + '/api/v2/services/'
@@ -89,5 +93,5 @@ VNFR_REPOSITORY_URL = BASE_URL + ":4002/records/vnfr/"
 
 # With Monitoring Manager
 # TODO: Secure this get against failure
-MONITORING_REPOSITORY_URL = os.environ.get("url_monitoring_server")
+MONITORING_URL = os.environ.get("url_monitoring_server")
 
