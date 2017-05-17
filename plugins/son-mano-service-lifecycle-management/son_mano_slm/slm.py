@@ -1106,6 +1106,39 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #TODO: get request_status from response from IA on chain
         request_status = 'normal operation'
 
+        if request_status == 'normal operation':
+            LOG.info("Update status of the VNFR")
+            for function in self.services[serv_id]['function']:
+                updated_vnfr = function['vnfr']
+                updated_vnfr['status'] = "normal operation"
+                updated_vnfr['version'] = '2'
+
+                url = t.VNFR_REPOSITORY_URL + 'vnf-instances/' + function['id']
+                LOG.info("URL for VNFR update: " + url)
+
+                error = None
+                try:
+                    header = {'Content-Type':'application/json'}
+                    vnfr_resp = requests.put(url,
+                                              data=json.dumps(updated_vnfr), 
+                                              headers=header,
+                                              timeout=1.0)
+                    vnfr_resp_json = str(vnfr_resp.json())
+                    if (vnfr_resp.status_code == 200):
+                        LOG.info("VNFR update accepted for " + function['id'])
+                    else:
+                        LOG.info('VNFR update not accepted: ' + vnfr_resp_json)
+                        error = {'http_code': vnfr_resp.status_code, 
+                                 'message': vnfr_resp_json}
+               except:
+                   error = {'http_code': '0', 
+                            'message': 'Timeout when contacting VNFR repo'}
+
+                if error != None:
+                    self.error_handling(serv_id, t.GK_CREATE, error)
+                    return
+
+
         nsd = self.services[serv_id]['service']['nsd']
 
         vnfr_ids = []
@@ -1371,27 +1404,27 @@ class ServiceLifecycleManager(ManoBasePlugin):
         LOG.info("Stopping Monitoring by sending on " + url)
 
         error = None
-        try:
-            header = {'Content-Type':'application/json'}
-            mon_resp = requests.delete(url,
-                                       headers=header,
-                                       timeout=10.0)
-            LOG.info('response from monitoring manager: ' + str(mon_resp))
-            monitoring_json = mon_resp.json()
+        # try:
+        header = {'Content-Type':'application/json'}
+        mon_resp = requests.delete(url,
+                                   headers=header,
+                                   timeout=10.0)
+        LOG.info('response from monitoring manager: ' + str(mon_resp))
+        monitoring_json = json.loads(mon_resp)
 
-            if (mon_resp.status_code == 200):
-                LOG.info('Monitoring delete message accepted')
-    
-            else:
-                LOG.info('Monitoring delete message not accepted')
-                LOG.info('Monitoring response: ' + str(monitoring_json))
-                error = {'http_code': mon_resp.status_code,
-                         'message': mon_resp.json()}
+        if (mon_resp.status_code == 200):
+            LOG.info('Monitoring delete message accepted')
 
-        except:
-            LOG.info('timeout on monitoring communication.')
-            error = {'http_code': '0', 
-                     'message': 'Timeout when contacting monitoring manager'}
+        else:
+            LOG.info('Monitoring delete message not accepted')
+            LOG.info('Monitoring response: ' + str(monitoring_json))
+            error = {'http_code': mon_resp.status_code,
+                     'message': monitoring_json}
+
+        # except:
+        #     LOG.info('timeout on monitoring communication.')
+        #     error = {'http_code': '0', 
+        #              'message': 'Timeout when contacting monitoring manager'}
 
         #If an error occured, the workflow is aborted and the GK is informed
         if error != None:
@@ -1492,6 +1525,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         for key in payload.keys():
             if key[:4] == 'VNFD':
                 vnf_id = str(uuid.uuid4())
+                LOG.info("VNFD instance id generated: " + vnf_id)
                 self.services[serv_id]['function'].append({'vnfd': payload[key], 'id':vnf_id})
 
         # Add to correlation id to the ledger
