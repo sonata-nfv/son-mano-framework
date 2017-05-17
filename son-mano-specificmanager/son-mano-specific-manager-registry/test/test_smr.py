@@ -154,8 +154,8 @@ class test_SMR_functionalities(unittest.TestCase):
 
         onboaring_proc.start()
 
-        self.waitForSSMEvent(timeout=20 , msg='SSM Onboarding request not received.')
-        self.waitForFSMEvent(timeout=20, msg='FSM Onboarding request not received.')
+        self.waitForSSMEvent(timeout=50 , msg='SSM Onboarding request not received.')
+        self.waitForFSMEvent(timeout=50, msg='FSM Onboarding request not received.')
 
         self.wait_for_fsm_event.clear()
         self.wait_for_ssm_event.clear()
