@@ -1130,9 +1130,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
                         LOG.info('VNFR update not accepted: ' + vnfr_resp_json)
                         error = {'http_code': vnfr_resp.status_code, 
                                  'message': vnfr_resp_json}
-               except:
-                   error = {'http_code': '0', 
-                            'message': 'Timeout when contacting VNFR repo'}
+                except:
+                    error = {'http_code': '0', 
+                             'message': 'Timeout when contacting VNFR repo'}
 
                 if error != None:
                     self.error_handling(serv_id, t.GK_CREATE, error)
