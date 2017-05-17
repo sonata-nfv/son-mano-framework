@@ -1109,9 +1109,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         if request_status == 'normal operation':
             LOG.info("Update status of the VNFR")
             for function in self.services[serv_id]['function']:
-                updated_vnfr = function['vnfr']
-                updated_vnfr['status'] = "normal operation"
-                updated_vnfr['version'] = '2'
+                function['vnfr']['status'] = "normal operation"
+                function['vnfr']['version'] = '2'
 
                 url = t.VNFR_REPOSITORY_URL + 'vnf-instances/' + function['id']
                 LOG.info("URL for VNFR update: " + url)
@@ -1120,9 +1119,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 try:
                     header = {'Content-Type':'application/json'}
                     vnfr_resp = requests.put(url,
-                                              data=json.dumps(updated_vnfr), 
-                                              headers=header,
-                                              timeout=1.0)
+                                             data=json.dumps(function['vnfr']),
+                                             headers=header,
+                                             timeout=1.0)
                     vnfr_resp_json = str(vnfr_resp.json())
                     if (vnfr_resp.status_code == 200):
                         LOG.info("VNFR update accepted for " + function['id'])
@@ -1491,8 +1490,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         for function in self.services[serv_id]['function']:
             message['vnfrs'].append(function['vnfr'])
 
-
-        # TODO: add the VNFRs
+        LOG.debug("Payload of message " + str(message))
 
         self.manoconn.notify(t.GK_CREATE,
                              yaml.dump(message),
