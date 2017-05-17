@@ -88,18 +88,11 @@ def placement(NSD, functions, topology):
         needed_mem = vnfd['virtual_deployment_units'][0]['resource_requirements']['memory']['size']
         needed_sto = vnfd['virtual_deployment_units'][0]['resource_requirements']['storage']['size']
 
-#        print('vnfd considered ' + vnfd['name'] + ' ' + vnfd['instance_uuid'])
-
         for vim in topology:
             cpu_req = needed_cpu <= (vim['core_total'] - vim['core_used'])
             mem_req = needed_mem <= (vim['memory_total'] - vim['memory_used'])
 
-#            print(str(needed_cpu) + ' ' + str(needed_mem))
-#            print(str(vim['core_total']) + ' ' + str(vim['core_used']))
-#            print(str(vim['memory_total']) + ' ' + str(vim['memory_used']))
-
             if cpu_req and mem_req:
-                print('VNF ' + function['id'] + ' mapped on VIM ' + vim['vim_uuid'])
                 mapping[function['id']] = {}
                 mapping[function['id']]['vim'] = vim['vim_uuid']
                 vim['core_used'] = vim['core_used'] + needed_cpu
@@ -230,6 +223,22 @@ def build_nsr(request_status, nsd, vnfr_ids, service_instance_id):
 
     return nsr
 
+def get_ssm_from_nsd(nsd):
+
+    if 'service_specific_managers' in nsd:
+        ssm_dict = {}
+        for ssm in nsd['service_specific_managers']:
+            for option in ssm['options']:
+                if option['key'] == 'type':
+                    ssm_dict[option['value']] = {}
+                    ssm_dict[option['value']]['id'] = ssm['id']
+                    ssm_dict[option['value']]['image'] = ssm['image']
+
+    else:
+        return None
+
+    return ssm_dict
+
 def getRestData(base, path, expected_code=200):
     """
     This method can be used to retrieve data through a rest api.
@@ -249,7 +258,7 @@ def getRestData(base, path, expected_code=200):
             return{'error': code, "content": content}
     except:
         print("GET request timed out")
-        return{'error': '400', content:'request timed out'}
+        return{'error': '400', 'content':'request timed out'}
 
 
 
@@ -382,20 +391,6 @@ def build_monitoring_message(service, functions):
 
     nsd = service['nsd']
     nsr = service['nsr']
-    instance_vim_uuid = service['vim_uuid']
-
-#    def get_matching_vdu(vnfrs, vnfd, vdu):
-#        """
-#        This method searches inside the VNFRs for the VDU that makes reference
-#        to a specific VDU of a VNFD.
-#        """
-#        for vnfr in vnfrs:
-#            if vnfr['descriptor_reference'] == vnfd['uuid']:
-#                for nsr_vdu in vnfr['virtual_deployment_units']:
-#                    if vdu['id'] in nsr_vdu['vdu_reference']:
-#                        return nsr_vdu
-#
-#        return None
 
     def get_associated_monitoring_rule(vnfd, monitoring_parameter_name):
         """
@@ -427,80 +422,65 @@ def build_monitoring_message(service, functions):
     service['sonata_srv_id'] = nsr['id']
     service['name'] = nsd['name']
     service['description'] = nsd['description']
-    service['host_id'] = instance_vim_uuid
+    service['host_id'] = None
     # TODO add pop_id and sonata_usr_id
     service['pop_id'] = None
     service['sonata_usr_id'] = None
-    message['service'] = service
 
+    message['service'] = service
     message['functions'] = []
     message['rules'] = []
-
-    # This dictionary will store the relationship beween the vdu['id'] and the
-    # host_id, to be later used when building the metrics part of the message.
-    vdu_hostid = {}
 
     # add vnf information
     for vnf in functions:
 
-        print(vnf.keys())
-        function = {}
         vnfr = vnf['vnfr']
         vnfd = vnf['vnfd']
 
-        function['sonata_func_id'] = vnfr['id']
-        function['name'] = vnfd['name']
-        function['description'] = vnfd['description']
-        function['pop_id'] = ""
-
-        # message['functions'].append(function)
-
-        vdu_hostid = {}
+        vdu_hostid = []
 
         # we should create one function per virtual deployment unit
         for vdu in vnfr['virtual_deployment_units']:
 
+            for vnfc in vdu['vnfc_instance']:
+                vdu_hostid.append({vdu['id']: vnfc['vc_id']})
 
-            # FIXME for the first version, relationshop between VNFC and VDU is 1-1. Change it in the future.
-            vdu_name = vdu['vdu_reference'].split(':')[1]
-            vnfc = vdu['vnfc_instance'][0]
-            vdu_hostid[vdu_name] = vnfc['vc_id']
-
-            function['host_id'] = vdu_hostid[vdu_name]
-
-            if 'monitoring_parameters' in vdu:
-                func = function.copy()
-                func['metrics'] = []
-                for mp in vdu['monitoring_parameters']:
-                    metric = {}
-                    metric['name'] = mp['name']
-                    metric['unit'] = mp['unit']
-
-                    associated_rule = get_associated_monitoring_rule(vnfd, mp['name'])
-                    if (associated_rule is not None):
-                        if 'threshold' in mp.keys():
-                            metric['threshold'] = mp['threshold']
-                        else:
-                            metric['threshold'] = None
-                        if 'frequency' in mp.keys():
-                            metric['interval'] = mp['frequency']
-                        else:
-                            metric['interval'] = None
-                        if 'command' in mp.keys():
-                            metric['cmd'] = mp['command']
-                        else:
-                            metric['cmd'] = None
-                        if 'description' in mp.keys():
-                            metric['description'] = mp['description']
-                        else:
-                            metric['description'] = ""
-
-                        func['metrics'].append(metric)
-
-                message['functions'].append(func)
-
-            else:
+                function = {}
+                function['sonata_func_id'] = vnfr['id']
+                function['name'] = vnfd['name']
+                function['description'] = vnfd['description']
+                function['pop_id'] = vnf['vim_uuid']
+                function['host_id'] = vnfc['vc_id']
                 function['metrics'] = []
+
+                if 'monitoring_parameters' in vdu:
+
+                    for mp in vdu['monitoring_parameters']:
+                        metric = {}
+                        metric['name'] = mp['name']
+                        metric['unit'] = mp['unit']
+
+                        associated_rule = get_associated_monitoring_rule(vnfd, mp['name'])
+                        if (associated_rule is not None):
+                            if 'threshold' in mp.keys():
+                                metric['threshold'] = mp['threshold']
+                            else:
+                                metric['threshold'] = None
+                            if 'frequency' in mp.keys():
+                                metric['interval'] = mp['frequency']
+                            else:
+                                metric['interval'] = None
+                            if 'command' in mp.keys():
+                                metric['cmd'] = mp['command']
+                            else:
+                                metric['cmd'] = None
+                            if 'description' in mp.keys():
+                                metric['description'] = mp['description']
+                            else:
+                                metric['description'] = ""
+
+                            function['metrics'].append(metric)
+
                 message['functions'].append(function)
 
         if 'monitoring_rules' in vnfd.keys():
@@ -513,26 +493,28 @@ def build_monitoring_message(service, functions):
             notification_type_mapping['email'] = 3
 
             for mr in vnfd['monitoring_rules']:
-                rule = {}
-                rule['name'] = mr['name']
-                rule['summary'] = ''
-                rule['duration'] = str(mr['duration']) + mr['duration_unit']
-
-                if 'description' in mr.keys():
-                    rule['description'] = mr['description']
-                else:
-                    rule['description'] = ""
-
-                # TODO add condition
                 vdu_id = mr['condition'].split(":")[0]
-                host_id = vdu_hostid[vdu_name]
-                rule['condition'] = host_id + ":" + mr['condition'].split(":")[1]
+                for vnfc in vdu_hostid:
+                    if vnfc[vdu_id] != None:
+                        host_id = vnfc[vdu_id]
 
-                # we add a rule for each notification type
-                for notification in mr['notification']:
-                    r = rule
-                    r['notification_type'] = notification_type_mapping[notification['type']]
-                    # add rule to message
-                    message['rules'].append(r)
+                        rule = {}
+                        rule['name'] = mr['name']
+                        rule['summary'] = ''
+                        rule['duration'] = str(mr['duration']) + mr['duration_unit']
+
+                        if 'description' in mr.keys():
+                            rule['description'] = mr['description']
+                        else:
+                            rule['description'] = ""
+
+                        rule['condition'] = host_id + ":" + mr['condition'].split(":")[1]
+
+                        # we add a rule for each notification type
+                        for notification in mr['notification']:
+                            r = rule
+                            r['notification_type'] = notification_type_mapping[notification['type']]
+                            # add rule to message
+                            message['rules'].append(r)
 
     return message

@@ -1114,50 +1114,50 @@ class testSlmFunctionality(unittest.TestCase):
 
         #SUBTEST2: TODO: test that only one message is sent per vnf
 
-###############################################################################
-#TEST11: Test build_monitoring_message
-###############################################################################
-    def test_build_monitoring_message(self):
-        """
-        This method tests the build_monitoring_message method
-        """
+# ###############################################################################
+# #TEST11: Test build_monitoring_message
+# ###############################################################################
+#     def test_build_monitoring_message(self):
+#         """
+#         This method tests the build_monitoring_message method
+#         """
 
-        #Setup
-        gk_request = yaml.load(self.createGkNewServiceRequestMessage())
+#         #Setup
+#         gk_request = yaml.load(self.createGkNewServiceRequestMessage())
 
-        #add ids to NSD and VNFDs (those used in the expected message)
-        gk_request['NSD']['uuid'] = '005606ed-be7d-4ce3-983c-847039e3a5a2'
-        gk_request['VNFD1']['uuid'] = '6a15313f-cb0a-4540-baa2-77cc6b3f5b68'
-        gk_request['VNFD2']['uuid'] = '645db4fa-a714-4cba-9617-4001477d1281'
-        gk_request['VNFD3']['uuid'] = '8a0aa837-ec1c-44e5-9907-898f6401c3ae'
+#         #add ids to NSD and VNFDs (those used in the expected message)
+#         gk_request['NSD']['uuid'] = '005606ed-be7d-4ce3-983c-847039e3a5a2'
+#         gk_request['VNFD1']['uuid'] = '6a15313f-cb0a-4540-baa2-77cc6b3f5b68'
+#         gk_request['VNFD2']['uuid'] = '645db4fa-a714-4cba-9617-4001477d1281'
+#         gk_request['VNFD3']['uuid'] = '8a0aa837-ec1c-44e5-9907-898f6401c3ae'
 
-        #load nsr_file, containing both NSR and the list of VNFRs
-        message_from_ia = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml', 'r'))
-        nsr_file = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-nsr.yml', 'r'))
-        vnfrs_file = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-vnfrs.yml', 'r'))
+#         #load nsr_file, containing both NSR and the list of VNFRs
+#         message_from_ia = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/ia-nsr.yml', 'r'))
+#         nsr_file = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-nsr.yml', 'r'))
+#         vnfrs_file = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/sonata-demo-vnfrs.yml', 'r'))
 
-        vnfd_firewall = gk_request['VNFD1']
-        vnfd_iperf = gk_request['VNFD2']
-        vnfd_tcpdump = gk_request['VNFD3']
+#         vnfd_firewall = gk_request['VNFD1']
+#         vnfd_iperf = gk_request['VNFD2']
+#         vnfd_tcpdump = gk_request['VNFD3']
 
-        vnfr_firewall = vnfrs_file[1]
-        vnfr_iperf = vnfrs_file[0]
-        vnfr_tcpdump = vnfrs_file[2]
+#         vnfr_firewall = vnfrs_file[1]
+#         vnfr_iperf = vnfrs_file[0]
+#         vnfr_tcpdump = vnfrs_file[2]
 
-        service = {'nsd': gk_request['NSD'], 'nsr': nsr_file, 'vim_uuid': message_from_ia['instanceVimUuid']}
-        functions = []
-        functions.append({'vnfr': vnfr_iperf, 'vnfd': vnfd_iperf, 'id': vnfr_iperf['id']})
-        functions.append({'vnfr': vnfr_firewall, 'vnfd': vnfd_firewall, 'id': vnfr_firewall['id']})
-        functions.append({'vnfr': vnfr_tcpdump, 'vnfd': vnfd_tcpdump, 'id': vnfr_tcpdump['id']})
+#         service = {'nsd': gk_request['NSD'], 'nsr': nsr_file, 'vim_uuid': message_from_ia['instanceVimUuid']}
+#         functions = []
+#         functions.append({'vnfr': vnfr_iperf, 'vnfd': vnfd_iperf, 'id': vnfr_iperf['id']})
+#         functions.append({'vnfr': vnfr_firewall, 'vnfd': vnfd_firewall, 'id': vnfr_firewall['id']})
+#         functions.append({'vnfr': vnfr_tcpdump, 'vnfd': vnfd_tcpdump, 'id': vnfr_tcpdump['id']})
 
-        #Call the method
-        message = tools.build_monitoring_message(service, functions)
+#         #Call the method
+#         message = tools.build_monitoring_message(service, functions)
 
-        #Load expected results
-        expected_message = json.load(open('/plugins/son-mano-service-lifecycle-management/test/test_descriptors/monitoring-message.json', 'r'))
+#         #Load expected results
+#         expected_message = json.load(open('/plugins/son-mano-service-lifecycle-management/test/test_descriptors/monitoring-message.json', 'r'))
 
-        #Check result
-        self.assertEqual(message, expected_message, "messages are not equals")
+#         #Check result
+#         self.assertEqual(message, expected_message, "messages are not equals")
 
 # ###############################################################################
 # #TEST12: Test build_nsr
