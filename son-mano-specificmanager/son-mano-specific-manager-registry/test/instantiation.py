@@ -39,7 +39,7 @@ LOG.setLevel(logging.DEBUG)
 logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
 
-class fakeslm(object):
+class fakeslm_instantiation(object):
     def __init__(self):
 
         self.name = 'fake-slm'
@@ -69,23 +69,27 @@ class fakeslm(object):
     def publish_sid(self):
 
         LOG.info("Sending instantiate request")
-        nsd = open('test_descriptors/nsd.yml', 'r')
+        nsd = open('test/test_descriptors/nsd.yml', 'r')
         message = {'NSD': yaml.load(nsd), 'UUID':'1234'}
         self.manoconn.call_async(self._on_publish_sid_response,
                                  'specific.manager.registry.ssm.instantiate',
                                  yaml.dump(message))
 
-        vnfd1 = open('test_descriptors/vnfd1.yml', 'r')
+        vnfd1 = open('test/test_descriptors/vnfd1.yml', 'r')
         message = {'VNFD': yaml.load(vnfd1), 'UUID':'9012'}
         self.manoconn.call_async(self._on_publish_sid_response,
                                  'specific.manager.registry.fsm.instantiate',
                                  yaml.dump(message))
 
-        vnfd2 = open('test_descriptors/vnfd2.yml', 'r')
+        vnfd2 = open('test/test_descriptors/vnfd2.yml', 'r')
         message = {'VNFD': yaml.load(vnfd2), 'UUID':'5678'}
         self.manoconn.call_async(self._on_publish_sid_response,
                                  'specific.manager.registry.fsm.instantiate',
                                  yaml.dump(message))
+
+        nsd.close()
+        vnfd1.close()
+        vnfd2.close()
 
     def _on_publish_sid_response(self, ch, method, props, response):
 
@@ -97,7 +101,7 @@ class fakeslm(object):
                 print(error)
 
 def main():
-    fakeslm()
+    fakeslm_instantiation()
 
 
 if __name__ == '__main__':

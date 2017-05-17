@@ -1,9 +1,13 @@
 import unittest
 import threading
+import time
 import yaml
 import logging
 from multiprocessing import Process
-from son_mano_specific_manager_registry.smr_engine import SMREngine
+from test.onboarding import fakeslm_onboarding
+from test.instantiation import fakeslm_instantiation
+from test.updating import fakeslm_updating
+from test.terminating import fakeslm_termination
 from sonmanobase.messaging import ManoBrokerRequestResponseConnection
 from son_mano_specific_manager_registry.specificmanagerregistry import SpecificManagerRegistry
 
@@ -15,125 +19,352 @@ logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 logging.getLogger("son-mano-base:plugin").setLevel(logging.INFO)
 LOG.setLevel(logging.INFO)
 
-def engine_connection(self):
-    e = SMREngine()
-    return e
+class test_SMR_functionalities(unittest.TestCase):
 
-class testSMRRegistration(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
 
-    def setUp(self):
-        #a new SMR in another process for each test
         self.smr_proc = Process(target=SpecificManagerRegistry)
+
         self.smr_proc.daemon = True
-        #make a new connection with the broker before each test
-        self.manoconn = ManoBrokerRequestResponseConnection('son-plugin.SonPluginManager')
 
-        #Some threading events that can be used during the tests
-        self.wait_for_event = threading.Event()
-        self.wait_for_event.clear()
+        self.manoconn = ManoBrokerRequestResponseConnection('son-plugin.SpecificManagerRegistry')
 
-        #The uuid that can be assigned to the plugin
-        self.uuid = '1'
 
-    def tearDown(self):
-        #Killing SMR
+        self.wait_for_ssm_event = threading.Event()
+        self.wait_for_ssm_event.clear()
+
+        self.wait_for_fsm_event = threading.Event()
+        self.wait_for_fsm_event.clear()
+
+        self.event1 = False
+        self.event2 = False
+
+        self.smr_proc.start()
+        time.sleep(4)
+
+    @classmethod
+    def tearDownClass(self):
+
         if self.smr_proc is not None:
             self.smr_proc.terminate()
         del self.smr_proc
 
-        #Killing the connection with the broker
         try:
             self.manoconn.stop_connection()
         except Exception as e:
             LOG.exception("Stop connection exception.")
 
-        #Clearing the threading helpers
-        del self.wait_for_event
+        del self.wait_for_fsm_event
+        del self.wait_for_ssm_event
 
-    #Method that terminates the timer that waits for an event
-    def eventFinished(self):
-        self.wait_for_event.set()
+    def ssm_eventFinished(self):
+        self.wait_for_ssm_event.set()
 
-    #Method that starts a timer, waiting for an event
-    def waitForEvent(self, timeout=5, msg="Event timed out."):
-        if not self.wait_for_event.wait(timeout):
+
+    def waitForSSMEvent(self, timeout=5, msg="Event timed out."):
+        if not self.wait_for_ssm_event.wait(timeout):
             self.assertEqual(True, False, msg=msg)
 
 
-    # def testSMRRegistration(self):
-    #     """
-    #     TEST: This test verifies whether SMR is sending out a message,
-    #     and whether it contains all the needed info on the
-    #     platform.management.plugin.register topic to register to the plugin
-    #     manager.
-    #     """
-        
-
-    #     #STEP3a: When receiving the message, we need to check whether all fields present.
-    #     def on_register_receive(ch, method, properties, message):
-
-    #         msg = yaml.load(message)
-    #         #CHECK: The message should be a dictionary.
-    #         self.assertTrue(isinstance(msg, dict), msg='message is not a dictionary')
-    #         #CHECK: The dictionary should have a key 'name'.
-    #         self.assertIn('name', msg.keys(), msg='No name provided in message.')
-    #         if isinstance(msg['name'], str):
-    #             #CHECK: The value of 'name' should not be an empty string.
-    #             self.assertTrue(len(msg['name']) > 0, msg='empty name provided.')
-    #         else:
-    #             #CHECK: The value of 'name' should be a string
-    #             self.assertEqual(True, False, msg='name is not a string')
-    #         #CHECK: The dictionary should have a key 'version'.
-    #         self.assertIn('version', msg.keys(), msg='No version provided in message.')
-    #         if isinstance(msg['version'], str):
-    #             #CHECK: The value of 'version' should not be an empty string.
-    #             self.assertTrue(len(msg['version']) > 0, msg='empty version provided.')
-    #         else:
-    #             #CHECK: The value of 'version' should be a string
-    #             self.assertEqual(True, False, msg='version is not a string')
-    #         #CHECK: The dictionary should have a key 'description'
-    #         self.assertIn('description', msg.keys(), msg='No description provided in message.')
-    #         if isinstance(msg['description'], str):
-    #             #CHECK: The value of 'description' should not be an empty string.
-    #             self.assertTrue(len(msg['description']) > 0, msg='empty description provided.')
-    #         else:
-    #             #CHECK: The value of 'description' should be a string
-    #             self.assertEqual(True, False, msg='description is not a string')
-
-    #         # stop waiting
-    #         self.eventFinished()
-
-    #     #STEP1: Listen to the platform.management.plugin.register topic
-    #     self.manoconn.subscribe(on_register_receive, 'platform.management.plugin.register')
-
-    #     #STEP2: Start the Scaling Executive
-    #     self.smr_proc.start()
-
-    #     #STEP3b: When not receiving the message, the test failed
-    #     self.waitForEvent(timeout=5, msg="message not received.")
-
-class testSMREngine(unittest.TestCase):
-
-    def test_docker_service_connection(self):
-        e = engine_connection(self)
-        self.assertIsNotNone(e.dc.info().get("ServerVersion"))
-        e.dc.close()
+    def fsm_eventFinished(self):
+        self.wait_for_fsm_event.set()
 
 
-    def test_container_onboarding(self):
-        e = engine_connection(self)
-        e.pull(image="hadik3r/ssmexample")
-        img = e.dc.get_image('hadik3r/ssmexample')
-        self.assertIsNotNone(img)
-        e.dc.close()
+    def waitForFSMEvent(self, timeout=5, msg="Event timed out."):
+        if not self.wait_for_fsm_event.wait(timeout):
+            self.assertEqual(True, False, msg=msg)
 
-    def test_container_instantiation(self):
-        e = engine_connection(self)
-        e.pull( image ="hadik3r/ssmexample")
-        e.start(id='ssmexample', image="hadik3r/ssmexample", uuid= None)
-        con = e.dc.containers(filters={'name': 'ssmexample'})
-        self.assertIsNotNone(con)
-        e.dc.close()
+    def test_1_SMR_onboard(self):
+
+        self.event1 = False
+        self.event2 = False
+
+        def on_ssm_onboarding_result(ch, method, properties, message):
+
+            if properties.app_id == 'son-plugin.SpecificManagerRegistry':
+                result = yaml.load(message)
+
+                self.assertTrue(list(result.keys()) == ['sonssmservice1dumb1','sonssmservice1placement1'] or
+                                list(result.keys()) == ['sonssmservice1placement1', 'sonssmservice1dumb1'],
+                                msg='not all SSMs results received')
+
+                self.assertTrue(result['sonssmservice1dumb1']['status'] == 'On-boarded',
+                                msg='error in onbording sonssmservice1dumb1')
+
+                self.assertTrue(result['sonssmservice1dumb1']['error'] == 'None',
+                                msg='error in onbording sonssmservice1dumb1')
+
+                self.assertTrue(result['sonssmservice1placement1']['status'] == 'On-boarded',
+                                msg='error in onbording sonssmservice1dumb1')
+
+                self.assertTrue(result['sonssmservice1placement1']['error'] == 'None',
+                                msg='error in onbording sonssmservice1placement1')
+
+                self.ssm_eventFinished()
+
+        def on_fsm_onboarding_result(ch, method, properties, message):
+
+            if properties.app_id == 'son-plugin.SpecificManagerRegistry':
+
+                result = yaml.load(message)
+                if list(result.keys()) == ['sonfsmservice1function1dumb1']:
+
+                    self.assertTrue(list(result.keys()) == ['sonfsmservice1function1dumb1'],
+                                    msg='not all FSMs results in VNFD1 received')
+
+                    self.assertTrue(result['sonfsmservice1function1dumb1']['status'] == 'On-boarded',
+                                    msg='error in onbording sonssmservice1dumb1')
+
+                    self.assertTrue(result['sonfsmservice1function1dumb1']['error'] == 'None',
+                                    msg='error in onbording sonfsmservice1function1dumb1')
+
+                    self.event1 = True
+                else:
+                    self.assertTrue(list(result.keys()) ==
+                                    ['sonfsmservice1function1monitoring1', 'sonfsmservice1firewallconfiguration1']or
+                                    list(result.keys()) ==
+                                    ['sonfsmservice1firewallconfiguration1','sonfsmservice1function1monitoring1']
+                                    , msg='not all FSMs results in VNFD2 received')
+
+                    self.assertTrue(result['sonfsmservice1function1monitoring1']['status'] == 'On-boarded',
+                                    msg='error in onbording sonssmservice1dumb1')
+
+                    self.assertTrue(result['sonfsmservice1function1monitoring1']['error'] == 'None',
+                                    msg='error in onbording sonfsmservice1function1monitoring1')
+
+                    self.assertTrue(result['sonfsmservice1firewallconfiguration1']['status'] == 'On-boarded',
+                                    msg='error in onbording sonssmservice1dumb1')
+
+                    self.assertTrue(result['sonfsmservice1firewallconfiguration1']['error'] == 'None',
+                                    msg='error in onbording sonfsmservice1firewallconfiguration1')
+
+                    self.event2 = True
+
+                if self.event1 and self.event2 == True:
+                    self.fsm_eventFinished()
+
+
+
+        self.manoconn.subscribe(on_ssm_onboarding_result, 'specific.manager.registry.ssm.on-board')
+        self.manoconn.subscribe(on_fsm_onboarding_result, 'specific.manager.registry.fsm.on-board')
+
+        onboaring_proc = Process(target=fakeslm_onboarding)
+        onboaring_proc.daemon = True
+
+        onboaring_proc.start()
+
+        self.waitForSSMEvent(timeout=20 , msg='SSM Onboarding request not received.')
+        self.waitForFSMEvent(timeout=20, msg='FSM Onboarding request not received.')
+
+        self.wait_for_fsm_event.clear()
+        self.wait_for_ssm_event.clear()
+
+        onboaring_proc.terminate()
+        del onboaring_proc
+
+
+    def test_2_SMR_instantiation(self):
+
+        self.event1 = False
+        self.event2 = False
+
+        def on_ssm_instantiation_result(ch, method, properties, message):
+
+            if properties.app_id == 'son-plugin.SpecificManagerRegistry':
+                result = yaml.load(message)
+                self.assertTrue(list(result.keys()) == ['sonssmservice1dumb1', 'sonssmservice1placement1'] or
+                                list(result.keys()) == ['sonssmservice1placement1', 'sonssmservice1dumb1'],
+                                msg='not all SSMs results received')
+
+                self.assertTrue(result['sonssmservice1dumb1']['status'] == 'Instantiated',
+                                msg='error in instantiation sonssmservice1dumb1')
+
+                self.assertTrue(result['sonssmservice1dumb1']['error'] == 'None',
+                                msg='error in instantiation sonssmservice1dumb1')
+
+                self.assertTrue(result['sonssmservice1placement1']['status'] == 'Instantiated',
+                                msg='error in instantiation sonssmservice1placement1')
+
+                self.assertTrue(result['sonssmservice1placement1']['error'] == 'None',
+                                msg='error in instantiation sonssmservice1placement1')
+
+                self.ssm_eventFinished()
+
+        def on_fsm_instantiation_result(ch, method, properties, message):
+
+            if properties.app_id == 'son-plugin.SpecificManagerRegistry':
+
+                result = yaml.load(message)
+                if list(result.keys()) == ['sonfsmservice1function1dumb1']:
+
+                    self.assertTrue(list(result.keys()) == ['sonfsmservice1function1dumb1'],
+                                    msg='not all FSMs instantiation results in VNFD1 received')
+
+                    self.assertTrue(result['sonfsmservice1function1dumb1']['status'] == 'Instantiated',
+                                    msg='error in instantiation sonfsmservice1function1dumb1')
+
+                    self.assertTrue(result['sonfsmservice1function1dumb1']['error'] == 'None',
+                                    msg='error in instantiation sonfsmservice1function1dumb1')
+
+                    self.event1 = True
+                else:
+                    self.assertTrue(list(result.keys()) ==
+                                    ['sonfsmservice1function1monitoring1', 'sonfsmservice1firewallconfiguration1'] or
+                                    list(result.keys()) ==
+                                    ['sonfsmservice1firewallconfiguration1', 'sonfsmservice1function1monitoring1']
+                                    , msg='not all FSMs instantiation results in VNFD2 received')
+
+                    self.assertTrue(result['sonfsmservice1function1monitoring1']['status'] == 'Instantiated',
+                                    msg='error in instantiation sonfsmservice1function1monitoring1')
+
+                    self.assertTrue(result['sonfsmservice1function1monitoring1']['error'] == 'None',
+                                    msg='error in instantiation sonfsmservice1function1monitoring1')
+
+                    self.assertTrue(result['sonfsmservice1firewallconfiguration1']['status'] == 'Instantiated',
+                                    msg='error in instantiation sonfsmservice1firewallconfiguration1')
+
+                    self.assertTrue(result['sonfsmservice1firewallconfiguration1']['error'] == 'None',
+                                    msg='error in instantiation sonfsmservice1firewallconfiguration1')
+
+                    self.event2 = True
+
+                if self.event1 and self.event2 == True:
+                    self.fsm_eventFinished()
+
+        self.manoconn.subscribe(on_ssm_instantiation_result, 'specific.manager.registry.ssm.instantiate')
+        self.manoconn.subscribe(on_fsm_instantiation_result, 'specific.manager.registry.fsm.instantiate')
+
+        instantiation_proc = Process(target=fakeslm_instantiation)
+        instantiation_proc.daemon = True
+
+        instantiation_proc.start()
+
+        self.waitForSSMEvent(timeout=20, msg='SSM instantiation request not received.')
+        self.waitForFSMEvent(timeout=20, msg='FSM instantiation request not received.')
+
+        self.wait_for_ssm_event.clear()
+        self.wait_for_fsm_event.clear()
+
+        instantiation_proc.terminate()
+        del instantiation_proc
+
+
+    def test_3_SMR_update(self):
+
+        def on_ssm_updating_result(ch, method, properties, message):
+
+            if properties.app_id == 'son-plugin.SpecificManagerRegistry':
+                result = yaml.load(message)
+                self.assertTrue(list(result.keys()) == ['sonssmservice1dumb1'],
+                                msg='not all SSMs results received')
+
+                self.assertTrue(result['sonssmservice1dumb1']['status'] == 'Updated',
+                                msg='error in updating status filed sonssmservice1dumb1')
+
+                self.assertTrue(result['sonssmservice1dumb1']['error'] == 'None',
+                                msg='error in updating error filed sonssmservice1dumb1')
+
+                self.ssm_eventFinished()
+
+        def on_fsm_updating_result(ch, method, properties, message):
+
+            if properties.app_id == 'son-plugin.SpecificManagerRegistry':
+
+                result = yaml.load(message)
+                self.assertTrue(list(result.keys()) ==
+                                ['sonfsmservice1function1updateddumb1']
+                                , msg='not all FSMs updating results in VNFD2 received')
+
+                self.assertTrue(result['sonfsmservice1function1updateddumb1']['status'] == 'Updated',
+                                msg='error in updating sonfsmservice1function1monitoring1')
+
+                self.assertTrue(result['sonfsmservice1function1updateddumb1']['error'] == 'None',
+                                msg='error in updating sonfsmservice1function1monitoring1')
+
+                self.fsm_eventFinished()
+
+        self.manoconn.subscribe(on_ssm_updating_result, 'specific.manager.registry.ssm.update')
+        self.manoconn.subscribe(on_fsm_updating_result, 'specific.manager.registry.fsm.update')
+
+        updating_proc = Process(target=fakeslm_updating)
+        updating_proc.daemon = True
+        updating_proc.start()
+
+        self.waitForSSMEvent(timeout=40, msg='SSM updating request not received.')
+        self.waitForFSMEvent(timeout=40, msg='FSM updating request not received.')
+
+        self.wait_for_fsm_event.clear()
+        self.wait_for_ssm_event.clear()
+
+        updating_proc.terminate()
+        del updating_proc
+
+    def test_4_SMR_terminate(self):
+
+        def on_ssm_termination_result(ch, method, properties, message):
+
+            if properties.app_id == 'son-plugin.SpecificManagerRegistry':
+                result = yaml.load(message)
+                self.assertTrue(list(result.keys()) == ['sonssmservice1dumb1','sonssmservice1placement1'] or
+                                ['sonssmservice1placement1','sonssmservice1dumb1'],
+                                msg='not all SSMs results received')
+
+                self.assertTrue(result['sonssmservice1dumb1']['status'] == 'Terminated',
+                                msg='error in termination status field sonssmservice1dumb1')
+
+                self.assertTrue(result['sonssmservice1dumb1']['error'] == 'None',
+                                msg='error in termination error field sonssmservice1dumb1')
+
+                self.assertTrue(result['sonssmservice1placement1']['status'] == 'Terminated',
+                                msg='error in termination status field sonssmservice1placement1')
+
+                self.assertTrue(result['sonssmservice1placement1']['error'] == 'None',
+                            msg='error in termination error field sonssmservice1placement1')
+
+                self.ssm_eventFinished()
+
+        def on_fsm_termination_result(ch, method, properties, message):
+
+            if properties.app_id == 'son-plugin.SpecificManagerRegistry':
+
+                result = yaml.load(message)
+
+                self.assertTrue(result['sonfsmservice1function1dumb1']['status'] == 'Terminated',
+                                msg='error in termination status field sonfsmservice1function1dumb1')
+
+                self.assertTrue(result['sonfsmservice1function1dumb1']['error'] == 'None',
+                            msg='error in termination error field sonfsmservice1function1dumb1')
+
+                self.assertTrue(result['sonfsmservice1function1monitoring1']['status'] == 'Terminated',
+                                msg='error in termination status field sonfsmservice1function1monitoring1')
+
+                self.assertTrue(result['sonfsmservice1function1monitoring1']['error'] == 'None',
+                            msg='error in termination error field sonfsmservice1function1monitoring1')
+
+                self.assertTrue(result['sonfsmservice1function1updateddumb1']['status'] == 'Terminated',
+                                msg='error in termination status field sonfsmservice1function1updateddumb1')
+
+                self.assertTrue(result['sonfsmservice1function1updateddumb1']['error'] == 'None',
+                            msg='error in termination error field sonfsmservice1function1updateddumb1')
+
+                self.fsm_eventFinished()
+
+        self.manoconn.subscribe(on_ssm_termination_result, 'specific.manager.registry.ssm.terminate')
+        self.manoconn.subscribe(on_fsm_termination_result, 'specific.manager.registry.fsm.terminate')
+
+        termination_proc = Process(target=fakeslm_termination)
+        termination_proc.daemon = True
+        termination_proc.start()
+
+        self.waitForSSMEvent(timeout=40, msg='SSM termination request not received.')
+        self.waitForFSMEvent(timeout=40, msg='FSM termination request not received.')
+
+        self.wait_for_fsm_event.clear()
+        self.wait_for_ssm_event.clear()
+
+        termination_proc.terminate()
+        del termination_proc
 
 if __name__ == "__main__":
     unittest.main()

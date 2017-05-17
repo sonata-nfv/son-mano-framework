@@ -39,7 +39,8 @@ LOG.setLevel(logging.DEBUG)
 logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
 
-class fakeslm(object):
+class fakeslm_updating(object):
+
     def __init__(self):
 
         self.name = 'fake-slm'
@@ -67,18 +68,20 @@ class fakeslm(object):
     def publish_updating(self):
 
         LOG.info("Sending updating request")
-        nsd = open('test_descriptors/nsdu.yml', 'r')
+        nsd = open('test/test_descriptors/nsdu.yml', 'r')
         message = {'NSD': yaml.load(nsd), 'UUID':'2233'}
         self.manoconn.call_async(self._on_publish_ins_response,
                                  'specific.manager.registry.ssm.update',
                                  yaml.dump(message))
 
 
-        vnfd1 = open('test_descriptors/vnfdu.yml', 'r')
+        vnfd1 = open('test/test_descriptors/vnfdu.yml', 'r')
         message = {'VNFD': yaml.load(vnfd1), 'UUID':'9900'}
         self.manoconn.call_async(self._on_publish_ins_response,
                                  'specific.manager.registry.fsm.update',
                                  yaml.dump(message))
+        nsd.close()
+        vnfd1.close()
 
     def _on_publish_ins_response(self, ch, method, props, response):
 
@@ -90,7 +93,7 @@ class fakeslm(object):
                 print(error)
 
 def main():
-    fakeslm()
+    fakeslm_updating()
 
 
 if __name__ == '__main__':

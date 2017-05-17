@@ -41,12 +41,21 @@ docker rm -fv test.broker
 docker rm -fv test.mongo
 docker rm -fv test.pluginmanager
 docker rm -fv test.smr
+
+# ensure f/ssms cleanup
+set +e
 docker rm -fv ssmexample
-#docker network rm test.sonata-plugins
+docker rm -fv sonfsmservice1firewallconfiguration1
+docker rm -fv sonfsmservice1function1dumb1
+docker rm -fv sonfsmservice1function1monitoring1
+docker rm -fv sonfsmservice1function1updateddumb1
+docker rm -fv sonssmservice1dumb1
+docker rm -fv sonssmservice1placement1
+docker rm -fv sonssmservice1dumb1
 
 #  always abort if an error occurs
 set -e
-echo "test_son-mano-placement-executive.sh"
+echo "test_plugin-son-mano-smr.sh"
 #create sonata-plugins network
 if ! [[ "$(docker network inspect -f {{.Name}} test.sonata-plugins 2> /dev/null)" == "" ]]
 then docker network rm test.sonata-plugins ; fi
