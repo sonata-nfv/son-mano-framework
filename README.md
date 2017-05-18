@@ -19,20 +19,23 @@ SONATA's MANO framework is organized as micro services. The following micro serv
 2. [`son-mano-pluginmanager`](https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-pluginmanager): every MANO plugin registers to this service, the PM provides a CLI to control and monitor active plugins
 3. [`plugins/son-mano-service-lifecycle-management`](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-service-lifecycle-management): main orchestration component, gets service and function descriptors, instructs the infrastructure adapter to start service components in the infrastructure, stores records on services and functions once instantiated, informs Monitoring Manager
 4. [`plugins/son-mano-test-plugin`](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-test-plugin): the most simple implementation of a MANO plugin, used for integration tests and as an example for plugin developers
+5. [`plugins/son-mano-placement-executive`](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-placement-executive): The plugin that manages the communication between placement SSMs and the core of the MANO framework
+6. [`plugins/son-mano-scaling-executive`](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-placement-executive): The plugin that manages the communication between scaling SSMs/FSMs and the core of the MANO framework
+7. [`son-mano-specificmanager`](https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-specificmanager): The plugin that manages the lifecycle of the SSMs and FSMs.
 
 Each of these components is entirely implemented in Python.
 
-Other MANO plugins (e.g. a placement and scaling plugin) will appear during the course of the project.)
-
 ### Building
 
-Each micro service of the framework is executed in its own Docker container. So 'building' the framework becomes building all the containers. The build steps for this are described in a `Dockerfile` that is placed in the folder of each micro service.
+Each micro service of the framework is executed in its own Docker container. So 'building' the framework becomes building all the containers. The build steps for this are described in a `Dockerfile` that is placed in the folder of each micro service. Building the containers goes is done as follows:
 
 
-1. `docker build -t registry.sonata-nfv.eu:5000/pluginmanager -f son-mano-pluginmanager/Dockerfile .`
-2. `docker build -t registry.sonata-nfv.eu:5000/testplugin -f plugins/son-mano-test-plugin/Dockerfile .`
-3. `docker build -t registry.sonata-nfv.eu:5000/servicelifecyclemanagement -f plugins/son-mano-service-lifecycle-management/Dockerfile .`
-4. `docker build -t registry.sonata-nfv.eu:5000/specificmanagerregistry -f son-mano-specificmanager/son-mano-specific-manager-registry/Dockerfile .`
+1. `docker build -t sonatanfv/pluginmanager -f son-mano-pluginmanager/Dockerfile .`
+2. `docker build -t sonatanfv/testplugin -f plugins/son-mano-test-plugin/Dockerfile .`
+3. `docker build -t sonatanfv/servicelifecyclemanagement -f plugins/son-mano-service-lifecycle-management/Dockerfile .`
+4. `docker build -t sonatanfv/specificmanagerregistry -f son-mano-specificmanager/son-mano-specific-manager-registry/Dockerfile .`
+5. `docker build -t sonatanfv/placementexecutive -f plugins/son-mano-placement-executive/Dockerfile .`
+6. `docker build -t sonatanfv/scalingexecutive -f plugins/son-mano-scaling-executive/Dockerfile .`
 
 
 ### Dependencies
@@ -42,7 +45,7 @@ Son-mano-framework expects the following environment:
 * Python 3.4
 * [Docker](https://www.docker.com) >= 1.10 (Apache 2.0)
 * [RabbitMQ](https://www.rabbitmq.com) >= 3.5 (Mozilla Public License)
-* [MongoDB] (https://www.mongodb.com/community) >= 3.2 (AGPLv3)
+* [MongoDB](https://www.mongodb.com/community) >= 3.2 (AGPLv3)
 
 Son-mano-framework has the following dependencies:
 
@@ -60,8 +63,9 @@ Son-mano-framework has the following dependencies:
 ### Contributing
 Contributing to the son-mano-framework is really easy. You must:
 
-1. Clone [this repository](http://github.com/sonata-nfv/son-mano-framework);
+1. Fork [this repository](http://github.com/sonata-nfv/son-mano-framework);
 2. Work on your proposed changes, preferably through submiting [issues](https://github.com/sonata-nfv/son-mano-framework/issues);
+3. Push changes on your fork;
 3. Submit a Pull Request;
 4. Follow/answer related [issues](https://github.com/sonata-nfv/son-mano-framework/issues) (see Feedback-Chanel, below).
 
@@ -82,13 +86,25 @@ python setup.py develop
 
 ## Usage
 
-To run all components of the MANO framework you have to start their containers. Additionally, a container that runs RabbitMQ and a container that runs MongoDB has to be started.
+To run all components of the MANO framework you have to start their containers. Additionally, a container that runs RabbitMQ and a container that runs MongoDB has to be started. A docker network is facilitating the connections between the containers.
 
-1. `docker run -d -p 5672:5672 --name broker rabbitmq:3`
-2. `docker run -d -p 27017:27017 --name mongo mongo`
-3. `docker run -it --rm --link broker:broker --link mongo:mongo --name pluginmanager registry.sonata-nfv.eu:5000/pluginmanager`
-4. `docker run -it --rm --link broker:broker --name slm registry.sonata-nfv.eu:5000/servicelifecyclemanagement`
-5. `sudo docker run -it --rm --link broker:broker -e broker_name:broker,broker -v '/var/run/docker.sock:/var/run/docker.sock' --name specificmanagerregistry registry.sonata-nfv.eu:5000/specificmanagerregistry`
+1. `docker network create sonata`
+2. `docker run -d -p 5672:5672 --name broker --net=sonata rabbitmq:3`
+3. `docker run -d -p 27017:27017 --name mongo --net=sonata mongo`
+4. `docker run -d --name pm --net=sonata -p 8001:8001 -e broker_host=amqp://guest:guest@broker:5672/%2F sonatanfv/pluginmanager`
+5. `docker run -d --name slm --net=sonata -e url_nsr_repository=http://localhost:4002/records/nsr/ -e url_vnfr_repository=http://localhost:4002/records/vnfr/ -e url_monitoring_server=http://localhost:8000/api/v1/ -e broker_host=amqp://guest:guest@broker:5672/%2F sonatanfv/servicelifecyclemanagement`
+6. `docker run -d --name smr --net=sonata -e broker_name=broker,broker -e broker_host=amqp://guest:guest@broker:5672/%2F -v '/var/run/docker.sock:/var/run/docker.sock' sonatanfv/specificmanagerregistry`
+7. `docker run -d --name placeexec --net=sonata -e broker_host=amqp://guest:guest@broker:5672/%2F sonatanfv/placementexecutive`
+8. `docker run -d --name scaleexec --net=sonata -e broker_host=amqp://guest:guest@broker:5672/%2F sonatanfv/scalingexecutive`
+
+The parameter `broker_host` provides the url on which the message broker can be found. It is build as `amqp://<username>:<password>@<broker_name>:5672/%2F`. 
+
+With the deployment of the SLM, it is possible to add some parameters to the command, to indicate the urls where the SLM can locate the VNFR, NSR and MONITORING repositories. These parameters are optional, and only useful if the MANO Framework is used inside the full setup of the SONATA service platform.
+
+Runtime information for these docker containers can be accessed through the standard docker commands:
+
+1. `docker logs <docker_name>`
+2. `docker attach <docker_name>`
 
 ### Unit tests
 #### Container-based unit tests
@@ -126,7 +142,7 @@ The following lead developers are responsible for this repository and have admin
 * Felipe Vicens (https://github.com/felipevicens)
 * Thomas Soenen (https://github.com/tsoenen)
 * Adrian Rosello (https://github.com/adrian-rosello)
-+ Hadi Razzaghi Kouchaksaraei (https://github.com/hadik3r)
+* Hadi Razzaghi Kouchaksaraei (https://github.com/hadik3r)
 
 #### Feedback-Chanel
 
