@@ -99,7 +99,7 @@ To run all components of the MANO framework you have to start their containers. 
 
 The parameter `broker_host` provides the url on which the message broker can be found. It is build as `amqp://<username>:<password>@<broker_name>:5672/%2F`. 
 
-With the deployment of the SLM, it is possible to add some parameters to the command, to indicate the urls where the SLM can locate the VNFR, NSR and MONITORING repositories. These parameters are optional, and only useful if the MANO Framework is used inside the full setup of the SONATA service platform.
+With the deployment of the SLM, it is possible to add some parameters to the command, to indicate the urls where the SLM can locate the VNFR, NSR and MONITORING repositories. These parameters are optional, and only useful if the MANO framework is used inside the full setup of the SONATA service platform.
 
 Runtime information for these docker containers can be accessed through the standard docker commands:
 
