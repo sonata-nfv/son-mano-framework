@@ -550,6 +550,3 @@ def callback_print(self, ch, method, properties, msg):
         """
         LOG.debug("RECEIVED from %r on %r: %r" % (
             properties.app_id, method.routing_key, str(msg)))
-
-
-
