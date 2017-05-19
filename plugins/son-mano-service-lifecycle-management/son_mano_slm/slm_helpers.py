@@ -28,21 +28,22 @@ import requests
 import uuid
 import yaml
 
+
 def convert_corr_id(corr_id):
     """
-    This method converts the correlation id into an integer that is 
+    This method converts the correlation id into an integer that is
     small enough to be used with a modulo operation.
 
     :param corr_id: The correlation id as a String
-    """ 
+    """
 
-    #Select the final 4 digits of the string
+    # Select the final 4 digits of the string
     reduced_string = corr_id[-4:]
     reduced_int = int(reduced_string, 16)
     return reduced_int
 
 
-def serv_id_from_corr_id(ledger, corr_id):
+def servid_from_corrid(ledger, corr_id):
     """
     This method returns the service uuid based on a correlation id.
     It is used for responses from different modules that use the
@@ -61,6 +62,7 @@ def serv_id_from_corr_id(ledger, corr_id):
                 break
 
     return serv_id
+
 
 def generate_image_uuid(vdu, vnfd):
     """
@@ -98,12 +100,13 @@ def placement(NSD, functions, topology):
                 vim['core_used'] = vim['core_used'] + needed_cpu
                 vim['memory_used'] = vim['memory_used'] + needed_mem
                 break
-    
+
     # Check if all VNFs have been mapped
     if len(mapping.keys()) == len(functions):
         return mapping
     else:
         return None
+
 
 def build_resource_request(descriptors, vim):
     """
@@ -223,6 +226,7 @@ def build_nsr(request_status, nsd, vnfr_ids, service_instance_id):
 
     return nsr
 
+
 def get_ssm_from_nsd(nsd):
 
     if 'service_specific_managers' in nsd:
@@ -239,6 +243,7 @@ def get_ssm_from_nsd(nsd):
 
     return ssm_dict
 
+
 def getRestData(base, path, expected_code=200):
     """
     This method can be used to retrieve data through a rest api.
@@ -252,20 +257,19 @@ def getRestData(base, path, expected_code=200):
 
         if (code == expected_code):
             print("GET for " + str(path) + " succeeded: " + str(content))
-            return {'error':None, "content": content}
+            return {'error': None, "content": content}
         else:
             print("GET returned with status_code: " + str(code))
             return{'error': code, "content": content}
     except:
         print("GET request timed out")
-        return{'error': '400', 'content':'request timed out'}
-
+        return{'error': '400', 'content': 'request timed out'}
 
 
 def build_vnfr(ia_vnfr, vnfd):
     """
     This method builds the VNFR. VNFRS are built from the stripped VNFRs
-    returned by the Infrastructure Adaptor (IA), combining it with the 
+    returned by the Infrastructure Adaptor (IA), combining it with the
     provided VNFD.
     """
 
@@ -273,7 +277,7 @@ def build_vnfr(ia_vnfr, vnfd):
     # vnfd base fields
     vnfr['descriptor_version'] = ia_vnfr['descriptor_version']
     vnfr['id'] = ia_vnfr['id']
-    #Building the vnfr makes it the first version of this vnfr.
+    # Building the vnfr makes it the first version of this vnfr.
     vnfr['version'] = '1'
     vnfr['status'] = ia_vnfr['status']
     vnfr['descriptor_reference'] = ia_vnfr['descriptor_reference']
@@ -308,29 +312,8 @@ def build_vnfr(ia_vnfr, vnfd):
                 vnfc['id'] = ia_vnfc['id']
                 vnfc['vim_id'] = ia_vnfc['vim_id']
                 vnfc['vc_id'] = ia_vnfc['vc_id']
-#                vnfc['connection_points'] = ia_vnfc['connection_points']
                 vnfc['connection_points'] = ia_vnfc['connection_points']
-#                for cp_ia in ia_vnfc['connection_points']:
-#                    new_cp = 
-                    # new_cp['id'] = cp_ia['id']
-                    # cp_vnfd = get_vdu_cp_by_ref(vnfd, vdu['id'], new_cp['id'])
-                    # new_cp['type'] = cp_vnfd['type']
-                    # new_cp['interface'] = cp_vnfd['interface']
-
-                    # new_cp['interface']['address'] = cp_ia['type']['address']
-                    # if 'netmask' in cp_ia['type'].keys():
-                    #     new_cp['interface']['netmask'] = cp_ia['type']['netmask']
-                    # else:
-                    #     new_cp['interface']['netmask'] = '255.255.255.248'
-
-                    # if 'hardware_address' in cp_ia['type'].keys():
-                    #     new_cp['interface']['hardware_address'] = cp_ia['type']['hardware_address']
-
-#                    vnfc['connection_points'].append(cp_ia)
-
                 vdu['vnfc_instance'].append(vnfc)
-
-
 
         # vdu monitoring-parameters (optional)
 
@@ -362,6 +345,7 @@ def get_vnfd_vdu_by_reference(vnfd, vdu_reference):
                 return vnfd_vdu
     return None
 
+
 def get_vdu_cp_by_ref(vnfd, vdu_id, cp_id):
 
     if 'virtual_deployment_units' in vnfd:
@@ -372,6 +356,7 @@ def get_vdu_cp_by_ref(vnfd, vdu_id, cp_id):
                         return cp
 
     return None
+
 
 def get_vnfd_by_reference(gk_request, vnfd_reference):
 
@@ -495,7 +480,7 @@ def build_monitoring_message(service, functions):
             for mr in vnfd['monitoring_rules']:
                 vdu_id = mr['condition'].split(":")[0]
                 for vnfc in vdu_hostid:
-                    if vnfc[vdu_id] != None:
+                    if vnfc[vdu_id] is not None:
                         host_id = vnfc[vdu_id]
 
                         rule = {}

@@ -75,11 +75,11 @@ PL_STATUS = "platform.management.plugin.status"
 # With monitoring
 MON_RECEIVE = "son.monitoring"
 
-## REST APIs
+# REST APIs
 
 temp = os.environ.get("url_nsr_repository")
 if temp is None:
-	temp = "http://api.int.sonata-nfv.eu:4002/records/nsr/"
+    temp = "http://api.int.sonata-nfv.eu:4002/records/nsr/"
 
 BASE_URL = temp.split(":")[0] + ':' + temp.split(":")[1]
 
@@ -94,4 +94,3 @@ VNFR_REPOSITORY_URL = BASE_URL + ":4002/records/vnfr/"
 # With Monitoring Manager
 # TODO: Secure this get against failure
 MONITORING_URL = os.environ.get("url_monitoring_server")
-
