@@ -1044,75 +1044,75 @@ class testSlmFunctionality(unittest.TestCase):
     #     #Wait for the test to finish
     #     self.waitForFirstEvent(timeout=5)
 
-###############################################################
-#TEST10: test vnf_deploy
-###############################################################
-    def test_vnf_deploy(self):
-        """
-        This method tests the request_topology method.
-        """
+# ###############################################################
+# #TEST10: test vnf_deploy
+# ###############################################################
+#     def test_vnf_deploy(self):
+#         """
+#         This method tests the request_topology method.
+#         """
 
-        #Check result SUBTEST 1
-        def on_vnf_deploy_subtest1(ch, mthd, prop, payload):
-            message = yaml.load(payload)
+#         #Check result SUBTEST 1
+#         def on_vnf_deploy_subtest1(ch, mthd, prop, payload):
+#             message = yaml.load(payload)
 
-            self.assertIn(message,
-                          service_dict[service_id]['function'],
-                             msg="Payload is not correct")
+#             self.assertIn(message,
+#                           service_dict[service_id]['function'],
+#                              msg="Payload is not correct")
 
-            self.vnfcounter = self.vnfcounter + 1
+#             self.vnfcounter = self.vnfcounter + 1
 
-            if self.vnfcounter == len(service_dict[service_id]['function']):
-                self.firstEventFinished()
+#             if self.vnfcounter == len(service_dict[service_id]['function']):
+#                 self.firstEventFinished()
 
-        #SUBTEST1: Run test
-        #Setup
-        #Create the ledger
-        self.wait_for_first_event.clear()
-        service_dict = {}
-        self.vnfcounter = 0
-        service_id = str(uuid.uuid4())
-        corr_id = str(uuid.uuid4())
-        service_dict[service_id] = {'schedule': ['get_ledger'],
-                                    'original_corr_id':corr_id,
-                                    'pause_chain': True,
-                                    'kill_chain': False,
-                                    'function': []}
+#         #SUBTEST1: Run test
+#         #Setup
+#         #Create the ledger
+#         self.wait_for_first_event.clear()
+#         service_dict = {}
+#         self.vnfcounter = 0
+#         service_id = str(uuid.uuid4())
+#         corr_id = str(uuid.uuid4())
+#         service_dict[service_id] = {'schedule': ['get_ledger'],
+#                                     'original_corr_id':corr_id,
+#                                     'pause_chain': True,
+#                                     'kill_chain': False,
+#                                     'function': []}
 
 
-        path = '/plugins/son-mano-service-lifecycle-management/test/'
+#         path = '/plugins/son-mano-service-lifecycle-management/test/'
 
-        vnfd1 = open(path + 'test_descriptors/firewall-vnfd.yml', 'r')
-        vnfd2 = open(path + 'test_descriptors/iperf-vnfd.yml', 'r')
-        vnfd3 = open(path + 'test_descriptors/tcpdump-vnfd.yml', 'r')
+#         vnfd1 = open(path + 'test_descriptors/firewall-vnfd.yml', 'r')
+#         vnfd2 = open(path + 'test_descriptors/iperf-vnfd.yml', 'r')
+#         vnfd3 = open(path + 'test_descriptors/tcpdump-vnfd.yml', 'r')
 
-        service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd1),
-                                                'id': str(uuid.uuid4()),
-                                                'vim_uuid': str(uuid.uuid4())})
-        service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd2),
-                                                'id': str(uuid.uuid4()),
-                                                'vim_uuid': str(uuid.uuid4())})
-        service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd3),
-                                                'id': str(uuid.uuid4()),
-                                                'vim_uuid': str(uuid.uuid4())})
+#         service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd1),
+#                                                 'id': str(uuid.uuid4()),
+#                                                 'vim_uuid': str(uuid.uuid4())})
+#         service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd2),
+#                                                 'id': str(uuid.uuid4()),
+#                                                 'vim_uuid': str(uuid.uuid4())})
+#         service_dict[service_id]['function'].append({'vnfd': yaml.load(vnfd3),
+#                                                 'id': str(uuid.uuid4()),
+#                                                 'vim_uuid': str(uuid.uuid4())})
 
-        #Set the ledger
-        self.slm_proc.set_services(service_dict)
+#         #Set the ledger
+#         self.slm_proc.set_services(service_dict)
 
-        #Spy the message bus
-        self.manoconn_spy.subscribe(on_vnf_deploy_subtest1, 
-                                    'mano.function.deploy')
+#         #Spy the message bus
+#         self.manoconn_spy.subscribe(on_vnf_deploy_subtest1, 
+#                                     'mano.function.deploy')
 
-        #Wait until subscription is completed
-        time.sleep(0.1)
+#         #Wait until subscription is completed
+#         time.sleep(0.1)
 
-        #Run the method
-        self.slm_proc.vnf_deploy(service_id)
+#         #Run the method
+#         self.slm_proc.vnf_deploy(service_id)
 
-        #Wait for the test to finish
-        self.waitForFirstEvent(timeout=5)
+#         #Wait for the test to finish
+#         self.waitForFirstEvent(timeout=5)
 
-        #SUBTEST2: TODO: test that only one message is sent per vnf
+#         #SUBTEST2: TODO: test that only one message is sent per vnf
 
 # ###############################################################################
 # #TEST11: Test build_monitoring_message
