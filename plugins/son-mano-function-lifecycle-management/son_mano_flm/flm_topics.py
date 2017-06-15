@@ -35,9 +35,9 @@ MANO_DEPLOY = "mano.function.deploy"
 IA_DEPLOY = 'infrastructure.function.deploy'
 
 # With specific manager registry
-SRM_ONBOARD = 'specific.manager.registry.ssm.on-board'
-SRM_INSTANT = 'specific.manager.registry.ssm.instantiate'
-SRM_UPDATE = 'specific.manager.registry.ssm.update'
+SRM_ONBOARD = 'specific.manager.registry.fsm.on-board'
+SRM_INSTANT = 'specific.manager.registry.fsm.instantiate'
+SRM_UPDATE = 'specific.manager.registry.fsm.update'
 
 # REST APIs
 

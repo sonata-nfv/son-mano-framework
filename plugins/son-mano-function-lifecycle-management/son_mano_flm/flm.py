@@ -203,6 +203,28 @@ class FunctionLifecycleManager(ManoBasePlugin):
 # FLM input - output
 ####################
 
+    def flm_error(self, func_id, topic, error=None):
+        """
+        This method is used to report back errors to the SLM
+        """
+        if error is None:
+            error = self.functions[func_id]['error']
+        LOG.info("Function " + func_id + ": error occured: " + error)
+        LOG.info("Function " + func_id + ": informing SLM")
+
+        message = {}
+        message['status'] = "failed"
+        message['error'] = error
+
+        corr_id = self.functions[func_id]['orig_corr_id']
+
+        self.manoconn.notify(topic,
+                             yaml.dump(message),
+                             correlation_id=corr_id)
+
+        # Kill the current workflow
+        self.functions[func_id]['kill_chain'] = True
+
     def function_instance_create(self, ch, method, properties, payload):
         """
         This function handles a received message on the *.function.create
@@ -244,6 +266,117 @@ class FunctionLifecycleManager(ManoBasePlugin):
         self.start_next_task(func_id)
 
         return self.functions[func_id]['schedule']
+
+    def onboard_fsms(self, func_id):
+        """
+        This method instructs the fsm registry manager to onboard the
+        required FSMs.
+
+        :param func_id: The instance uuid of the function
+        """
+
+        corr_id = str(uuid.uuid4())
+        # Sending the vnfd to the SRM triggers it to onboard the fsms
+        msg = {'VNFD': self.functions[func_id]['vnfd']}
+
+        pyld = yaml.dump(msg)
+        self.manoconn.call_async(self.resp_onboard,
+                                 t.SRM_ONBOARD,
+                                 pyld,
+                                 correlation_id=corr_id)
+
+        # Add correlation id to the ledger for future reference
+        self.functions[func_id]['act_corr_id'] = corr_id
+
+        # Pause the chain of tasks to wait for response
+        self.functions[func_id]['pause_chain'] = True
+
+        LOG.info("Function " + func_id + ": FSM on-board trigger sent to SMR.")
+
+    def resp_onboard(self, ch, method, prop, payload):
+        """
+        This method handles the response from the SMR on the fsm onboard call
+        """
+
+        func_id = tools.funcid_from_corrid(self.functions, prop.correlation_id)
+        LOG.info("Function " + func_id + ": Onboard resp received from SMR.")
+
+        message = yaml.load(payload)
+
+        for key in message.keys():
+            if message[key]['error'] == 'None':
+                LOG.info("Function " + func_id + ": FSMs onboarding succesful")
+            else:
+                msg = ": FSM onboarding failed: " + message[key]['error']
+                LOG.info("Function " + func_id + msg)
+                self.fm_error(func_id,
+                              t.GK_CREATE,
+                              error=message[key]['error'])
+
+        # Continue with the scheduled tasks
+        self.start_next_task(func_id)
+
+    def instant_fsms(self, func_id):
+        """
+        This method instructs the fsm registry manager to instantiate the
+        required FSMs.
+
+        :param func_id: The instance uuid of the function
+        """
+
+        corr_id = str(uuid.uuid4())
+        # Sending the NSD to the SRM triggers it to instantiate the ssms
+
+        msg_for_smr = {}
+        msg_for_smr['VNFD'] = self.functions[func_id]['vnfd']
+        msg_for_smr['UUID'] = func_id
+
+        msg = ": Keys in message for FSM instant: " + str(msg_for_smr.keys())
+        LOG.info("Function " + func_id + msg)
+        pyld = yaml.dump(msg_for_smr)
+
+        self.manoconn.call_async(self.resp_instant,
+                                 t.SRM_INSTANT,
+                                 pyld,
+                                 correlation_id=corr_id)
+
+        # Add correlation id to the ledger for future reference
+        self.functions[func_id]['act_corr_id'] = corr_id
+
+        # Pause the chain of tasks to wait for response
+        self.functions[func_id]['pause_chain'] = True
+
+        LOG.info("FSM instantiation trigger sent to SMR")
+
+    def resp_instant(self, ch, method, prop, payload):
+        """
+        This method handles responses to a request to onboard the fsms
+        of a new function.
+        """
+
+        # Retrieve the function uuid
+        func_id = tools.funcid_from_corrid(self.functions, prop.correlation_id)
+        msg = ": Instantiating response received from SMR."
+        LOG.info("Function " + func_id + msg)
+        LOG.debug(payload)
+
+        message = yaml.load(payload)
+        for fsm_type in self.functions[func_id]['fsm'].keys():
+            fsm = self.functions[func_id]['fsm'][fsm_type]
+            response = message[fsm['id']]
+            fsm['instantiated'] = False
+            if response['error'] == 'None':
+                LOG.info("Function " + func_id + ": FSM instantiated correct.")
+                fsm['instantiated'] = True
+            else:
+                msg = ": FSM instantiation failed: " + response['error']
+                LOG.info("Function " + func_id + msg)
+                self.flm_error(func_id, t.MANO_DEPLOY, error=response['error'])
+
+            fsm['uuid'] = response['uuid']
+
+        # Continue with the scheduled tasks
+        self.start_next_task(func_id)
 
     def deploy_vnf(self, func_id):
         """
@@ -295,9 +428,10 @@ class FunctionLifecycleManager(ManoBasePlugin):
             self.functions[func_id]["error"] = None
 
         else:
-            # TODO: error-handling
             LOG.info("Deployment failed: " + inc_message["message"])
             self.functions[func_id]["error"] = inc_message["message"]
+            self.flm_error(func_id, t.MANO_DEPLOY)
+            return
 
         self.start_next_task(func_id)
 
