@@ -180,8 +180,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # The topic on which plugin status info is shared
         self.manoconn.subscribe(self.plugin_status, t.PL_STATUS)
 
-        # The topic on which the FLM receives deploy request from SLM
-        self.manoconn.subscribe(self.flm_deploy, t.MANO_DEPLOY)
+#        # The topic on which the FLM receives deploy request from SLM
+#        self.manoconn.subscribe(self.flm_deploy, t.MANO_DEPLOY)
 
         # The topic on which monitoring information is received
         self.manoconn.subscribe(self.monitoring_feedback, t.MON_RECEIVE)
@@ -825,8 +825,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
             corr_id = str(uuid.uuid4())
             self.services[serv_id]['act_corr_id'].append(corr_id)
 
-            message = function
-            message['service_id'] = serv_id
+            message = {}
+            message['vnfd'] = function['vnfd']
+            message['id'] = function['id']
+            message['vim_uuid'] = function['vim_uuid']
+            message['serv_id'] = serv_id
 
             msg = ": Requesting the deployment of vnf " + function['id']
             LOG.info("Service " + serv_id + msg)
@@ -1034,7 +1037,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             outg_message['vnfd'] = message['vnfd']
             outg_message['vnfd']['instance_uuid'] = message['id']
             outg_message['vim_uuid'] = message['vim_uuid']
-            outg_message['service_instance_id'] = message['service_id']
+            outg_message['service_instance_id'] = message['serv_id']
 
             payload = yaml.dump(outg_message)
 
