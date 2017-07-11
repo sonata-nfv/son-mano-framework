@@ -93,7 +93,7 @@ To run all components of the MANO framework you have to start their containers. 
 3. `docker run -d -p 27017:27017 --name mongo --net=sonata mongo`
 4. `docker run -d --name pm --net=sonata -p 8001:8001 -e broker_host=amqp://guest:guest@broker:5672/%2F sonatanfv/pluginmanager`
 5. `docker run -d --name slm --net=sonata -e url_nsr_repository=http://localhost:4002/records/nsr/ -e url_vnfr_repository=http://localhost:4002/records/vnfr/ -e url_monitoring_server=http://localhost:8000/api/v1/ -e broker_host=amqp://guest:guest@broker:5672/%2F sonatanfv/servicelifecyclemanagement`
-6. `docker run -d --name smr --net=sonata -e broker_name=broker,broker -e broker_host=amqp://guest:guest@broker:5672/%2F -v '/var/run/docker.sock:/var/run/docker.sock' sonatanfv/specificmanagerregistry`
+6. `docker run -d --name smr --net=sonata -e network_id=sonata -e broker_host=amqp://guest:guest@broker:5672/%2F -v '/var/run/docker.sock:/var/run/docker.sock' sonatanfv/specificmanagerregistry`
 7. `docker run -d --name placeexec --net=sonata -e broker_host=amqp://guest:guest@broker:5672/%2F sonatanfv/placementexecutive`
 8. `docker run -d --name scaleexec --net=sonata -e broker_host=amqp://guest:guest@broker:5672/%2F sonatanfv/scalingexecutive`
 
