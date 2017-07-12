@@ -81,6 +81,7 @@ docker run --name test.sonmanobase --net=test.sonata-plugins --net-alias=sonmano
 -v '/var/run/docker.sock:/var/run/docker.sock' \
 registry.sonata-nfv.eu:5000/sonmanobase py.test -v
 
+
 echo "done."
 
 
