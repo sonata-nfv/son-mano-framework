@@ -62,13 +62,13 @@ then docker network rm test.sonata-plugins ; fi
 docker network create test.sonata-plugins
 
 # spin up container with broker (in daemon mode)
-docker run -d -p 5672:5672 --name test.broker --net=test.sonata-plugins --network-alias=broker rabbitmq:3
+docker run -d -p 5672:5672 --name test.broker --net=test.sonata-plugins --net-alias=broker rabbitmq:3-management
 # wait a bit for broker startup
 while ! nc -z localhost 5672; do
 sleep 1 && echo -n .; # waiting for rabbitmq
 done;
 # spin up container with MongoDB (in daemon mode)
-docker run -d -p 27017:27017 --name test.mongo --net=test.sonata-plugins --network-alias=mongo mongo
+docker run -d -p 27017:27017 --name test.mongo --net=test.sonata-plugins --net-alias=mongo mongo
 
 # wait a bit for db startup
 while ! nc -z localhost 27017; do
@@ -76,13 +76,13 @@ sleep 1 && echo -n .; # waiting for mongo
 done;
 sleep 3
 # spin up the plugin manager
-docker run -d --name test.pluginmanager --net=test.sonata-plugins --network-alias=pluginmanager \
+docker run -d --name test.pluginmanager --net=test.sonata-plugins --net-alias=pluginmanager \
 registry.sonata-nfv.eu:5000/pluginmanager
 # wait a bit for manager startup
 sleep 3
 # spin up smr container and run py.test
-docker run --name test.smr --net=test.sonata-plugins --network-alias==specificmanagerregistry \
+docker run --name test.smr --net=test.sonata-plugins --net-alias==specificmanagerregistry \
 -v '/var/run/docker.sock:/var/run/docker.sock' \
--e network_id=test.sonata-plugins  registry.sonata-nfv.eu:5000/specificmanagerregistry py.test -v
+-e network_id=test.sonata-plugins  -e broker_man_host=http://broker:15672/ registry.sonata-nfv.eu:5000/specificmanagerregistry py.test -v
 
 echo "done."

@@ -58,6 +58,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
         # connect to the docker daemon
         self.smrengine = engine.SMREngine()
 
+
         # register smr into the plugin manager
         super(self.__class__, self).__init__(version=self.version, description=self.description)
 
@@ -116,6 +117,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
             else:
                 return yaml.dump({'status': 'Failed', 'error': 'VNFD not found'})
 
+
     def on_ssm_update(self, ch, method, properties, message):
 
         if properties.app_id != self.name:
@@ -157,8 +159,6 @@ class SpecificManagerRegistry(ManoBasePlugin):
                 return yaml.dump({'status': 'Failed', 'error': 'VNFD not found'})
 
     def on_ssm_register(self, ch, method, properties, message):
-
-        LOG.info("Instantiation response received: " + str(message))
         try:
             message = yaml.load(message)
 
@@ -234,19 +234,24 @@ class SpecificManagerRegistry(ManoBasePlugin):
                 result_dict.update({m_id: {'status': 'Failed', 'error': str(error)}})
                 LOG.error('On-boarding failed for: {0}'.format(m_id))
             else:
-                result = yaml.load(result.split("\n")[1])
-                if 'error' not in result.keys():
-                    LOG.info('On-boarding succeeded for: {0}'.format(m_id))
-                    result_dict.update({m_id: {'status': 'On-boarded', 'error': 'None'}})
-                else:
+                try:
+                    result = yaml.load(result.split("\n")[1])
+                except BaseException as error:
                     LOG.error('On-boarding failed for: {0}'.format(m_id))
-                    result_dict.update({m_id: {'status': 'Failed', 'error': result['error']}})
+                    result_dict.update({m_id: {'status': 'Failed', 'error': error}})
+                else:
+                    if 'error' not in result.keys():
+                        LOG.info('On-boarding succeeded for: {0}'.format(m_id))
+                        result_dict.update({m_id: {'status': 'On-boarded', 'error': 'None'}})
+                    else:
+                        LOG.error('On-boarding failed for: {0}'.format(m_id))
+                        result_dict.update({m_id: {'status': 'Failed', 'error': result['error']}})
 
         return result_dict
 
     def instantiate(self, message):
 
-        descriptor = None; manager = None; result_dict = {}
+        descriptor = None; manager = None; result_dict = {}; sm_type='ssm'
 
         if 'NSD' in message:
             descriptor = 'NSD'
@@ -254,37 +259,46 @@ class SpecificManagerRegistry(ManoBasePlugin):
         elif 'VNFD' in message:
             descriptor = 'VNFD'
             manager = 'function_specific_managers'
+            sm_type = 'fsm'
 
         for i in range(len(message[descriptor][manager])):
             m_id = message[descriptor][manager][i]['id']
             m_image = message[descriptor][manager][i]['image']
             LOG.info('Instantiation request received for: {0}'.format(m_id))
             try:
-                self.smrengine.start( id= m_id, image=m_image, uuid=message['UUID'])
+                response = self.smrengine.create_vh(sm_type=sm_type, uuid= message['UUID'])
+                if response == 204 or 201:
+                    self.smrengine.start( id= m_id, image=m_image, sm_type= sm_type, uuid=message['UUID'])
+
+                    LOG.info('Virtual Host created for {0}'.format(m_id))
+                else:
+                    LOG.error('Instantiation failed for: {0}, Error: RabbitMQ virtual host creation failed'.format(m_id))
+                    result_dict.update({m_id: {'status': 'Failed', 'uuid': 'None', 'error': 'RabbitMQ virtual host creation failed'}})
             except BaseException as error:
                 LOG.error('Instantiation failed for: {0}, Error: {1}'.format(m_id, error))
                 result_dict.update({m_id: {'status': 'Failed', 'uuid': 'None', 'error': str(error)}})
             else:
-                registration = threading.Thread(target= self._wait_for_sm_registration, args=[m_id])
-                registration.daemon = True
-                registration.start()
-                registration.join()
-                if m_id in self.ssm_repo.keys():
-                    LOG.debug('Registration & instantiation succeeded for: {0}'.format(m_id))
-                    self.ssm_repo[m_id]['status'] = 'running'
-                    result_dict.update({m_id: {'status': 'Instantiated',
-                                         'uuid': self.ssm_repo[m_id]['uuid'], 'error': 'None'}})
-                else:
-                    LOG.error('Instantiation failed for: {0}, Error: Registration failed'.format(m_id))
-                    result_dict.update({m_id: {'status': 'Failed', 'uuid': 'None', 'error': 'Registration failed'}})
-                    self.smrengine.rm(id=m_id, image=m_image)
+                if response == 204 or 201:
+                    registration = threading.Thread(target= self._wait_for_sm_registration, args=[m_id])
+                    registration.daemon = True
+                    registration.start()
+                    registration.join()
+                    if m_id in self.ssm_repo.keys():
+                        LOG.debug('Registration & instantiation succeeded for: {0}'.format(m_id))
+                        self.ssm_repo[m_id]['status'] = 'running'
+                        result_dict.update({m_id: {'status': 'Instantiated',
+                                             'uuid': self.ssm_repo[m_id]['uuid'], 'error': 'None'}})
+                    else:
+                        LOG.error('Instantiation failed for: {0}, Error: Registration failed'.format(m_id))
+                        result_dict.update({m_id: {'status': 'Failed', 'uuid': 'None', 'error': 'Registration failed'}})
+                        self.smrengine.rm(id=m_id, image=m_image)
 
         return result_dict
 
 
     def update(self, message):
 
-        descriptor = None; manager = None; result_dict = {}
+        descriptor = None; manager = None; result_dict = {}; sm_type = 'ssm'
 
         if 'NSD' in message:
             descriptor = 'NSD'
@@ -292,6 +306,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
         elif 'VNFD' in message:
             descriptor = 'VNFD'
             manager = 'function_specific_managers'
+            sm_type = 'fsm'
 
         for i in range(len(message[descriptor][manager])):
 
@@ -335,7 +350,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
                             LOG.info('Instantiation started for: {0}'.format(m_id))
                             try:
                                 random_id = self.id_generator()
-                                self.smrengine.start(id=random_id, image=m_image, uuid=message['UUID'])
+                                self.smrengine.start(id=random_id, image=m_image, sm_type=sm_type, uuid=message['UUID'])
                             except BaseException as error:
                                 LOG.error('Instantiation failed for: {0}, Error: {1}'.format(m_id, error))
                                 result_dict.update({m_id: {'status': 'Failed', 'uuid': 'None', 'error': str(error)}})
@@ -382,7 +397,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
                             # instantiate the new SM
                             LOG.info('Instantiation started for: {0}'.format(m_id))
                             try:
-                                self.smrengine.start(id=m_id, image=m_image, uuid=message['UUID'])
+                                self.smrengine.start(id=m_id, image=m_image, sm_type=sm_type, uuid=message['UUID'])
                             except BaseException as error:
                                 LOG.error('Instantiation failed for: {0}, Error: {1}'.format(m_id, error))
                                 result_dict.update({m_id: {'status': 'Failed', 'uuid': 'None', 'error': str(error)}})
@@ -482,6 +497,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
     def id_generator(self):
         size = 10; chars=string.ascii_lowercase + string.digits
         return ''.join(random.choice(chars) for _ in range(size))
+
 
 
 def main():
