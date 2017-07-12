@@ -32,6 +32,10 @@ This is the engine module of SONATA's Specific Manager Registry.
 import logging
 import os
 import docker
+import requests
+import yaml
+
+
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("son-mano-specific-manager-registry-engine")
@@ -92,10 +96,20 @@ class SMREngine(object):
             #LOG.debug('{0} pull: succeeded'.format( ssm_name))
         else:
             # opt B: repository pull
-            return self.dc.pull(image) # image name and uri are the same
-            #LOG.debug('{0} pull: succeeded'.format(ssm_name))
+            res= self.dc.pull(image) # image name and uri are the same
+            error_count = 1
+            while error_count <= 3:
+                response = yaml.load(res.split("\n")[1])
+                if 'error' in response.keys():
+                    error_count += 1
+                    res = self.dc.pull(image)
+                else:
+                    error_count = 4
+            return res
 
-    def start(self, id, image, uuid):
+                    #LOG.debug('{0} pull: succeeded'.format(ssm_name))
+
+    def start(self, id, image, sm_type, uuid):
 
         if 'broker_host' in os.environ:
             broker_host = os.environ['broker_host']
@@ -105,7 +119,7 @@ class SMREngine(object):
         if 'network_id' in os.environ:
             network_id = os.environ['network_id']
         else:
-            network_id = 'sonata-plugins'
+            network_id = 'sonata'
 
         if 'broker_name' in os.environ:
             broker = self.retrieve_broker_name(os.environ['broker_name'])
@@ -116,10 +130,12 @@ class SMREngine(object):
         if "file://" in image:
             image_name = image.replace("file://", "")
 
+        vh_name = '{0}-{1}'.format(sm_type,uuid)
+
         container = self.dc.create_container(image=image,
                                              tty=True,
                                              name=id,
-                                             environment={'broker_host':broker_host, 'sf_uuid':uuid})
+                                             environment={'broker_host':broker_host, 'sf_uuid':uuid, 'vh_name':vh_name})
 
         networks = self.dc.networks(names= [network_id])
 
@@ -129,8 +145,6 @@ class SMREngine(object):
         else:
             LOG.warning('Docker --link is deprecated. use docker network instead')
             self.dc.start(container=container.get('Id'), links=[(broker['name'], broker['alias'])])
-
-
 
 
     def stop(self, ssm_name):
@@ -149,3 +163,29 @@ class SMREngine(object):
 
     def rename(self, current_name, new_name):
         self.dc.rename(current_name,new_name)
+
+    def create_vh(self, sm_type, uuid):
+        exists = False
+        headers = {'content-type': 'application/json'}
+        vh_name = '{0}-{1}'.format(sm_type,uuid)
+        if 'broker_man_host' in os.environ:
+            host = os.environ['broker_man_host']
+        else:
+            host = 'http://localhost:15672/'#'http://broker:15672/'
+        api = 'api/vhosts/'
+        url_list = '{0}{1}'.format(host,api)
+        url_create = '{0}{1}{2}'.format(host,api,vh_name)
+        list = requests.get(url=url_list, auth= ('guest','guest')).json()
+        for i in range(len(list)):
+            if list[i]['name'] == vh_name:
+                exists = True
+                break
+        if not exists:
+            response = requests.put(url=url_create, headers=headers, auth=('guest', 'guest'))
+            return response.status_code
+        else:
+            return 204
+
+
+
+

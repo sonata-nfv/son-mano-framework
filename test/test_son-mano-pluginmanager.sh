@@ -50,7 +50,7 @@ then docker network rm test.sonata-plugins ; fi
 docker network create test.sonata-plugins
 
 # spin up container with broker (in daemon mode)
-docker run -d -p 5672:5672 --name test.broker --net=test.sonata-plugins --net-alias=broker rabbitmq:3
+docker run -d -p 5672:5672 --name test.broker --net=test.sonata-plugins --net-alias=broker rabbitmq:3-management
 # wait a bit for broker startup
 while ! nc -z localhost 5672; do
 sleep 1 && echo -n .; # waiting for rabbitmq

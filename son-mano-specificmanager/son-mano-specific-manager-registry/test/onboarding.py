@@ -84,6 +84,7 @@ class fakeslm_onboarding(object):
         self.manoconn.call_async(self._on_publish_nsd_response,
                                  'specific.manager.registry.fsm.on-board',
                                  yaml.dump(message))
+
         nsd.close()
         vnfd1.close()
         vnfd2.close()

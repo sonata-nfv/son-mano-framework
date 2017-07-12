@@ -4,10 +4,26 @@ import time
 import yaml
 import logging
 from multiprocessing import Process
-from test.onboarding import fakeslm_onboarding
-from test.instantiation import fakeslm_instantiation
-from test.updating import fakeslm_updating
-from test.terminating import fakeslm_termination
+
+try:
+    from test.onboarding import fakeslm_onboarding
+except:
+    from onboarding import fakeslm_onboarding
+
+try:
+    from test.instantiation import fakeslm_instantiation
+except:
+    from instantiation import fakeslm_instantiation
+
+try:
+    from test.updating import fakeslm_updating
+except:
+    from updating import fakeslm_updating
+
+try:
+    from test.terminating import fakeslm_termination
+except:
+    from terminating import fakeslm_termination
 from sonmanobase.messaging import ManoBrokerRequestResponseConnection
 from son_mano_specific_manager_registry.specificmanagerregistry import SpecificManagerRegistry
 

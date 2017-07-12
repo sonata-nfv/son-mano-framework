@@ -63,7 +63,7 @@ setup(
     keywords='NFV orchestrator',
 
     packages=find_packages(),
-    install_requires=['pika', 'pytest', 'mongoengine', 'Flask>=0.10.1', 'flask-restful', 'requests', 'docker-py==1.9.0'],
+    install_requires=['pika', 'pytest', 'mongoengine', 'Flask>=0.10.1', 'flask-restful', 'requests', 'docker-py==1.9.0', 'rabbitmq-admin'],
     setup_requires=['pytest-runner'],
 
     # To provide executable scripts, use entry points in preference to the
