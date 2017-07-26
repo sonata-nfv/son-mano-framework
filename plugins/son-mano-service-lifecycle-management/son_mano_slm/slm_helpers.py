@@ -114,11 +114,11 @@ def build_resource_request(descriptors, vim):
     The needed resources for a service are described in the descriptors.
     """
 
-    needed_cpu     = 0
-    needed_memory  = 0
+    needed_cpu = 0
+    needed_memory = 0
     needed_storage = 0
 
-    memory_unit  = 'GB'
+    memory_unit = 'GB'
     storage_unit = 'GB'
 
     for key in descriptors.keys():

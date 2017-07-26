@@ -1759,13 +1759,35 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         :param serv_id: The instance uuid of the service
         """
+        corr_id = str(uuid.uuid4())
+        self.services[serv_id]['act_corr_id'] = corr_id
 
         LOG.info("Service " + serv_id + ": Calculating the placement")
         topology = self.services[serv_id]['infrastructure']['topology']
         NSD = self.services[serv_id]['service']['nsd']
         functions = self.services[serv_id]['function']
 
-        mapping = tools.placement(NSD, functions, topology)
+        content = {'nsd': NSD,
+                   'functions': functions,
+                   'topology': topology}
+
+        self.manoconn.call_async(self.resp_mapping,
+                                 t.MANO_PLACE,
+                                 yaml.dump(content),
+                                 correlation_id=corr_id)
+
+        self.services[serv_id]['pause_chain'] = True
+        LOG.info("Service " + serv_id + ": Placement request sent")
+
+    def resp_mapping(self, ch, method, prop, payload):
+        """
+        This method handles the response on a mapping request
+        """
+        content = yaml.load(payload)
+        mapping = content["mapping"]
+
+        serv_id = tools.servid_from_corrid(self.services, prop.correlation_id)
+        LOG.info("Service " + serv_id + ": Placement response received")
 
         if mapping is None:
             # The GK should be informed that the placement failed and the
@@ -1773,6 +1795,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
             self.error_handling(serv_id,
                                 t.GK_CREATE,
                                 'Unable to perform placement.')
+
+            return
 
         else:
             # Add mapping to ledger
@@ -1783,7 +1807,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 vnf_id = function['id']
                 function['vim_uuid'] = mapping[vnf_id]['vim']
 
-        return
+        self.start_next_task(serv_id)
 
     def update_slm_configuration(self, plugin_dict):
         """
