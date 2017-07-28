@@ -839,7 +839,8 @@ class testSlmFunctionality(unittest.TestCase):
                                     'pause_chain': True,
                                     'status': 'FOO',
                                     'error': 'BAR',
-                                    'kill_chain': False}
+                                    'kill_chain': False,
+                                    'topic': 'service.instances.create'}
 
         #Set the ledger
         self.slm_proc.set_services(service_dict)
@@ -869,7 +870,8 @@ class testSlmFunctionality(unittest.TestCase):
                                     'pause_chain': True,
                                     'status': 'FOO',
                                     'error': 'BAR',
-                                    'add_content': add_content}
+                                    'add_content': add_content,
+                                    'topic': 'service.instances.create'}
 
         self.slm_proc.set_services(service_dict)
 
