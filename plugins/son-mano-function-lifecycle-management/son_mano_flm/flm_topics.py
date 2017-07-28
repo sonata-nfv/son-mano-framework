@@ -29,7 +29,11 @@ import os
 # List of topics that are used by the FLM for its rabbitMQ communication
 
 # With the FLM
-MANO_DEPLOY = "mano.function.deploy"
+VNF_DEPLOY = "mano.function.deploy"
+VNF_START = "mano.function.start"
+VNF_CONFIG = "mano.function.configure"
+VNF_STOP = "mano.function.stop"
+VNF_KILL = "mano.function.terminate"
 
 # With infrastructure adaptor
 IA_DEPLOY = 'infrastructure.function.deploy'
