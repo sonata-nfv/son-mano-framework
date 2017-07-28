@@ -114,11 +114,11 @@ def build_resource_request(descriptors, vim):
     The needed resources for a service are described in the descriptors.
     """
 
-    needed_cpu     = 0
-    needed_memory  = 0
+    needed_cpu = 0
+    needed_memory = 0
     needed_storage = 0
 
-    memory_unit  = 'GB'
+    memory_unit = 'GB'
     storage_unit = 'GB'
 
     for key in descriptors.keys():
@@ -227,21 +227,33 @@ def build_nsr(request_status, nsd, vnfr_ids, service_instance_id):
     return nsr
 
 
-def get_ssm_from_nsd(nsd):
+def get_sm_from_descriptor(descr):
+    """
+    This method returns a list of specific managers based on
+    a received desriptor
+    """
 
-    if 'service_specific_managers' in nsd:
-        ssm_dict = {}
-        for ssm in nsd['service_specific_managers']:
+    sm_dict = None
+
+    if 'service_specific_managers' in descr:
+        sm_dict = {}
+        for ssm in descr['service_specific_managers']:
             for option in ssm['options']:
                 if option['key'] == 'type':
-                    ssm_dict[option['value']] = {}
-                    ssm_dict[option['value']]['id'] = ssm['id']
-                    ssm_dict[option['value']]['image'] = ssm['image']
+                    sm_dict[option['value']] = {}
+                    sm_dict[option['value']]['id'] = ssm['id']
+                    sm_dict[option['value']]['image'] = ssm['image']
 
-    else:
-        return None
+    if 'function_specific_managers' in descr:
+        sm_dict = {}
+        for fsm in descr['function_specific_managers']:
+            for option in fsm['options']:
+                if option['key'] == 'type':
+                    sm_dict[option['value']] = {}
+                    sm_dict[option['value']]['id'] = fsm['id']
+                    sm_dict[option['value']]['image'] = fsm['image']
 
-    return ssm_dict
+    return sm_dict
 
 
 def getRestData(base, path, expected_code=200):

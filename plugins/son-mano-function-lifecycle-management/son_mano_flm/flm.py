@@ -20,9 +20,6 @@ the Horizon 2020 and 5G-PPP programmes. The authors would like to
 acknowledge the contributions of their colleagues of the SONATA
 partner consortium (www.sonata-nfv.eu).a
 """
-"""
-This is SONATA's Function lifecycle management plugin
-"""
 
 import logging
 import yaml
@@ -106,7 +103,19 @@ class FunctionLifecycleManager(ManoBasePlugin):
         super(self.__class__, self).declare_subscriptions()
 
         # The topic on which deploy requests are posted.
-        self.manoconn.subscribe(self.function_instance_create, t.MANO_DEPLOY)
+        self.manoconn.subscribe(self.function_instance_create, t.VNF_DEPLOY)
+
+        # The topic on which start requests are posted.
+        self.manoconn.subscribe(self.function_instance_start, t.VNF_START)
+
+        # The topic on which configurre requests are posted.
+        self.manoconn.subscribe(self.function_instance_config, t.VNF_CONFIG)
+
+        # The topic on which stop requests are posted.
+        self.manoconn.subscribe(self.function_instance_stop, t.VNF_STOP)
+
+        # The topic on which terminate requests are posted.
+        self.manoconn.subscribe(self.function_instance_kill, t.VNF_KILL)
 
     def on_lifecycle_start(self, ch, mthd, prop, msg):
         """
@@ -121,7 +130,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
         :return:
         """
         super(self.__class__, self).on_lifecycle_start(ch, mthd, prop, msg)
-        LOG.info("FLM started and operational")
+        LOG.info("FLM started and operational.")
 
     def deregister(self):
         """
@@ -203,7 +212,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
 # FLM input - output
 ####################
 
-    def flm_error(self, func_id, topic, error=None):
+    def flm_error(self, func_id, error=None):
         """
         This method is used to report back errors to the SLM
         """
@@ -215,8 +224,10 @@ class FunctionLifecycleManager(ManoBasePlugin):
         message = {}
         message['status'] = "failed"
         message['error'] = error
+        message['timestamp'] = time.time()
 
         corr_id = self.functions[func_id]['orig_corr_id']
+        topic = self.functions[func_id]['topic']
 
         self.manoconn.notify(topic,
                              yaml.dump(message),
@@ -238,13 +249,13 @@ class FunctionLifecycleManager(ManoBasePlugin):
         LOG.info("Function instance create request received.")
         message = yaml.load(payload)
 
-        # Extract the correlation id and generate a reduced id
+        # Extract the correlation id
         corr_id = properties.correlation_id
 
         func_id = message['id']
 
         # Add the function to the ledger
-        self.add_function_to_ledger(message, corr_id, func_id)
+        self.add_function_to_ledger(message, corr_id, func_id, t.VNF_DEPLOY)
 
         # Schedule the tasks that the FLM should do for this request.
         add_schedule = []
@@ -254,6 +265,9 @@ class FunctionLifecycleManager(ManoBasePlugin):
             add_schedule.append('onboard_fsms')
             add_schedule.append('instant_fsms')
 
+            if 'task' in self.functions[func_id]['fsm'].keys():
+                add_schedule.append('trigger_task_fsm')
+
         add_schedule.append("deploy_vnf")
         add_schedule.append("store_vnfr")
         add_schedule.append("inform_slm_on_deployment")
@@ -261,6 +275,154 @@ class FunctionLifecycleManager(ManoBasePlugin):
         self.functions[func_id]['schedule'].extend(add_schedule)
 
         msg = ": New instantiation request received. Instantiation started."
+        LOG.info("Function " + func_id + msg)
+        # Start the chain of tasks
+        self.start_next_task(func_id)
+
+        return self.functions[func_id]['schedule']
+
+    def function_instance_start(self, ch, method, properties, payload):
+        """
+        This method starts the vnf start workflow
+        """
+
+        # Don't trigger on self created messages
+        if self.name == properties.app_id:
+            return
+
+        LOG.info("Function instance start request received.")
+        message = yaml.load(payload)
+
+        # Extract the correlation id
+        corr_id = properties.correlation_id
+
+        func_id = message['id']
+
+        # recreate the ledger
+        self.recreate_ledger(message, corr_id, func_id, t.VNF_START)
+
+        # add the payload for the FSM
+        self.functions[func_id]['start'] = message['fsm_content']
+
+        # Schedule the tasks that the FLM should do for this request.
+        add_schedule = []
+
+        add_schedule.append("trigger_start_fsm")
+        add_schedule.append("respond_to_request")
+
+        self.functions[func_id]['schedule'].extend(add_schedule)
+
+        msg = ": New start request received."
+        LOG.info("Function " + func_id + msg)
+        # Start the chain of tasks
+        self.start_next_task(func_id)
+
+        return self.functions[func_id]['schedule']
+
+    def function_instance_config(self, ch, method, properties, payload):
+        """
+        This method starts the vnf config workflow
+        """
+
+        # Don't trigger on self created messages
+        if self.name == properties.app_id:
+            return
+
+        LOG.info("Function instance config request received.")
+        message = yaml.load(payload)
+
+        # Extract the correlation id
+        corr_id = properties.correlation_id
+
+        func_id = message['id']
+
+        # recreate the ledger
+        self.recreate_ledger(message, corr_id, func_id, t.VNF_CONFIG)
+
+        # add the payload for the FSM
+        self.functions[func_id]['config'] = message['fsm_content']
+
+        # Schedule the tasks that the FLM should do for this request.
+        add_schedule = []
+
+        add_schedule.append("trigger_config_fsm")
+        add_schedule.append("respond_to_request")
+
+        self.functions[func_id]['schedule'].extend(add_schedule)
+
+        msg = ": New config request received."
+        LOG.info("Function " + func_id + msg)
+        # Start the chain of tasks
+        self.start_next_task(func_id)
+
+        return self.functions[func_id]['schedule']
+
+    def function_instance_stop(self, ch, method, properties, payload):
+        """
+        This method starts the vnf stop workflow
+        """
+
+        # Don't trigger on self created messages
+        if self.name == properties.app_id:
+            return
+
+        LOG.info("Function instance stop request received.")
+        message = yaml.load(payload)
+
+        # Extract the correlation id
+        corr_id = properties.correlation_id
+
+        func_id = message['id']
+
+        # recreate the ledger
+        self.recreate_ledger(message, corr_id, func_id, t.VNF_STOP)
+
+        # add the payload for the FSM
+        self.functions[func_id]['stop'] = message['fsm_content']
+
+        # Schedule the tasks that the FLM should do for this request.
+        add_schedule = []
+
+        add_schedule.append("trigger_stop_fsm")
+        add_schedule.append("respond_to_request")
+
+        self.functions[func_id]['schedule'].extend(add_schedule)
+
+        msg = ": New stop request received."
+        LOG.info("Function " + func_id + msg)
+        # Start the chain of tasks
+        self.start_next_task(func_id)
+
+        return self.functions[func_id]['schedule']
+
+    def function_instance_kill(self, ch, method, properties, payload):
+        """
+        This method starts the vnf kill workflow
+        """
+
+        # Don't trigger on self created messages
+        if self.name == properties.app_id:
+            return
+
+        LOG.info("Function instance kill request received.")
+        message = yaml.load(payload)
+
+        # Extract the correlation id
+        corr_id = properties.correlation_id
+
+        func_id = message['id']
+
+        # recreate the ledger
+        self.recreate_ledger(message, corr_id, func_id, t.VNF_KILL)
+
+        # Schedule the tasks that the FLM should do for this request.
+        add_schedule = []
+
+        # TODO: add the relevant methods for the kill workflow
+
+        self.functions[func_id]['schedule'].extend(add_schedule)
+
+        msg = ": New kill request received."
         LOG.info("Function " + func_id + msg)
         # Start the chain of tasks
         self.start_next_task(func_id)
@@ -371,7 +533,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
             else:
                 msg = ": FSM instantiation failed: " + response['error']
                 LOG.info("Function " + func_id + msg)
-                self.flm_error(func_id, t.MANO_DEPLOY, error=response['error'])
+                self.flm_error(func_id, t.VNF_DEPLOY, error=response['error'])
 
             fsm['uuid'] = response['uuid']
 
@@ -430,7 +592,8 @@ class FunctionLifecycleManager(ManoBasePlugin):
         else:
             LOG.info("Deployment failed: " + inc_message["message"])
             self.functions[func_id]["error"] = inc_message["message"]
-            self.flm_error(func_id, t.MANO_DEPLOY)
+            topic = self.functions[func_id]['topic']
+            self.flm_error(func_id, topic)
             return
 
         self.start_next_task(func_id)
@@ -445,6 +608,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
         # Build the record
         vnfr = tools.build_vnfr(function['ia_vnfr'], function['vnfd'])
         self.functions[func_id]['vnfr'] = vnfr
+        LOG.info(yaml.dump(vnfr))
 
         # Store the record
 #            try:
@@ -487,7 +651,148 @@ class FunctionLifecycleManager(ManoBasePlugin):
         message["error"] = function["error"]
 
         corr_id = self.functions[func_id]['orig_corr_id']
-        self.manoconn.notify(t.MANO_DEPLOY,
+        self.manoconn.notify(t.VNF_DEPLOY,
+                             yaml.dump(message),
+                             correlation_id=corr_id)
+
+    def trigger_task_fsm(self, func_id):
+        """
+        This method triggers the task FSM.
+        """
+        LOG.info("Triggering task FSM.")
+
+        # Generating the message for the FSM
+        message = {}
+        message['schedule'] = self.functions[func_id]['schedule']
+        message['fsm_type'] = 'task'
+
+        # Topic needs to be added, so the task FSM knows for which workflow
+        # the schedule needs to be adapted.
+        message['topic'] = topic
+
+        # Generating the corr_id
+        corr_id = str(uuid.uuid4())
+        self.functions[func_id]['act_corr_id'] = corr_id
+
+        # Making the call
+        self.manoconn.call_async(self.fsm_task_response,
+                                 topic,
+                                 yaml.dump(payload),
+                                 correlation_id=corr_id)
+
+        # Pause the chain
+        self.functions[func_id]['pause_chain'] = True
+
+    def fsm_task_response(self, ch, method, prop, payload):
+        """
+        This method handles a response from a task FSM.
+        """
+        response = yaml.load(response)
+
+        func_id = tools.funcid_from_corrid(self.functions, prop.correlation_id)
+
+        LOG.info("Response from task FSM received")
+
+        if response['status'] == "COMPLETED":
+            LOG.info("FSM finished successfully")
+            self.functions[func_id]['schedule'] = response['schedule']
+
+        else:
+            LOG.info("task FSM failed: " + response['error'])
+            self.functions[func_id]["error"] = response['error']
+            self.flm_error(func_id)
+            return
+
+        self.start_next_task(func_id)
+
+    def trigger_start_fsm(self, func_id):
+        """
+        This method is called to trigger the start FSM.
+        """
+        self.trigger_fsm(self, func_id, 'start')
+
+    def trigger_stop_fsm(self, func_id):
+        """
+        This method is called to trigger the stop FSM.
+        """
+        self.trigger_fsm(self, func_id, 'stop')
+
+    def trigger_configure_fsm(self, func_id):
+        """
+        This method is called to trigger the configure FSM.
+        """
+        self.trigger_fsm(self, func_id, 'configure')
+
+    def trigger_fsm(self, func_id, fsm_type):
+        """
+        This is a generic method for triggering start/stop/configure FSMs.
+        """
+        LOG.info("Triggering " + fsm_type + " FSM.")
+
+        # Generating the payload for the call
+        if self.functions[func_id][fsm_type] is None:
+            payload = self.functions[func_id]['vnfr']
+        else:
+            payload = self.functions[func_id][fsm_type]
+
+        payload['fsm_type'] = fsm_type
+
+        # Creating the topic
+        topic = 'generic.fsm.' + func_id
+
+        # Generating the corr_id
+        corr_id = str(uuid.uuid4())
+        self.functions[func_id]['act_corr_id'] = corr_id
+        self.functions[func_id]['active_fsm'] = fsm_type
+
+        # Making the call
+        self.manoconn.call_async(self.fsm_generic_response,
+                                 topic,
+                                 yaml.dump(payload),
+                                 correlation_id=corr_id)
+
+        # Pause the chain
+        self.functions[func_id]['pause_chain'] = True
+
+    def fsm_generic_response(self, ch, method, prop, payload):
+        """
+        This method handles a response to a generic FSM trigger call
+        """
+        response = yaml.load(response)
+
+        func_id = tools.funcid_from_corrid(self.functions, prop.correlation_id)
+        fsm_type = self.function[func_id]['active_fsm']
+
+        LOG.info("Response from " + fsm_type + " FSM received")
+
+        if response['status'] == "COMPLETED":
+            LOG.info("FSM finished successfully")
+
+        else:
+            LOG.info(fsm_type + " FSM failed: " + response['error'])
+            self.functions[func_id]["error"] = response['error']
+            self.flm_error(func_id)
+            return
+
+        self.start_next_task(func_id)
+
+    def respond_to_request(self, func_id):
+        """
+        This method creates a response message for the sender of requests.
+        """
+
+        message = {}
+        message["status"] = "COMPLETED"
+        message["timestamp"] = time.time()
+
+        if self.functions[func_id]['message'] is not None:
+            message["message"] = self.functions[func_id]['message']
+
+        LOG.info("Generating response to the workflow request")
+
+        corr_id = self.functions[func_id]['orig_corr_id']
+        topic = self.functions[func_id]['topic']
+        self.manoconn.notify(topic,
                              yaml.dump(message),
                              correlation_id=corr_id)
 
@@ -495,7 +800,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
 # FLM tasks
 ###########
 
-    def add_function_to_ledger(self, payload, corr_id, func_id):
+    def add_function_to_ledger(self, payload, corr_id, func_id, topic):
         """
         This method adds new functions with their specifics to the ledger,
         so other functions can use this information.
@@ -509,6 +814,9 @@ class FunctionLifecycleManager(ManoBasePlugin):
         self.functions[func_id] = {}
         self.functions[func_id]['vnfd'] = payload['vnfd']
         self.functions[func_id]['id'] = func_id
+
+        # Add the topic of the call
+        self.functions[func_id]['topic'] = topic
 
         # Add to correlation id to the ledger
         self.functions[func_id]['orig_corr_id'] = corr_id
@@ -535,6 +843,68 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         self.functions[func_id]['pause_chain'] = False
         self.functions[func_id]['kill_chain'] = False
+
+        # Create payload fields for FSMs
+        self.functions[func_id]['start'] = None
+        self.functions[func_id]['stop'] = None
+        self.functions[func_id]['configure'] = None
+
+        return func_id
+
+    def recreate_ledger(self, payload, corr_id, func_id, topic):
+        """
+        This method adds already existing functions with their specifics
+        back to the ledger, so other methods can use this information.
+
+        :param payload: the payload of the received message
+        :param corr_id: the correlation id of the received message
+        :param func_id: the instance uuid of the function defined by SLM.
+        """
+
+        # Add the function to the ledger and add instance ids
+        self.functions[func_id] = {}
+
+        # TODO: add the real vnfr here
+        vnfr = {}
+        self.functions[func_id]['vnfr'] = vnfr
+
+        # TODO: add the real vnfd here
+        vnfd = {}
+        self.functions[func_id]['vnfd'] = vnfd
+
+        self.functions[func_id]['id'] = func_id
+
+        # Add the topic of the call
+        self.functions[func_id]['topic'] = topic
+
+        # Add to correlation id to the ledger
+        self.functions[func_id]['orig_corr_id'] = corr_id
+
+        # Add payload to the ledger
+        self.functions[func_id]['payload'] = payload
+
+        # Add the service uuid that this function belongs to
+        self.functions[func_id]['serv_id'] = payload['serv_id']
+
+        # Add the VIM uuid
+        self.functions[func_id]['vim_uuid'] = ''
+
+        # Create the function schedule
+        self.functions[func_id]['schedule'] = []
+
+        # Create the FSM dict if FSMs are defined in VNFD
+#        fsm_dict = tools.get_fsm_from_vnfd(payload['vnfd'])
+#        self.functions[func_id]['fsm'] = fsm_dict
+
+        # Create the chain pause and kill flag
+
+        self.functions[func_id]['pause_chain'] = False
+        self.functions[func_id]['kill_chain'] = False
+
+        # Create payload fields for FSMs
+        self.functions[func_id]['start'] = None
+        self.functions[func_id]['stop'] = None
+        self.functions[func_id]['configure'] = None
 
         return func_id
 

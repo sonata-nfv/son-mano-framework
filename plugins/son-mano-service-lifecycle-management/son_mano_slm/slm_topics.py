@@ -43,6 +43,7 @@ MANO_RESUME = "mano.instance.restart"
 MANO_KILL = "mano.instance.terminate"
 MANO_UPDATE = "mano.instances.update"
 MANO_DEPLOY = "mano.function.deploy"
+MANO_PLACE = "mano.service.place"
 
 # With gatekeeper or other SLM
 WC_CREATE = "*.instances.create"
