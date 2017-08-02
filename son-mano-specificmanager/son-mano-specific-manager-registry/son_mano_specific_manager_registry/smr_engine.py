@@ -107,8 +107,6 @@ class SMREngine(object):
                     error_count = 4
             return res
 
-                    #LOG.debug('{0} pull: succeeded'.format(ssm_name))
-
     def start(self, id, image, sm_type, uuid):
 
         if 'broker_host' in os.environ:
@@ -137,13 +135,19 @@ class SMREngine(object):
                                              name=id,
                                              environment={'broker_host':broker_host, 'sf_uuid':uuid, 'vh_name':vh_name})
 
-        networks = self.dc.networks(names= [network_id])
+        networks = self.dc.networks()
+        net_found = False
+        for i in range(len(networks)):
+            if networks[i]['Name'] == network_id:
+                net_found = True
+                break
 
-        if len (networks) != 0 and networks[0]['Name'] == network_id:
+        if (net_found):
+                LOG.info('Docker network is used!')
                 self.dc.connect_container_to_network(container=container, net_id=network_id, aliases=[id])
                 self.dc.start(container=container.get('Id'))
         else:
-            LOG.warning('Docker --link is deprecated. use docker network instead')
+            LOG.warning('Network ID: {0} Not Found!, deprecated Docker --link is used instead'.format(network_id))
             self.dc.start(container=container.get('Id'), links=[(broker['name'], broker['alias'])])
 
 
