@@ -137,7 +137,6 @@ class SMREngine(object):
 
         networks = self.dc.networks()
         net_found = False
-        
         for i in range(len(networks)):
             if networks[i]['Name'] == network_id:
                 net_found = True
