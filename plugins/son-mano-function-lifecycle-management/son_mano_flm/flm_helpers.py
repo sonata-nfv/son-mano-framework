@@ -87,7 +87,7 @@ def get_fsm_from_vnfd(vnfd):
                     fsm_dict[option['value']]['image'] = fsm['image']
 
     else:
-        return None
+        return {}
 
     return fsm_dict
 

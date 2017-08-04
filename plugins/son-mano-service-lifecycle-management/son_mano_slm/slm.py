@@ -426,27 +426,24 @@ class ServiceLifecycleManager(ManoBasePlugin):
         add_schedule.append('contact_gk')
 
         # Onboard and instantiate the SSMs, if required.
-        if self.services[serv_id]['service']['ssm'] is not None:
+        if self.services[serv_id]['service']['ssm']:
             add_schedule.append('onboard_ssms')
             add_schedule.append('instant_ssms')
 
-        if self.services[serv_id]['service']['ssm'] is not None:
-            if 'task' in self.services[serv_id]['service']['ssm'].keys():
-                add_schedule.append('trigger_task_ssm')
+        if 'task' in self.services[serv_id]['service']['ssm'].keys():
+            add_schedule.append('trigger_task_ssm')
 
         add_schedule.append('request_topology')
 
         # Perform the placement
-        if self.services[serv_id]['service']['ssm'] is None:
-            add_schedule.append('SLM_mapping')
+        if 'placement' in self.services[serv_id]['service']['ssm'].keys():
+            add_schedule.append('req_placement_from_ssm')
         else:
-            if 'placement' in self.services[serv_id]['service']['ssm'].keys():
-                add_schedule.append('req_placement_from_ssm')
-            else:
-                add_schedule.append('SLM_mapping')
+            add_schedule.append('SLM_mapping')
 
         add_schedule.append('ia_prepare')
         add_schedule.append('vnf_deploy')
+        add_schedule.append('vnfs_start')
         add_schedule.append('vnf_chain')
         add_schedule.append('store_nsr')
         add_schedule.append('wan_configure')
@@ -504,9 +501,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
         add_schedule.append("stop_monitoring")
         add_schedule.append("wan_deconfigure")
         add_schedule.append("vnf_unchain")
+        add_schedule.append("vnfs_stop")
         add_schedule.append("terminate_service")
 
-        if self.services[serv_id]['service']['ssm'] is not None:
+        if self.services[serv_id]['service']['ssm']:
             add_schedule.append("terminate_ssms")
 
         for vnf in self.services[serv_id]['function']:
@@ -532,7 +530,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
     def monitoring_feedback(self, ch, method, prop, payload):
 
         LOG.info("Monitoring message received")
-        LOG.info(payload)
+#        LOG.info(payload)
 
     def resp_topo(self, ch, method, prop, payload):
         """
@@ -699,11 +697,43 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     function['vnfr'] = message['vnfr']
                     LOG.info("Added vnfr for inst: " + message['vnfr']['id'])
 
-        vnfs_to_depl = self.services[serv_id]['vnfs_to_deploy'] - 1
-        self.services[serv_id]['vnfs_to_deploy'] = vnfs_to_depl
+        vnfs_to_depl = self.services[serv_id]['vnfs_to_resp'] - 1
+        self.services[serv_id]['vnfs_to_resp'] = vnfs_to_depl
 
         # Only continue if all vnfs are deployed
         if vnfs_to_depl == 0:
+            self.services[serv_id]['act_corr_id'] = None
+            self.start_next_task(serv_id)
+
+    def resp_vnfs_css(self, ch, method, prop, payload):
+        """
+        This method handles a response from the FLM to a vnf css request.
+        """
+        message = yaml.load(payload)
+
+        # Retrieve the service uuid
+        serv_id = tools.servid_from_corrid(self.services, prop.correlation_id)
+        msg = ": Response received from FLM on VNF css call."
+        LOG.info("Service " + serv_id + msg)
+
+        # Inform GK if VNF deployment failed
+        if message['error'] is not None:
+
+            LOG.info("Service " + serv_id + ": VNF css event failed")
+            LOG.debug("Message: " + str(message))
+            topic = self.services[serv_id]['topic']
+            self.error_handling(serv_id, topic, message['error'])
+
+        else:
+            vnf_id = str(message["vnf_id"])
+            message = ": VNF " + vnf_id + " correctly handled."
+            LOG.info("Service " + serv_id + message)
+
+        vnfs_to_resp = self.services[serv_id]['vnfs_to_resp'] - 1
+        self.services[serv_id]['vnfs_to_resp'] = vnfs_to_resp
+
+        # Only continue if all vnfs are done
+        if vnfs_to_resp == 0:
             self.services[serv_id]['act_corr_id'] = None
             self.start_next_task(serv_id)
 
@@ -833,7 +863,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
 
         functions = self.services[serv_id]['function']
-        self.services[serv_id]['vnfs_to_deploy'] = len(functions)
+        self.services[serv_id]['vnfs_to_resp'] = len(functions)
 
         self.services[serv_id]['act_corr_id'] = []
 
@@ -855,6 +885,85 @@ class ServiceLifecycleManager(ManoBasePlugin):
                                      t.MANO_DEPLOY,
                                      yaml.dump(message),
                                      correlation_id=corr_id)
+
+        self.services[serv_id]['pause_chain'] = True
+
+    def vnfs_start(self, serv_id):
+        """
+        This method gives a trigger to the FLM for each VNF that needs
+        a FSM start life cycle event.
+        """
+        msg = ": Triggering VNF start events"
+        LOG.info("Service " + serv_id + msg)
+        self.vnfs_css(serv_id, 'start', t.MANO_START)
+
+    def vnfs_stop(self, serv_id):
+        """
+        This method gives a trigger to the FLM for each VNF that needs
+        a FSM stop life cycle event.
+        """
+        msg = ": Triggering VNF stop events"
+        LOG.info("Service " + serv_id + msg)
+        self.vnfs_css(serv_id, 'stop', t.MANO_STOP)
+
+    def vnfs_config(self, serv_id):
+        """
+        This method gives a trigger to the FLM for each VNF that needs
+        a FSM config life cycle event.
+        """
+        msg = ": Triggering VNF config events"
+        LOG.info("Service " + serv_id + msg)
+        self.vnfs_css(serv_id, 'configure', t.MANO_CONFIG)
+
+    def vnfs_css(self, serv_id, css_type, topic):
+        """
+        This generic method gives a trigger to the FLM for each VNF that needs
+        a FSM css life cycle event. Can be used for start, stop and config
+        triggers.
+        """
+        functions = self.services[serv_id]['function']
+        self.services[serv_id]['act_corr_id'] = []
+
+        # Counting the number of vnfs that you need a response from
+        vnfs_to_resp = 0
+        for vnf in functions:
+            if vnf[css_type]['trigger']:
+                vnfs_to_resp = vnfs_to_resp + 1
+        self.services[serv_id]['vnfs_to_resp'] = vnfs_to_resp
+
+        # Actually triggering the FLM
+        for vnf in functions:
+            if vnf[css_type]['trigger']:
+                # Check if payload was provided
+                if bool(vnf[css_type]['payload']):
+                    payload = vnf['configure']['payload']
+                # if not, create it
+                else:
+                    payload = {'vnf_id': vnf['id'],
+                               'serv_id': serv_id,
+                               'vnfd': vnf['vnfd']}
+
+                    if css_type == "configure":
+                        nsr = self.services[serv_id]['service']['nsr']
+                        vnfrs = []
+                        for vnf_new in functions:
+                            vnfrs.append(vnf_new['vnfr'])
+                        data = {'nsr': nsr, 'vnfrs': vnfrs}
+                    else:
+                        data = {'vnfr': vnf['vnfr']}
+
+                    payload['data'] = data
+
+                corr_id = str(uuid.uuid4())
+                self.services[serv_id]['act_corr_id'].append(corr_id)
+
+                msg = ": Requesting " + css_type + " event of vnf " + vnf['id']
+                LOG.info("Service " + serv_id + msg)
+
+                self.manoconn.call_async(self.resp_vnfs_css,
+                                         topic,
+                                         yaml.dump(payload),
+                                         correlation_id=corr_id)
 
         self.services[serv_id]['pause_chain'] = True
 
@@ -1745,8 +1854,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 msg = "VNFD instance id generated: " + vnf_id
                 LOG.info("Service " + serv_id + msg)
                 vnfd = payload[key]
-                self.services[serv_id]['function'].append({'vnfd': vnfd,
-                                                           'id': vnf_id})
+                vnf_base_dict = {'start': {'trigger': True, 'payload': {}},
+                                 'stop': {'trigger': True, 'payload': {}},
+                                 'configure': {'trigger': True, 'payload': {}},
+                                 'scale': {'trigger': True, 'payload': {}},
+                                 'vnfd': vnfd,
+                                 'id': vnf_id}
+                self.services[serv_id]['function'].append(vnf_base_dict)
 
         # Add to correlation id to the ledger
         self.services[serv_id]['original_corr_id'] = corr_id
@@ -1769,7 +1883,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         print(self.services[serv_id]['service']['ssm'])
 
         # Create counter for vnfs
-        self.services[serv_id]['vnfs_to_deploy'] = 0
+        self.services[serv_id]['vnfs_to_resp'] = 0
 
         # Create the chain pause and kill flag
         self.services[serv_id]['pause_chain'] = False
@@ -1835,7 +1949,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 request_returned_with_error(request)
                 return
 
-            new_function = {'id': vnf['vnfr_id'], 'vnfr': request['content']}
+            new_function = {'id': vnf['vnfr_id'],
+                            'start': {'trigger': True, 'payload': {}},
+                            'stop': {'trigger': True, 'payload': {}},
+                            'configure': {'trigger': True, 'payload': {}},
+                            'scale': {'trigger': True, 'payload': {}},
+                            'vnfr': request['content']}
+
             self.services[serv_id]['function'].append(new_function)
             msg = ": Recreating ledger: VNFR retrieved."
             LOG.info("Service " + serv_id + msg)
@@ -1844,7 +1964,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # TODO: retrieve VNFDs
         for vnf in self.services[serv_id]['function']:
             vnfd_id = vnf['vnfr']['descriptor_reference']
-            vnf['vnfd'] = None
+            vnf['vnfd'] = {}
 
         LOG.info("Serice " +
                  serv_id + ": Recreating ledger: VNFDs retrieved.")
@@ -1873,7 +1993,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['kill_chain'] = False
         self.services[serv_id]['infrastructure'] = {}
         self.services[serv_id]['task_log'] = []
-        self.services[serv_id]['vnfs_to_deploy'] = 0
+        self.services[serv_id]['vnfs_to_resp'] = 0
         self.services[serv_id]['pause_chain'] = False
         self.services[serv_id]['error'] = None
         return

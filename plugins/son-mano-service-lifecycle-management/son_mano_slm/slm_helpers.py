@@ -230,7 +230,7 @@ def get_sm_from_descriptor(descr):
     a received desriptor
     """
 
-    sm_dict = None
+    sm_dict = {}
 
     if 'service_specific_managers' in descr:
         sm_dict = {}
