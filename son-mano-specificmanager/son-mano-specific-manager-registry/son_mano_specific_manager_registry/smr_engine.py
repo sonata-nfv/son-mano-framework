@@ -45,7 +45,28 @@ logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
 class SMREngine(object):
     def __init__(self):
+        # connect to docker
         self.dc = self.connect()
+
+        # create rabbitmq user that will be used for communication between FSMs/SSMs and MANO plugins
+        if 'broker_man_host' in os.environ:
+            self.host = os.environ['broker_man_host']
+        else:
+            self.host = 'http://localhost:15672'
+        url_user = "{0}/api/users/specific-management".format(self.host)
+        self.headers = {'content-type': 'application/json'}
+        data = '{"password":"sonata","tags":"son-sm"}'
+        response = requests.put(url=url_user, headers=self.headers, data=data, auth=('guest', 'guest'))
+        if response.status_code == 201:
+            LOG.info("RabbitMQ user: specific-management has been created!")
+        elif response.status_code==204:
+            LOG.info("RabbitMQ user: specific-management already exists!")
+        else:
+            LOG.error("RabbitMQ user creation failed: {0}".format(response.content))
+        if 'sm_broker_host' in os.environ:
+            self.sm_broker_host = os.environ['sm_broker_host']
+        else:
+            self.sm_broker_host = 'amqp://specific-management:sonata@son-broker:5672'
 
     def connect(self):
         """
@@ -83,29 +104,19 @@ class SMREngine(object):
 
         SSM can be specified like:
         - ssm_uri = "registry.sonata-nfv.eu:5000/my-ssm" -> Docker PULL (opt B)
-        or
-        - ssm_uri = "file://this/is/a/path/my-ssm.tar" -> Docker LOAD (opt A)
         :return: ssm_image_name
         """
-        if "file://" in image:
-            # opt A: file based import
-            ssm_path = image.replace("file://", "")
-            ssm_image_name = os.path.splitext(os.path.basename(ssm_path))[0]
-            img = self.dc.images(name=image)
-            return self.dc.import_image(ssm_path, repository=ssm_image_name)
-            #LOG.debug('{0} pull: succeeded'.format( ssm_name))
-        else:
-            # opt B: repository pull
-            res= self.dc.pull(image) # image name and uri are the same
-            error_count = 1
-            while error_count <= 3:
-                response = yaml.load(res.split("\n")[1])
-                if 'error' in response.keys():
-                    error_count += 1
-                    res = self.dc.pull(image)
-                else:
-                    error_count = 4
-            return res
+        #repository pull
+        res= self.dc.pull(image) # image name and uri are the same
+        error_count = 1
+        while error_count <= 3:
+            response = yaml.load(res.split("\n")[1])
+            if 'error' in response.keys():
+                error_count += 1
+                res = self.dc.pull(image)
+            else:
+                error_count = 4
+        return res
 
     def start(self, id, image, sm_type, uuid):
 
@@ -124,16 +135,13 @@ class SMREngine(object):
         else:
             broker = {'name': 'broker', 'alias': 'broker'}
 
-
-        if "file://" in image:
-            image_name = image.replace("file://", "")
-
         vh_name = '{0}-{1}'.format(sm_type,uuid)
+        broker_host = "{0}/{1}".format(self.sm_broker_host, vh_name)
 
         container = self.dc.create_container(image=image,
                                              tty=True,
                                              name=id,
-                                             environment={'broker_host':broker_host, 'sf_uuid':uuid, 'vh_name':vh_name})
+                                             environment={'broker_host':broker_host, 'sf_uuid':uuid})
 
         networks = self.dc.networks()
         net_found = False
@@ -170,25 +178,23 @@ class SMREngine(object):
 
     def create_vh(self, sm_type, uuid):
         exists = False
-        headers = {'content-type': 'application/json'}
         vh_name = '{0}-{1}'.format(sm_type,uuid)
-        if 'broker_man_host' in os.environ:
-            host = os.environ['broker_man_host']
-        else:
-            host = 'http://localhost:15672/'#'http://broker:15672/'
-        api = 'api/vhosts/'
-        url_list = '{0}{1}'.format(host,api)
-        url_create = '{0}{1}{2}'.format(host,api,vh_name)
+        api = '/api/vhosts/'
+        url_list = '{0}{1}'.format(self.host,api)
+        url_create = '{0}{1}{2}'.format(self.host,api,vh_name)
+        url_permission = '{0}/api/permissions/{1}/specific-management'.format(self.host,vh_name)
+        data = '{"configure":".*","write":".*","read":".*"}'
         list = requests.get(url=url_list, auth= ('guest','guest')).json()
         for i in range(len(list)):
             if list[i]['name'] == vh_name:
                 exists = True
                 break
         if not exists:
-            response = requests.put(url=url_create, headers=headers, auth=('guest', 'guest'))
-            return response.status_code
+            response = requests.put(url=url_create, headers=self.headers, auth=('guest', 'guest'))
+            permission = requests.put(url=url_permission, headers=self.headers, data=data, auth=('guest', 'guest'))
+            return response.status_code, permission.status_code
         else:
-            return 204
+            return 0,0
 
 
 
