@@ -418,6 +418,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Add workflow to ledger
         self.services[serv_id]['topic'] = t.GK_CREATE
+        self.services[serv_id]["current_workflow"] = 'instantiation'
 
         # Schedule the tasks that the SLM should do for this request.
         add_schedule = []
@@ -494,6 +495,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Add workflow to ledger
         self.services[serv_id]['topic'] = t.GK_KILL
         self.services[serv_id]['status'] = 'TERMINATING'
+        self.services[serv_id]["current_workflow"] = 'termination'
         # Schedule the tasks that the SLM should do for this request.
         add_schedule = []
 
@@ -663,13 +665,26 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         This method handles an ssm configuration response
         """
-        # TODO: Test this method
-
-        LOG.info(payload)
-        message = yaml.load(payload)
 
         # Retrieve the service uuid
         serv_id = tools.servid_from_corrid(self.services, prop.correlation_id)
+
+        msg = ": Response received from configuration SSM."
+        LOG.info("Service " + serv_id + msg)
+
+        content = yaml.load(payload)
+
+        # TODO: check if content is correctly formatted
+
+        if 'vnf' in content.keys():
+            vnfs = content['vnf']
+            for vnf in vnfs:
+                vnf_id = vnf['id']
+                for vnf_slm in self.services[serv_id]['function']:
+                    if vnf_id == vnf_slm['id']:
+                        for key in vnf.keys():
+                            vnf_slm[key] = vnf[key]
+
         self.start_next_task(serv_id)
 
     def resp_vnf_depl(self, ch, method, prop, payload):
@@ -935,14 +950,14 @@ class ServiceLifecycleManager(ManoBasePlugin):
         for vnf in functions:
             if vnf[css_type]['trigger']:
                 # Check if payload was provided
+                payload = {}
+                payload['vnf_id'] = vnf['id']
+                payload['vnfd'] = vnf['vnfd']
+                payload['serv_id'] = serv_id
                 if bool(vnf[css_type]['payload']):
-                    payload = vnf['configure']['payload']
+                    payload['data'] = vnf[css_type]['payload']
                 # if not, create it
                 else:
-                    payload = {'vnf_id': vnf['id'],
-                               'serv_id': serv_id,
-                               'vnfd': vnf['vnfd']}
-
                     if css_type == "configure":
                         nsr = self.services[serv_id]['service']['nsr']
                         vnfrs = []
@@ -1116,25 +1131,25 @@ class ServiceLifecycleManager(ManoBasePlugin):
         corr_id = str(uuid.uuid4())
         self.services[serv_id]['act_corr_id'] = corr_id
 
-        if self.services[serv_id]['service']['ssm']['configure'] is None:
+        if 'configure' not in self.services[serv_id]['service']['ssm'].keys():
             LOG.info("Configuration SSM requested but not available")
             return
 
-        ssm = self.services[serv_id]['service']['ssm']
-        if not ssm['configure']['instantiated']:
-            LOG.info("Configuration SSM not instantiated")
-            return
+        # ssm = self.services[serv_id]['service']['ssm']
+        # if not ssm['configure']['instantiated']:
+        #     LOG.info("Configuration SSM not instantiated")
+        #     return
 
         # Building the content message for the configuration ssm
         content = {'service': self.services[serv_id]['service'],
                    'functions': self.services[serv_id]['function']}
+        content['ssm_type'] = 'configure'
+        content['workflow'] = self.services[serv_id]["current_workflow"]
 
-        payload = yaml.dump(content)
-        ssm_id = self.services[serv_id]['service']['ssm']['configure']['uuid']
-        topic = "configure.ssm." + str(serv_id)
+        topic = "generic.ssm." + str(serv_id)
         self.manoconn.call_async(self.resp_ssm_configure,
                                  topic,
-                                 payload,
+                                 yaml.dump(content),
                                  correlation_id=corr_id)
 
         # Pause the chain of tasks to wait for response

@@ -429,6 +429,58 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         return self.functions[func_id]['schedule']
 
+    def function_instance_scale(self, ch, method, properties, payload):
+        """
+        This method starts the vnf scale workflow
+        """
+
+        # Don't trigger on self created messages
+        if self.name == properties.app_id:
+            return
+
+        LOG.info("Function instance scale request received.")
+        message = yaml.load(payload)
+
+        # Extract the correlation id
+        corr_id = properties.correlation_id
+
+        func_id = message['vnf_id']
+
+        # recreate the ledger
+        self.recreate_ledger(message, corr_id, func_id, t.VNF_SCALE)
+
+        # Check if VNFD defines a stop FSM, if not, no action can be taken
+        if 'scale' not in self.functions[func_id]['fsm'].keys():
+            msg = ": No scale FSM provided, scale event ignored."
+            LOG.info("Function " + func_id + msg)
+
+            self.functions[func_id]['message'] = msg
+            self.respond_to_request(func_id)
+
+            del self.functions[func_id]
+            return
+
+        # add the payload for the FSM
+        self.functions[func_id]['scale'] = message['data']
+
+        # Schedule the tasks that the FLM should do for this request.
+        add_schedule = []
+
+        add_schedule.append("trigger_scale_fsm")
+        # TODO: add interaction with Mistral when FSM responds (using the
+        # content of the response)
+        add_schedule.append("update_vnfr_after_scale")
+        add_schedule.append("respond_to_request")
+
+        self.functions[func_id]['schedule'].extend(add_schedule)
+
+        msg = ": New scale request received."
+        LOG.info("Function " + func_id + msg)
+        # Start the chain of tasks
+        self.start_next_task(func_id)
+
+        return self.functions[func_id]['schedule']
+
     def function_instance_kill(self, ch, method, properties, payload):
         """
         This method starts the vnf kill workflow
@@ -668,6 +720,61 @@ class FunctionLifecycleManager(ManoBasePlugin):
         #     LOG.info('time-out on vnfr to repo')
 
         return
+
+    def update_vnfr_after_scale(self, func_id):
+        """
+        This method updates the vnfr after a vnf scale event
+        """
+
+        # TODO: for now, this method only updates the version
+        # number of the record. Once the mistral interaction
+        # is added, other fields of the record might need upates
+        # as well
+
+        error = None
+        vnfr = self.functions[func_id]['vnfr']
+        vnfr_id = func_id
+
+        # Updating version number
+        old_version = int(vnfr['version'])
+        cur_version = old_version + 1
+        vnfr['version'] = str(cur_version)
+
+        # Updating the record
+        vnfr["id"] = vnfr_id
+        del vnfr["uuid"]
+        del vnfr["updated_at"]
+        del vnfr["created_at"]
+
+        # Put it
+        url = t.VNFR_REPOSITORY_URL + 'vnf-instances/' + vnfr_id
+        header = {'Content-Type': 'application/json'}
+
+        LOG.info("Service " + serv_id + ": VNFR update: " + url)
+
+        try:
+            vnfr_resp = requests.put(url,
+                                     data=json.dumps(vnfr),
+                                     headers=header,
+                                     timeout=1.0)
+            vnfr_resp_json = str(vnfr_resp.json())
+
+            if (vnfr_resp.status_code == 200):
+                msg = ": VNFR update accepted for " + vnfr_id
+                LOG.info("Service " + serv_id + msg)
+            else:
+                msg = ": VNFR update not accepted: " + vnfr_resp_json
+                LOG.info("Service " + serv_id + msg)
+                error = {'http_code': vnfr_resp.status_code,
+                         'message': vnfr_resp_json}
+        except:
+            error = {'http_code': '0',
+                     'message': 'Timeout when contacting VNFR repo'}
+
+        if error is not None:
+            LOG.info("record update failed: " + str(error))
+            self.functions[func_id]["error"] = error
+            self.flm_error(func_id)
 
     def inform_slm_on_deployment(self, func_id):
         """
