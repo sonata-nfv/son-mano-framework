@@ -52,14 +52,18 @@ class ManoBrokerConnection(object):
     It uses the asynchronous adapter implementation of the amqpstorm library.
     """
 
-    def __init__(self, app_id):
+    def __init__(self, app_id, **kwargs):
         """
         Initialize broker connection.
         :param app_id: string that identifies application
+
         """
         self.app_id = app_id
         # fetch configuration
-        self.rabbitmq_url = os.environ.get("broker_host", RABBITMQ_URL_FALLBACK)
+        if "url" in kwargs:
+            self.rabbitmq_url = kwargs['url']
+        else:
+            self.rabbitmq_url = os.environ.get("broker_host", RABBITMQ_URL_FALLBACK)
         self.rabbitmq_exchange = os.environ.get("broker_exchange", RABBITMQ_EXCHANGE_FALLBACK)
         self.rabbitmq_exchange_type = "topic"
         # create additional members
@@ -227,11 +231,11 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
       each request in an independent thread.
     """
 
-    def __init__(self, app_id):
+    def __init__(self, app_id, **kwargs):
         self._async_calls_pending = {}
         self._async_calls_response_topics = {}
         # call superclass to setup the connection
-        super(self.__class__, self).__init__(app_id)
+        super(self.__class__, self).__init__(app_id, **kwargs)
 
     def _execute_async(self, async_finish_cbf, func, ch, method, props, body):
         """

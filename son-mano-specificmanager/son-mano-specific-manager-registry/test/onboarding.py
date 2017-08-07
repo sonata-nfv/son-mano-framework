@@ -29,7 +29,6 @@ partner consortium (www.sonata-nfv.eu).
 import logging
 import yaml
 import time
-import os
 from sonmanobase import messaging
 
 logging.basicConfig(level=logging.INFO)

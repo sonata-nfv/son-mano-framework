@@ -29,7 +29,6 @@ partner consortium (www.sonata-nfv.eu).
 import logging
 import yaml
 import time
-import os
 from sonmanobase import messaging
 
 logging.basicConfig(level=logging.INFO)
@@ -50,8 +49,6 @@ class fakeslm_instantiation(object):
 
         # create and initialize broker connection
         self.manoconn = messaging.ManoBrokerRequestResponseConnection(self.name)
-
-        self.path_descriptors = '/home/hadi/son-mano-framework/son-mano-specificmanager/son-mano-specific-manager-registry/test/test_descriptors/'
 
         self.end = False
 
