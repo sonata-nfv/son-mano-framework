@@ -36,7 +36,6 @@ import requests
 import yaml
 
 
-
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("son-mano-specific-manager-registry-engine")
 LOG.setLevel(logging.DEBUG)
