@@ -40,18 +40,22 @@
 
 # setup cleanup mechanism
 trap "set +e
-docker rm -fv test.broker
-docker rm -fv test.mongo
-docker rm -fv test.pluginmanager
-docker rm -fv test.slm" INT TERM EXIT
-#docker network rm test.sonata-plugins" INT TERM EXIT
+if ! [[ "$(docker inspect -f {{.State.Running}} test.broker 2> /dev/null)" == "" ]]; then docker rm -fv test.broker ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.mongo 2> /dev/null)" == "" ]]; then docker rm -fv test.mongo ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.pliginmanager 2> /dev/null)" == "" ]]; then docker rm -fv test.pluginmanager ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.slm 2> /dev/null)" == "" ]]; then docker rm -fv test.slm ; fi
+echo end trap." INT TERM EXIT
 
 # ensure cleanup
 set +e
-docker rm -fv test.broker
-docker rm -fv test.mongo
-docker rm -fv test.pluginmanager
-docker rm -fv test.slm
+if ! [[ "$(docker inspect -f {{.State.Running}} test.broker 2> /dev/null)" == "" ]]; then docker rm -fv test.broker ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.mongo 2> /dev/null)" == "" ]]; then docker rm -fv test.mongo ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.pliginmanager 2> /dev/null)" == "" ]]; then docker rm -fv test.pluginmanager ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.slm 2> /dev/null)" == "" ]]; then docker rm -fv test.slm ; fi
+#docker rm -fv test.broker
+#docker rm -fv test.mongo
+#docker rm -fv test.pluginmanager
+#docker rm -fv test.slm
 #docker network rm test.sonata-plugins
 
 #  always abort if an error occurs
@@ -85,11 +89,10 @@ sleep 3
 docker run --name test.slm --net=test.sonata-plugins --net-alias=servicelifecyclemanagement \
 registry.sonata-nfv.eu:5000/servicelifecyclemanagement py.test -v
 
+# Show container logs
+docker logs test.broker test.mongo test.pluginmanager test.slm
 
-echo "done."
-
-
-
+echo "done. #test_plugin_son-mano-slm"
 
 ## setup cleanup mechanism
 #trap "set +e; docker rm -fv test.broker; docker rm -fv test.mongo; docker rm -fv test.pluginmanager; docker rm -fv test.slm" INT TERM EXIT

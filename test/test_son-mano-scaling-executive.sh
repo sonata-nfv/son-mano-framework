@@ -28,18 +28,23 @@
 
 
 trap "set +e
-docker rm -fv test.broker
-docker rm -fv test.mongo
-docker rm -fv test.pluginmanager
-docker rm -fv test.scalingexecutive" INT TERM EXIT
+if ! [[ "$(docker inspect -f {{.State.Running}} test.broker 2> /dev/null)" == "" ]]; then docker rm -fv test.broker ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.mongo 2> /dev/null)" == "" ]]; then docker rm -fv test.mongo ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.pluginmanager 2> /dev/null)" == "" ]]; then docker rm -fv test.pluginmanager ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.scalingexecutive 2> /dev/null)" == "" ]]; then docker rm -fv test.scalingexecutive ; fi
+echo end trap" INT TERM EXIT
 #docker network rm test.sonata-plugins" INT TERM EXIT
 
 # ensure cleanup
 set +e
-docker rm -fv test.broker
-docker rm -fv test.mongo
-docker rm -fv test.pluginmanager
-docker rm -fv test.scalingexecutive
+if ! [[ "$(docker inspect -f {{.State.Running}} test.broker 2> /dev/null)" == "" ]]; then docker rm -fv test.broker ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.mongo 2> /dev/null)" == "" ]]; then docker rm -fv test.mongo ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.pluginmanager 2> /dev/null)" == "" ]]; then docker rm -fv test.pluginmanager ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.scalingexecutive 2> /dev/null)" == "" ]]; then docker rm -fv test.scalingexecutive ; fi
+#docker rm -fv test.broker
+#docker rm -fv test.mongo
+#docker rm -fv test.pluginmanager
+#docker rm -fv test.scalingexecutive
 #docker network rm test.sonata-plugins
 
 #  always abort if an error occurs
@@ -76,4 +81,7 @@ sleep 3
 docker run --net=test.sonata-plugins --net-alias=test.scalingexecutive --name test.scalingexecutive \
 registry.sonata-nfv.eu:5000/scalingexecutive py.test -v
 
-echo "done."
+#Show docker logs
+docker logs test.broker test.mongo test.pluginmanager test.scalingexecutive
+
+echo "done. #test_son-mano-scaling-executive"

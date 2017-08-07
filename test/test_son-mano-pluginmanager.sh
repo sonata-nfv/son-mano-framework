@@ -28,16 +28,20 @@
 
 # setup cleanup mechanism
 trap "set +e
-docker rm -fv test.broker
-docker rm -fv test.mongo
-docker rm -fv test.pluginmanager" INT TERM EXIT
+if ! [[ "$(docker inspect -f {{.State.Running}} test.broker 2> /dev/null)" == "" ]]; then docker rm -fv test.broker ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.mongo 2> /dev/null)" == "" ]]; then docker rm -fv test.mongo ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.pluginmanager 2> /dev/null)" == "" ]]; then docker rm -fv test.pluginmanager ; fi
+echo end trap" INT TERM EXIT
 #docker network rm test.sonata-plugins" INT TERM EXIT
 
 # ensure cleanup
 set +e
-docker rm -fv test.broker
-docker rm -fv test.mongo
-docker rm -fv test.pluginmanager
+if ! [[ "$(docker inspect -f {{.State.Running}} test.broker 2> /dev/null)" == "" ]]; then docker rm -fv test.broker ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.mongo 2> /dev/null)" == "" ]]; then docker rm -fv test.mongo ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.pluginmanager 2> /dev/null)" == "" ]]; then docker rm -fv test.pluginmanager ; fi
+#docker rm -fv test.broker
+#docker rm -fv test.mongo
+#docker rm -fv test.pluginmanager
 #docker network rm test.sonata-plugins
 
 #  always abort if an error occurs
@@ -66,8 +70,10 @@ sleep 3
 docker run --name test.pluginmanager --net=test.sonata-plugins \
 --net-alias=pluginmanager --name test.pluginmanager registry.sonata-nfv.eu:5000/pluginmanager py.test -v
 
+# Show docker logs
+docker logs test.broker test.mongo test.pluginmanager
 
-echo "done."
+echo "done. #test_son-mano-pluginmanager"
 
 
 ## setup cleanup mechanism

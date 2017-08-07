@@ -27,18 +27,23 @@
 # partner consortium (www.sonata-nfv.eu).
 
 trap "set +e
-docker rm -fv test.broker
-docker rm -fv test.mongo
-docker rm -fv test.pluginmanager
-docker rm -fv test.placementexecutive" INT TERM EXIT
+if ! [[ "$(docker inspect -f {{.State.Running}} test.broker 2> /dev/null)" == "" ]]; then docker rm -fv test.broker ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.mongo 2> /dev/null)" == "" ]]; then docker rm -fv test.mongo ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.pluginmanager 2> /dev/null)" == "" ]]; then docker rm -fv test.pluginmanager ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.placementexecutive 2> /dev/null)" == "" ]]; then docker rm -fv test.placementexecutive ; fi
+echo end trap" INT TERM EXIT
 #docker network rm test.sonata-plugins" INT TERM EXIT
 
 # ensure cleanup
 set +e
-docker rm -fv test.broker
-docker rm -fv test.mongo
-docker rm -fv test.pluginmanager
-docker rm -fv test.placementexecutive
+if ! [[ "$(docker inspect -f {{.State.Running}} test.broker 2> /dev/null)" == "" ]]; then docker rm -fv test.broker ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.mongo 2> /dev/null)" == "" ]]; then docker rm -fv test.mongo ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.pluginmanager 2> /dev/null)" == "" ]]; then docker rm -fv test.pluginmanager ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.placementexecutive 2> /dev/null)" == "" ]]; then docker rm -fv test.placementexecutive ; fi
+#docker rm -fv test.broker
+#docker rm -fv test.mongo
+#docker rm -fv test.pluginmanager
+#docker rm -fv test.placementexecutive
 #docker network rm test.sonata-plugins
 
 #  always abort if an error occurs
@@ -75,7 +80,10 @@ sleep 3
 docker run --net=test.sonata-plugins --net-alias=test.placementexecutive --name test.placementexecutive \
 registry.sonata-nfv.eu:5000/placementexecutive py.test -v
 
-echo "done."
+# Show containers logs
+docker logs test.broker test.mongo test.pluginmanager test.placementexecutive
+
+echo "done. #test_son-mano-placement-executive"
 
 ##!/bin/sh
 #
