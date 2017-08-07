@@ -37,6 +37,8 @@
 
 trap "set +e
 docker rm -fv test.broker
+docker rm -fv test.mongo
+docker rm -fv test.pluginmanager
 docker rm -fv test.sonmanobase" INT TERM EXIT
 #docker network rm test.sonata-plugins" INT TERM EXIT
 
@@ -46,6 +48,7 @@ if ! [[ "$(docker inspect -f {{.State.Running}} test.broker 2> /dev/null)" == ""
 if ! [[ "$(docker inspect -f {{.State.Running}} test.mongo 2> /dev/null)" == "" ]]; then docker rm -fv test.mongo ; fi
 if ! [[ "$(docker inspect -f {{.State.Running}} test.pluginmanager 2> /dev/null)" == "" ]]; then docker rm -fv test.pluginmanager ; fi
 if ! [[ "$(docker inspect -f {{.State.Running}} test.placementexecutive 2> /dev/null)" == "" ]]; then docker rm -fv test.placementexecutive ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.sonmanobase 2> /dev/null)" == "" ]]; then docker rm -fv test.sonmanobase ; fi
 #docker rm -fv test.broker
 #docker rm -fv test.mongo
 #docker rm -fv test.pluginmanager
