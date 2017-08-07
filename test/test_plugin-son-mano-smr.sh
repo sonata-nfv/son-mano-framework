@@ -2,7 +2,7 @@
 
 # Copyright (c) 2015 SONATA-NFV
 # ALL RIGHTS RESERVED.
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -37,8 +37,7 @@ docker logs test.smr
 docker rm -fv test.broker;
 docker rm -fv test.mongo;
 docker rm -fv test.pluginmanager;
-docker rm -fv test.smr;
-docker rm -fv ssmexample" INT TERM EXIT
+docker rm -fv test.smr" INT TERM EXIT
 #docker network rm test.sonata-plugins" INT TERM EXIT
 
 # ensure cleanup
