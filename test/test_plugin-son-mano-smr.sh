@@ -108,6 +108,9 @@ docker run --name test.smr --net=test.sonata-plugins --net-alias==specificmanage
 -e network_id=test.sonata-plugins  -e broker_man_host=http://broker:15672/ registry.sonata-nfv.eu:5000/specificmanagerregistry py.test -v
 
 # Show containers logs
-docker logs test.broker test.mongo test.pluginmanager test.smr
+docker logs test.broker
+docker logs test.mongo
+docker logs test.pluginmanager
+docker logs test.smr
 
 echo "done. #test_plugin-son-mano-smr"

@@ -90,7 +90,10 @@ docker run --name test.sonmanobase --net=test.sonata-plugins --net-alias=sonmano
 -v '/var/run/docker.sock:/var/run/docker.sock' \
 registry.sonata-nfv.eu:5000/sonmanobase py.test -v
 
-docker logs test.broker test.mongo test.pluginmanager test.sonmanobase
+docker logs test.broker
+docker logs test.mongo
+docker logs test.pluginmanager
+docker logs test.sonmanobase
 
 echo "done. #test_son-mano-base"
 

@@ -82,6 +82,9 @@ docker run --net=test.sonata-plugins --net-alias=test.scalingexecutive --name te
 registry.sonata-nfv.eu:5000/scalingexecutive py.test -v
 
 #Show docker logs
-docker logs test.broker test.mongo test.pluginmanager test.scalingexecutive
+docker logs test.broker
+docker logs test.mongo
+docker logs test.pluginmanager
+docker logs test.scalingexecutive
 
 echo "done. #test_son-mano-scaling-executive"

@@ -71,7 +71,9 @@ docker run --name test.pluginmanager --net=test.sonata-plugins \
 --net-alias=pluginmanager --name test.pluginmanager registry.sonata-nfv.eu:5000/pluginmanager py.test -v
 
 # Show docker logs
-docker logs test.broker test.mongo test.pluginmanager
+docker logs test.broker
+docker logs test.mongo
+docker logs test.pluginmanager
 
 echo "done. #test_son-mano-pluginmanager"
 

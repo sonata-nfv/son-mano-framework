@@ -81,7 +81,10 @@ docker run --net=test.sonata-plugins --net-alias=test.placementexecutive --name 
 registry.sonata-nfv.eu:5000/placementexecutive py.test -v
 
 # Show containers logs
-docker logs test.broker test.mongo test.pluginmanager test.placementexecutive
+docker logs test.broker
+docker logs test.mongo
+docker logs test.pluginmanager
+docker logs test.placementexecutive
 
 echo "done. #test_son-mano-placement-executive"
 

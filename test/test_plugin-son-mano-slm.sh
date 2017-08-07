@@ -90,7 +90,10 @@ docker run --name test.slm --net=test.sonata-plugins --net-alias=servicelifecycl
 registry.sonata-nfv.eu:5000/servicelifecyclemanagement py.test -v
 
 # Show container logs
-docker logs test.broker test.mongo test.pluginmanager test.slm
+docker logs test.broker
+docker logs test.mongo
+docker logs test.pluginmanager
+docker logs test.slm
 
 echo "done. #test_plugin_son-mano-slm"
 
