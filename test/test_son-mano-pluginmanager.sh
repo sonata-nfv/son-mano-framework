@@ -64,7 +64,7 @@ done;
 sleep 3
 # spin up the plugin manager and run tests
 docker run --name test.pluginmanager --net=test.sonata-plugins \
---net-alias=pluginmanager --name test.pluginmanager registry.sonata-nfv.eu:5000/pluginmanager py.test -v
+--net-alias=pluginmanager registry.sonata-nfv.eu:5000/pluginmanager py.test -v
 
 
 echo "done."
