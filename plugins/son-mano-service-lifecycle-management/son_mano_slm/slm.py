@@ -532,7 +532,17 @@ class ServiceLifecycleManager(ManoBasePlugin):
     def monitoring_feedback(self, ch, method, prop, payload):
 
         LOG.info("Monitoring message received")
-#        LOG.info(payload)
+        LOG.info(payload)
+
+        content = json.loads(str(payload))
+
+        content['ssm_type'] = 'monitor'
+        uuid = content['serviceID']
+        new_payload = yaml.dump(content)
+
+        # Forward the received monitoring message to the SSM
+        topic = 'generic.ssm.' + uuid
+        self.manoconn.notify(topic, new_payload)
 
     def resp_topo(self, ch, method, prop, payload):
         """
@@ -1756,7 +1766,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method instructs the monitoring manager to start monitoring
         """
 
-        LOG.info("Service " + serv_id + ": Setting Monitoring")
+        LOG.info("Service " + serv_id + ": Setting up Monitoring Manager")
         service = self.services[serv_id]['service']
         functions = self.services[serv_id]['function']
 
@@ -1774,7 +1784,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             monitoring_json = mon_resp.json()
 
             if (mon_resp.status_code == 200):
-                LOG.info("Service " + serv_id + ": Monitoring msg accepted")
+                LOG.info("Service " + serv_id + ": Monitoring started")
 
             else:
                 LOG.info("Service " + serv_id + ": Monitoring msg not acceptd")
