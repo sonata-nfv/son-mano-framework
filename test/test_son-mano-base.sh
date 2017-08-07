@@ -36,21 +36,34 @@
 #
 
 trap "set +e
+# Show containers logs
+docker logs test.broker
+docker logs test.mongo
+docker logs test.pluginmanager
+docker logs test.sonmanobase
+# Remove containers
 docker rm -fv test.broker
+docker rm -fv test.mongo
+docker rm -fv test.pluginmanager
 docker rm -fv test.sonmanobase" INT TERM EXIT
 #docker network rm test.sonata-plugins" INT TERM EXIT
 
 # ensure cleanup
 set +e
-docker rm -fv test.broker
-docker rm -fv test.mongo
-docker rm -fv test.pluginmanager
-docker rm -fv test.placementexecutive
+if ! [[ "$(docker inspect -f {{.State.Running}} test.broker 2> /dev/null)" == "" ]]; then docker rm -fv test.broker ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.mongo 2> /dev/null)" == "" ]]; then docker rm -fv test.mongo ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.pluginmanager 2> /dev/null)" == "" ]]; then docker rm -fv test.pluginmanager ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.placementexecutive 2> /dev/null)" == "" ]]; then docker rm -fv test.placementexecutive ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.sonmanobase 2> /dev/null)" == "" ]]; then docker rm -fv test.sonmanobase ; fi
+#docker rm -fv test.broker
+#docker rm -fv test.mongo
+#docker rm -fv test.pluginmanager
+#docker rm -fv test.placementexecutive
 #docker network rm test.sonata-plugins
 
 #  always abort if an error occurs
 set -e
-
+set -x
 echo "test_son-mano-base.sh"
 #create test.sonata-plugins network
 if ! [[ "$(docker network inspect -f {{.Name}} test.sonata-plugins 2> /dev/null)" == "" ]]
@@ -75,15 +88,13 @@ sleep 3
 docker run -d --name test.pluginmanager --net=test.sonata-plugins --network-alias=pluginmanager \
 registry.sonata-nfv.eu:5000/pluginmanager
 # wait a bit for manager startup
-sleep 3
+sleep 10
 # spin up the son-mano-base test container and execute its unittests
 docker run --name test.sonmanobase --net=test.sonata-plugins --network-alias=sonmanobase \
 -v '/var/run/docker.sock:/var/run/docker.sock' \
 registry.sonata-nfv.eu:5000/sonmanobase py.test -v
 
-
-echo "done."
-
+echo "done. #test_son-mano-base"
 
 ## setup cleanup mechanism
 #trap "set +e; docker rm -fv test.broker; docker rm -fv test.sonmanobase" INT TERM EXIT

@@ -1234,6 +1234,18 @@ class ServiceLifecycleManager(ManoBasePlugin):
         chain['vnfrs'] = vnfrs
         chain['vnfds'] = vnfds
 
+        # Add egress and ingress fields
+        chain['nap'] = {}
+
+        if self.services[serv_id]['ingress'] is not None:
+            chain['nap']['ingresses'] = self.services[serv_id]['ingress']
+        if self.services[serv_id]['egress'] is not None:
+            chain['nap']['egresses'] = self.services[serv_id]['egress']
+
+        # Check if `nap` is empty
+        if not chain['nap']:
+            chain.pop('nap')
+
         self.manoconn.call_async(self.IA_chain_response,
                                  t.IA_CONF_CHAIN,
                                  yaml.dump(chain),
@@ -1760,9 +1772,20 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['vnfs_to_deploy'] = 0
 
         # Create the chain pause and kill flag
-
         self.services[serv_id]['pause_chain'] = False
         self.services[serv_id]['kill_chain'] = False
+
+        # Add ingress and egress fields
+        self.services[serv_id]['ingress'] = None
+        self.services[serv_id]['egress'] = None
+
+        if 'ingresses' in payload.keys():
+            if payload['ingresses'] != []:
+                self.services[serv_id]['ingress'] = payload['ingresses']
+
+        if 'egresses' in payload.keys():
+            if payload['egresses'] != []:
+                self.services[serv_id]['egress'] = payload['egresses']
 
         return serv_id
 

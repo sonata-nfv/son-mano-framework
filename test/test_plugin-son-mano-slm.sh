@@ -40,23 +40,32 @@
 
 # setup cleanup mechanism
 trap "set +e
+# Show container logs
+docker logs test.broker
+docker logs test.mongo
+docker logs test.pluginmanager
+docker logs test.slm
+# Remove containers
 docker rm -fv test.broker
 docker rm -fv test.mongo
 docker rm -fv test.pluginmanager
 docker rm -fv test.slm" INT TERM EXIT
-#docker network rm test.sonata-plugins" INT TERM EXIT
 
 # ensure cleanup
 set +e
-docker rm -fv test.broker
-docker rm -fv test.mongo
-docker rm -fv test.pluginmanager
-docker rm -fv test.slm
+if ! [[ "$(docker inspect -f {{.State.Running}} test.broker 2> /dev/null)" == "" ]]; then docker rm -fv test.broker ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.mongo 2> /dev/null)" == "" ]]; then docker rm -fv test.mongo ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.pluginmanager 2> /dev/null)" == "" ]]; then docker rm -fv test.pluginmanager ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} test.slm 2> /dev/null)" == "" ]]; then docker rm -fv test.slm ; fi
+#docker rm -fv test.broker
+#docker rm -fv test.mongo
+#docker rm -fv test.pluginmanager
+#docker rm -fv test.slm
 #docker network rm test.sonata-plugins
 
 #  always abort if an error occurs
 set -e
-
+set -x
 echo "test_plugin-son-mano-slm.sh"
 #create test.sonata-plugins network
 if ! [[ "$(docker network inspect -f {{.Name}} test.sonata-plugins 2> /dev/null)" == "" ]]
@@ -64,32 +73,28 @@ then docker network rm test.sonata-plugins ; fi
 docker network create test.sonata-plugins
 
 # spin up container with broker (in daemon mode)
-docker run -d -p 5672:5672 --name test.broker --net=test.sonata-plugins --net-alias=broker rabbitmq:3-management
+docker run -d -p 5672:5672 --name test.broker --net=test.sonata-plugins --network-alias=broker rabbitmq:3-management
 # wait a bit for broker startup
 while ! nc -z localhost 5672; do
 sleep 1 && echo -n .; # waiting for rabbitmq
 done;
 # spin up container with MongoDB (in daemon mode)
-docker run -d -p 27017:27017 --name test.mongo --net=test.sonata-plugins --net-alias=mongo mongo
+docker run -d -p 27017:27017 --name test.mongo --net=test.sonata-plugins --network-alias=mongo mongo
 # wait a bit for db startup
 while ! nc -z localhost 27017; do
 sleep 1 && echo -n .; # waiting for mongo
 done;
 sleep 3
 # spin up the plugin manager
-docker run -d --name test.pluginmanager --net=test.sonata-plugins --net-alias=pluginmanager \
+docker run -d --name test.pluginmanager --net=test.sonata-plugins --network-alias=pluginmanager \
 registry.sonata-nfv.eu:5000/pluginmanager
 # wait a bit for manager startup
-sleep 3
+sleep 10
 # spin up slm container and run py.test
-docker run --name test.slm --net=test.sonata-plugins --net-alias=servicelifecyclemanagement \
+docker run --name test.slm --net=test.sonata-plugins --network-alias=servicelifecyclemanagement \
 registry.sonata-nfv.eu:5000/servicelifecyclemanagement py.test -v
 
-
-echo "done."
-
-
-
+echo "done. #test_plugin_son-mano-slm"
 
 ## setup cleanup mechanism
 #trap "set +e; docker rm -fv test.broker; docker rm -fv test.mongo; docker rm -fv test.pluginmanager; docker rm -fv test.slm" INT TERM EXIT
