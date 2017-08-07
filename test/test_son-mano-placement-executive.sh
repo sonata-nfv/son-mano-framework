@@ -77,7 +77,7 @@ sleep 1 && echo -n .; # waiting for mongo
 done;
 sleep 3
 # spin up the plugin manager
-docker run -d --name test.pluginmanager --net=test.sonata-plugins --network-alias=pluginmanager \
+docker run -d --name test.pluginmanager --net=test.sonata-plugins --network-alias=pluginmanager --restart on-failure \
 registry.sonata-nfv.eu:5000/pluginmanager
 
 # wait a bit for manager startup
