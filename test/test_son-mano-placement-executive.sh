@@ -27,6 +27,12 @@
 # partner consortium (www.sonata-nfv.eu).
 
 trap "set +e
+# Show containers logs
+docker logs test.broker
+docker logs test.mongo
+docker logs test.pluginmanager
+docker logs test.placementexecutive
+# Remove containers
 docker rm -fv test.broker
 docker rm -fv test.mongo
 docker rm -fv test.pluginmanager
@@ -75,16 +81,10 @@ docker run -d --name test.pluginmanager --net=test.sonata-plugins --net-alias=pl
 registry.sonata-nfv.eu:5000/pluginmanager
 
 # wait a bit for manager startup
-sleep 3
+sleep 10
 # spin up placement executive container and run py.test
 docker run --net=test.sonata-plugins --net-alias=test.placementexecutive --name test.placementexecutive \
 registry.sonata-nfv.eu:5000/placementexecutive py.test -v
-
-# Show containers logs
-docker logs test.broker
-docker logs test.mongo
-docker logs test.pluginmanager
-docker logs test.placementexecutive
 
 echo "done. #test_son-mano-placement-executive"
 

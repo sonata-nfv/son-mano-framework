@@ -40,6 +40,12 @@
 
 # setup cleanup mechanism
 trap "set +e
+# Show container logs
+docker logs test.broker
+docker logs test.mongo
+docker logs test.pluginmanager
+docker logs test.slm
+# Remove containers
 docker rm -fv test.broker
 docker rm -fv test.mongo
 docker rm -fv test.pluginmanager
@@ -83,16 +89,10 @@ sleep 3
 docker run -d --name test.pluginmanager --net=test.sonata-plugins --net-alias=pluginmanager \
 registry.sonata-nfv.eu:5000/pluginmanager
 # wait a bit for manager startup
-sleep 3
+sleep 10
 # spin up slm container and run py.test
 docker run --name test.slm --net=test.sonata-plugins --net-alias=servicelifecyclemanagement \
 registry.sonata-nfv.eu:5000/servicelifecyclemanagement py.test -v
-
-# Show container logs
-docker logs test.broker
-docker logs test.mongo
-docker logs test.pluginmanager
-docker logs test.slm
 
 echo "done. #test_plugin_son-mano-slm"
 

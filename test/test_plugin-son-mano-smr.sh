@@ -28,6 +28,12 @@
 
 
 trap "set +e;
+# Show containers logs
+docker logs test.broker
+docker logs test.mongo
+docker logs test.pluginmanager
+docker logs test.smr
+#Remove containers
 docker rm -fv test.broker;
 docker rm -fv test.mongo;
 docker rm -fv test.pluginmanager;
@@ -92,16 +98,10 @@ sleep 3
 docker run -d --name test.pluginmanager --net=test.sonata-plugins --net-alias=pluginmanager \
 registry.sonata-nfv.eu:5000/pluginmanager
 # wait a bit for manager startup
-sleep 3
+sleep 10
 # spin up smr container and run py.test
 docker run --name test.smr --net=test.sonata-plugins --net-alias==specificmanagerregistry \
 -v '/var/run/docker.sock:/var/run/docker.sock' \
 -e network_id=test.sonata-plugins  -e broker_man_host=http://broker:15672/ registry.sonata-nfv.eu:5000/specificmanagerregistry py.test -v
-
-# Show containers logs
-docker logs test.broker
-docker logs test.mongo
-docker logs test.pluginmanager
-docker logs test.smr
 
 echo "done. #test_plugin-son-mano-smr"

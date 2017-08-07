@@ -28,6 +28,11 @@
 
 # setup cleanup mechanism
 trap "set +e
+# Show docker logs
+docker logs test.broker
+docker logs test.mongo
+docker logs test.pluginmanager
+# Remove containers
 docker rm -fv test.broker
 docker rm -fv test.mongo
 docker rm -fv test.pluginmanager" INT TERM EXIT
@@ -64,15 +69,10 @@ docker run -d -p 27017:27017 --name test.mongo --net=test.sonata-plugins --net-a
 while ! nc -z localhost 27017; do
 sleep 1 && echo -n .; # waiting for mongo
 done;
-sleep 3
+sleep 10
 # spin up the plugin manager and run tests
 docker run --name test.pluginmanager --net=test.sonata-plugins \
 --net-alias=pluginmanager --name test.pluginmanager registry.sonata-nfv.eu:5000/pluginmanager py.test -v
-
-# Show docker logs
-docker logs test.broker
-docker logs test.mongo
-docker logs test.pluginmanager
 
 echo "done. #test_son-mano-pluginmanager"
 

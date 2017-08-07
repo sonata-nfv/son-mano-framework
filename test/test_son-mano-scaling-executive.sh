@@ -28,6 +28,13 @@
 
 
 trap "set +e
+#Show docker logs
+docker logs test.broker
+docker logs test.mongo
+docker logs test.pluginmanager
+docker logs test.scalingexecutive
+
+# Remove containers
 docker rm -fv test.broker
 docker rm -fv test.mongo
 docker rm -fv test.pluginmanager
@@ -76,15 +83,9 @@ docker run -d --name test.pluginmanager --net=test.sonata-plugins --net-alias=pl
 registry.sonata-nfv.eu:5000/pluginmanager
 
 # wait a bit for manager startup
-sleep 3
+sleep 10
 # spin up scaling executive container and run py.test
 docker run --net=test.sonata-plugins --net-alias=test.scalingexecutive --name test.scalingexecutive \
 registry.sonata-nfv.eu:5000/scalingexecutive py.test -v
-
-#Show docker logs
-docker logs test.broker
-docker logs test.mongo
-docker logs test.pluginmanager
-docker logs test.scalingexecutive
 
 echo "done. #test_son-mano-scaling-executive"

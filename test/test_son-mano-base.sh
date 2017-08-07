@@ -36,6 +36,12 @@
 #
 
 trap "set +e
+# Show containers logs
+docker logs test.broker
+docker logs test.mongo
+docker logs test.pluginmanager
+docker logs test.sonmanobase
+# Remove containers
 docker rm -fv test.broker
 docker rm -fv test.mongo
 docker rm -fv test.pluginmanager
@@ -82,16 +88,11 @@ sleep 3
 docker run -d --name test.pluginmanager --net=test.sonata-plugins --net-alias=pluginmanager \
 registry.sonata-nfv.eu:5000/pluginmanager
 # wait a bit for manager startup
-sleep 3
+sleep 10
 # spin up the son-mano-base test container and execute its unittests
 docker run --name test.sonmanobase --net=test.sonata-plugins --net-alias=sonmanobase \
 -v '/var/run/docker.sock:/var/run/docker.sock' \
 registry.sonata-nfv.eu:5000/sonmanobase py.test -v
-
-docker logs test.broker
-docker logs test.mongo
-docker logs test.pluginmanager
-docker logs test.sonmanobase
 
 echo "done. #test_son-mano-base"
 
