@@ -28,11 +28,10 @@
 
 
 trap "set +e
-if ! [[ "$(docker inspect -f {{.State.Running}} test.broker 2> /dev/null)" == "" ]]; then docker rm -fv test.broker ; fi
-if ! [[ "$(docker inspect -f {{.State.Running}} test.mongo 2> /dev/null)" == "" ]]; then docker rm -fv test.mongo ; fi
-if ! [[ "$(docker inspect -f {{.State.Running}} test.pluginmanager 2> /dev/null)" == "" ]]; then docker rm -fv test.pluginmanager ; fi
-if ! [[ "$(docker inspect -f {{.State.Running}} test.scalingexecutive 2> /dev/null)" == "" ]]; then docker rm -fv test.scalingexecutive ; fi
-echo end trap" INT TERM EXIT
+docker rm -fv test.broker
+docker rm -fv test.mongo
+docker rm -fv test.pluginmanager
+docker rm -fv test.scalingexecutive" INT TERM EXIT
 #docker network rm test.sonata-plugins" INT TERM EXIT
 
 # ensure cleanup
@@ -49,6 +48,7 @@ if ! [[ "$(docker inspect -f {{.State.Running}} test.scalingexecutive 2> /dev/nu
 
 #  always abort if an error occurs
 set -e
+set -x
 echo "test_son-mano-scaling-executive.sh"
 #create test.sonata-plugins network
 if ! [[ "$(docker network inspect -f {{.Name}} test.sonata-plugins 2> /dev/null)" == "" ]]

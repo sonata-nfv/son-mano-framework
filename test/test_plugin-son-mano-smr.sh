@@ -28,20 +28,11 @@
 
 
 trap "set +e;
-if ! [[ "$(docker inspect -f {{.State.Running}} test.broker 2> /dev/null)" == "" ]]; then docker rm -fv test.broker ; fi
-if ! [[ "$(docker inspect -f {{.State.Running}} test.mongo 2> /dev/null)" == "" ]]; then docker rm -fv test.mongo ; fi
-if ! [[ "$(docker inspect -f {{.State.Running}} test.pluginmanager 2> /dev/null)" == "" ]]; then docker rm -fv test.pluginmanager ; fi
-if ! [[ "$(docker inspect -f {{.State.Running}} test.smr 2> /dev/null)" == "" ]]; then docker rm -fv test.smr ; fi
-if ! [[ "$(docker inspect -f {{.State.Running}} ssmexample 2> /dev/null)" == "" ]]; then docker rm -fv ssmexample ; fi
-# ensure f/ssms cleanup
-if ! [[ "$(docker inspect -f {{.State.Running}} ssmexample 2> /dev/null)" == "" ]]; then docker rm -fv ssmexample ; fi
-if ! [[ "$(docker inspect -f {{.State.Running}} sonfsmservice1firewallconfiguration1 2> /dev/null)" == "" ]]; then docker rm -fv sonfsmservice1firewallconfiguration1 ; fi
-if ! [[ "$(docker inspect -f {{.State.Running}} sonfsmservice1function1dumb1 2> /dev/null)" == "" ]]; then docker rm -fv sonfsmservice1function1dumb1 ; fi
-if ! [[ "$(docker inspect -f {{.State.Running}} sonfsmservice1function1monitoring1 2> /dev/null)" == "" ]]; then docker rm -fv sonfsmservice1function1monitoring1 ; fi
-if ! [[ "$(docker inspect -f {{.State.Running}} sonfsmservice1function1updateddumb1 2> /dev/null)" == "" ]]; then docker rm -fv sonfsmservice1function1updateddumb1 ; fi
-if ! [[ "$(docker inspect -f {{.State.Running}} sonssmservice1dumb1 2> /dev/null)" == "" ]]; then docker rm -fv sonssmservice1dumb1 ; fi
-if ! [[ "$(docker inspect -f {{.State.Running}} sonssmservice1placement1 2> /dev/null)" == "" ]]; then docker rm -fv sonssmservice1placement1 ; fi
-echo end." INT TERM EXIT
+docker rm -fv test.broker;
+docker rm -fv test.mongo;
+docker rm -fv test.pluginmanager;
+docker rm -fv test.smr;
+docker rm -fv ssmexample" INT TERM EXIT
 #docker network rm test.sonata-plugins" INT TERM EXIT
 
 # ensure cleanup
@@ -50,7 +41,6 @@ if ! [[ "$(docker inspect -f {{.State.Running}} test.broker 2> /dev/null)" == ""
 if ! [[ "$(docker inspect -f {{.State.Running}} test.mongo 2> /dev/null)" == "" ]]; then docker rm -fv test.mongo ; fi
 if ! [[ "$(docker inspect -f {{.State.Running}} test.pluginmanager 2> /dev/null)" == "" ]]; then docker rm -fv test.pluginmanager ; fi
 if ! [[ "$(docker inspect -f {{.State.Running}} test.smr 2> /dev/null)" == "" ]]; then docker rm -fv test.smr ; fi
-if ! [[ "$(docker inspect -f {{.State.Running}} ssmexample 2> /dev/null)" == "" ]]; then docker rm -fv ssmexample ; fi
 # ensure f/ssms cleanup
 if ! [[ "$(docker inspect -f {{.State.Running}} ssmexample 2> /dev/null)" == "" ]]; then docker rm -fv ssmexample ; fi
 if ! [[ "$(docker inspect -f {{.State.Running}} sonfsmservice1firewallconfiguration1 2> /dev/null)" == "" ]]; then docker rm -fv sonfsmservice1firewallconfiguration1 ; fi
@@ -77,6 +67,7 @@ if ! [[ "$(docker inspect -f {{.State.Running}} sonssmservice1placement1 2> /dev
 
 #  always abort if an error occurs
 set -e
+set -x
 echo "test_plugin-son-mano-smr.sh"
 #create sonata-plugins network
 if ! [[ "$(docker network inspect -f {{.Name}} test.sonata-plugins 2> /dev/null)" == "" ]]
