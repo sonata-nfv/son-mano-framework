@@ -47,6 +47,7 @@ MANO_PLACE = "mano.service.place"
 MANO_START = "mano.function.start"
 MANO_CONFIG = "mano.function.configure"
 MANO_STOP = "mano.function.stop"
+MANO_SCALE = "mano.function.scale"
 
 # With gatekeeper or other SLM
 WC_CREATE = "*.instances.create"
@@ -78,6 +79,7 @@ PL_STATUS = "platform.management.plugin.status"
 
 # With monitoring
 MON_RECEIVE = "son.monitoring"
+FROM_MON_SSM = "monitor.ssm.*"
 
 # REST APIs
 

@@ -184,6 +184,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # The topic on which monitoring information is received
         self.manoconn.subscribe(self.monitoring_feedback, t.MON_RECEIVE)
 
+        # The topic on which monitoring information is received
+        self.manoconn.subscribe(self.from_monitoring_ssm, t.FROM_MON_SSM)
+
     def on_lifecycle_start(self, ch, mthd, prop, msg):
         """
         This event is called when the plugin has successfully registered itself
@@ -475,31 +478,38 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
 
         # Check if the messages comes from the GK or is forward by another SLM
-        message_from_gk = True
         if prop.app_id == self.name:
-            message_from_gk = False
-            if prop.reply_to is None:
-                return
+            return
 
         content = yaml.load(payload)
         serv_id = content['instance_id']
         LOG.info("Termination request received for service " + str(serv_id))
 
-        # Check if the ledger has an entry for this instance, as this method
-        # can be called from multiple paths
+        self.terminate_workflow(serv_id,
+                                prop.correlation_id,
+                                t.GK_KILL,
+                                orig='GK')
+
+    def terminate_workflow(self, serv_id, corr_id=None, topic=None, orig=None):
+        """
+        This function handles the actual termination
+        """
+
+        # Check if the ledger has an entry for this instance
         if serv_id not in self.services.keys():
             # Based on the received payload, the ledger entry is recreated.
             LOG.info("Recreating ledger.")
-            self.recreate_ledger(prop.correlation_id, serv_id)
+            self.recreate_ledger(corr_id, serv_id)
 
         # Add workflow to ledger
-        self.services[serv_id]['topic'] = t.GK_KILL
+        self.services[serv_id]['topic'] = topic
         self.services[serv_id]['status'] = 'TERMINATING'
         self.services[serv_id]["current_workflow"] = 'termination'
         # Schedule the tasks that the SLM should do for this request.
         add_schedule = []
 
-        add_schedule.append('contact_gk')
+        if orig == 'GK':
+            add_schedule.append('contact_gk')
         add_schedule.append("stop_monitoring")
         add_schedule.append("wan_deconfigure")
         add_schedule.append("vnf_unchain")
@@ -515,11 +525,36 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 break
 
         add_schedule.append("update_records_to_terminated")
-        add_schedule.append("inform_gk")
+        if orig == 'GK':
+            add_schedule.append("inform_gk")
 
         self.services[serv_id]['schedule'].extend(add_schedule)
 
         LOG.info("Termination workflow started for service " + str(serv_id))
+        # Start the chain of tasks
+        self.start_next_task(serv_id)
+
+        return self.services[serv_id]['schedule']
+
+    def service_instance_custom(self, serv_id, schedule):
+        """
+        This method creates a customized workflow. It is not called by
+        the user through the GK, but from an SSM. The SSM has created
+        the task schedule
+        """
+
+        # TODO: validate whether the proposed schedule by the SSM makes sense
+        LOG.info("Custom workflow requested for service " + str(serv_id))
+
+        if serv_id not in self.services.keys():
+            # Based on the received payload, the ledger entry is recreated.
+            LOG.info("Recreating ledger.")
+            self.recreate_ledger(None, serv_id)
+
+        self.services[serv_id]["current_workflow"] = 'custom'
+        self.services[serv_id]['schedule'] = schedule
+
+        LOG.info("Custom workflow started for service " + str(serv_id))
         # Start the chain of tasks
         self.start_next_task(serv_id)
 
@@ -543,6 +578,45 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Forward the received monitoring message to the SSM
         topic = 'generic.ssm.' + uuid
         self.manoconn.notify(topic, new_payload)
+
+    def from_monitoring_ssm(self, ch, method, prop, payload):
+        """
+        This method is called every time the SLM receives a message from
+        a monitoring SSM.
+        """
+        content = yaml.load(payload)
+        LOG.info("monitoring SSM responded: " + str(content))
+
+        serv_id = content['service_instance_id']
+        self.recreate_ledger(None, serv_id)
+
+        # Extract additional content provided by the SSM
+        if 'vnf' in content.keys():
+            vnfs = content['vnf']
+            for vnf in vnfs:
+                vnf_id = vnf['id']
+                for vnf_slm in self.services[serv_id]['function']:
+                    if vnf_id == vnf_slm['id']:
+                        for key in vnf.keys():
+                            vnf_slm[key] = vnf[key]
+
+        if 'service' in content.keys():
+            if 'configure' in content['service'].keys():
+                data = content['service']['configure']
+                self.services[serv_id]['service']['configure'] = data
+
+        if 'workflow' in content.keys():
+            if content['workflow'] == 'termination':
+                self.terminate_workflow(serv_id)
+            if content['workflow'] == 'pause':
+                pass
+            # TODO: add additional workflows
+        if 'schedule' in content.keys():
+            schedule = content['schedule']
+            LOG.info("schedule found: " + str(schedule))
+            self.service_instance_custom(serv_id, schedule)
+
+        return
 
     def resp_topo(self, ch, method, prop, payload):
         """
@@ -730,21 +804,21 @@ class ServiceLifecycleManager(ManoBasePlugin):
             self.services[serv_id]['act_corr_id'] = None
             self.start_next_task(serv_id)
 
-    def resp_vnfs_css(self, ch, method, prop, payload):
+    def resp_vnfs_csss(self, ch, method, prop, payload):
         """
-        This method handles a response from the FLM to a vnf css request.
+        This method handles a response from the FLM to a vnf csss request.
         """
         message = yaml.load(payload)
 
         # Retrieve the service uuid
         serv_id = tools.servid_from_corrid(self.services, prop.correlation_id)
-        msg = ": Response received from FLM on VNF css call."
+        msg = ": Response received from FLM on VNF csss call."
         LOG.info("Service " + serv_id + msg)
 
         # Inform GK if VNF deployment failed
         if message['error'] is not None:
 
-            LOG.info("Service " + serv_id + ": VNF css event failed")
+            LOG.info("Service " + serv_id + ": VNF csss event failed")
             LOG.debug("Message: " + str(message))
             topic = self.services[serv_id]['topic']
             self.error_handling(serv_id, topic, message['error'])
@@ -920,7 +994,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         msg = ": Triggering VNF start events"
         LOG.info("Service " + serv_id + msg)
-        self.vnfs_css(serv_id, 'start', t.MANO_START)
+        self.vnfs_csss(serv_id, 'start', t.MANO_START)
 
     def vnfs_stop(self, serv_id):
         """
@@ -929,7 +1003,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         msg = ": Triggering VNF stop events"
         LOG.info("Service " + serv_id + msg)
-        self.vnfs_css(serv_id, 'stop', t.MANO_STOP)
+        self.vnfs_csss(serv_id, 'stop', t.MANO_STOP)
 
     def vnfs_config(self, serv_id):
         """
@@ -938,12 +1012,21 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         msg = ": Triggering VNF config events"
         LOG.info("Service " + serv_id + msg)
-        self.vnfs_css(serv_id, 'configure', t.MANO_CONFIG)
+        self.vnfs_csss(serv_id, 'configure', t.MANO_CONFIG)
 
-    def vnfs_css(self, serv_id, css_type, topic):
+    def vnfs_scale(self, serv_id):
+        """
+        This method gives a trigger to the FLM for each VNF that needs
+        a FSM scale life cycle event.
+        """
+        msg = ": Triggering VNF scale events"
+        LOG.info("Service " + serv_id + msg)
+        self.vnfs_csss(serv_id, 'scale', t.MANO_SCALE)
+
+    def vnfs_csss(self, serv_id, csss_type, topic):
         """
         This generic method gives a trigger to the FLM for each VNF that needs
-        a FSM css life cycle event. Can be used for start, stop and config
+        a FSM csss life cycle event. Can be used for start, stop and config
         triggers.
         """
         functions = self.services[serv_id]['function']
@@ -952,23 +1035,23 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Counting the number of vnfs that you need a response from
         vnfs_to_resp = 0
         for vnf in functions:
-            if vnf[css_type]['trigger']:
+            if vnf[csss_type]['trigger']:
                 vnfs_to_resp = vnfs_to_resp + 1
         self.services[serv_id]['vnfs_to_resp'] = vnfs_to_resp
 
         # Actually triggering the FLM
         for vnf in functions:
-            if vnf[css_type]['trigger']:
+            if vnf[csss_type]['trigger']:
                 # Check if payload was provided
                 payload = {}
                 payload['vnf_id'] = vnf['id']
                 payload['vnfd'] = vnf['vnfd']
                 payload['serv_id'] = serv_id
-                if bool(vnf[css_type]['payload']):
-                    payload['data'] = vnf[css_type]['payload']
+                if bool(vnf[csss_type]['payload']):
+                    payload['data'] = vnf[csss_type]['payload']
                 # if not, create it
                 else:
-                    if css_type == "configure":
+                    if csss_type == "configure":
                         nsr = self.services[serv_id]['service']['nsr']
                         vnfrs = []
                         for vnf_new in functions:
@@ -982,10 +1065,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 corr_id = str(uuid.uuid4())
                 self.services[serv_id]['act_corr_id'].append(corr_id)
 
-                msg = ": Requesting " + css_type + " event of vnf " + vnf['id']
+                msg = " " + csss_type + " event requested for vnf " + vnf['id']
                 LOG.info("Service " + serv_id + msg)
 
-                self.manoconn.call_async(self.resp_vnfs_css,
+                self.manoconn.call_async(self.resp_vnfs_csss,
                                          topic,
                                          yaml.dump(payload),
                                          correlation_id=corr_id)
@@ -1765,6 +1848,20 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         This method instructs the monitoring manager to start monitoring
         """
+        if 'monitor' in self.services[serv_id]['service']['ssm'].keys():
+            LOG.info("Service " + serv_id + ": Sending descriptors to Mon SSM")
+            message = {}
+            message['nsd'] = self.services[serv_id]['service']['nsd']
+            message['nsr'] = self.services[serv_id]['service']['nsr']
+            vnfs = []
+            for vnf in self.services[serv_id]['function']:
+                vnfs.append({'vnfd': vnf['vnfd'],
+                             'id': vnf['id'],
+                             'vnfr': vnf['vnfr']})
+            message['vnfs'] = vnfs
+            message['ssm_type'] = 'monitor'
+            topic = 'generic.ssm.' + serv_id
+            self.manoconn.notify(topic, yaml.dump(message))
 
         LOG.info("Service " + serv_id + ": Setting up Monitoring Manager")
         service = self.services[serv_id]['service']

@@ -114,6 +114,9 @@ class FunctionLifecycleManager(ManoBasePlugin):
         # The topic on which stop requests are posted.
         self.manoconn.subscribe(self.function_instance_stop, t.VNF_STOP)
 
+        # The topic on which stop requests are posted.
+        self.manoconn.subscribe(self.function_instance_scale, t.VNF_SCALE)
+
         # The topic on which terminate requests are posted.
         self.manoconn.subscribe(self.function_instance_kill, t.VNF_KILL)
 
