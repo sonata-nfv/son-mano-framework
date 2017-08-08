@@ -32,21 +32,23 @@ ENV url_nsr_repository http://api.int.sonata-nfv.eu:4002/records/nsr/
 ENV url_vnfr_repository http://api.int.sonata-nfv.eu:4002/records/vnfr/
 ENV url_monitoring_server http://sp.int3.sonata-nfv.eu:8000/api/v1/
 
+RUN apt-get update && apt-get install -y gcc
+
 # add generic project files
 ADD son-mano-base /son-mano-base
 ADD utils/delayedstart.sh /delayedstart.sh
-
-# add plugin related files
-ADD plugins/${PLUGIN_BASE} /plugins/${PLUGIN_BASE}
 
 # install son-mano-base to be able to use the plugin base class etc.
 WORKDIR /son-mano-base
 RUN python setup.py install
 
+# add plugin related files
+WORKDIR /
+ADD plugins/${PLUGIN_BASE} /plugins/${PLUGIN_BASE}
+
 # install actual plugin
 WORKDIR /plugins/${PLUGIN_BASE}
 RUN python setup.py develop
-
 
 CMD ["son-mano-service-lifecycle-management"]
 
