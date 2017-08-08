@@ -88,6 +88,18 @@ if temp is None:
     temp = "http://api.int.sonata-nfv.eu:4002/records/nsr/"
 
 BASE_URL = temp.split(":")[0] + ':' + temp.split(":")[1]
+GK_PORT = '32001'
+API_VER = '/api/v2'
+PUPLIC_KEY_PATH = '/public-key'
+REG_PATH = '/micro-services'
+LOGIN_PATH = '/micro-services'
+SERVICES = '/services/'
+FUNCTIONS = '/functions/'
+
+GK_REGISTER = BASE_URL + API_VER + REG_PATH
+GK_LOGIN = BASE_URL + API_VER + LOGIN_PATH
+GK_SERVICES = BASE_URL + API_VER + SERVICES
+GK_FUNCTIONS = BASE_URL + API_VER + FUNCTIONS
 
 # REST API with GK
 GK_SERVICES_URL = BASE_URL + '/api/v2/services/'

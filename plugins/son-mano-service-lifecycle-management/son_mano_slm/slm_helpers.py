@@ -24,6 +24,9 @@ partner consortium (www.sonata-nfv.eu).
 import requests
 import uuid
 import yaml
+import json
+import base64
+from Crypto.PublicKey import RSA
 
 
 def convert_corr_id(corr_id):
@@ -224,6 +227,56 @@ def build_nsr(request_status, nsd, vnfr_ids, service_instance_id):
     return nsr
 
 
+def get_platform_public_key(url):
+    """
+    This method gets the public key from the platform
+    """
+#    try:
+    response = requests.get(url, verify=False)
+    parsed_key = json.loads(response.text)
+    parsed_key = parsed_key['items']['public-key']
+    platform_public_key = "-----BEGIN PUBLIC KEY-----\n"
+    platform_public_key += parsed_key
+    platform_public_key += "\n-----END PUBLIC KEY-----\n"
+
+    return RSA.importKey(platform_public_key).exportKey('PEM')
+
+
+def client_register(url, module_id, password):
+    """
+    This method registers the SLM as a micro-service with the GK
+    """
+
+    reg_form = {}
+    reg_form["clientId"] = module_id
+    reg_form["secret"] = password
+    reg_form["redirectUris"] = ["/auth/catalogue"]
+
+    response = requests.post(url, data=json.dumps(reg_form), verify=False)
+    return response.text
+
+
+def client_login(url, module_id, password):
+    """
+    This method gets a token for a registered user
+    """
+    login_string = module_id + ':' + password
+    cred = bytes(login_string, 'utf-8')
+    encoded_cred = base64.b64encode(cred).decode("utf-8")
+    header = {"Authorization": "Basic %s" % encoded_cred}
+
+    response = requests.get(url,
+                            headers=header,
+                            verify=False)
+
+    resp_dict = json.loads(response.text)
+
+    if 'access_token' in resp_dict.keys():
+        return resp_dict['access_token']
+    else:
+        return None
+
+
 def get_sm_from_descriptor(descr):
     """
     This method returns a list of specific managers based on
@@ -253,22 +306,27 @@ def get_sm_from_descriptor(descr):
     return sm_dict
 
 
-def getRestData(base, path, expected_code=200):
+def getRestData(base, path, expected_code=200, token=None):
     """
     This method can be used to retrieve data through a rest api.
     """
 
     url = base + path
+    header = None
+    if token is not None:
+        header = {"Authorization": "Bearer %s" % token}
+
     try:
-        get_response = requests.get(url, timeout=1.0)
+        get_response = requests.get(url,
+                                    headers=header,
+                                    timeout=5.0)
+
         content = get_response.json()
         code = get_response.status_code
 
         if (code == expected_code):
-            print("GET for " + str(path) + " succeeded: " + str(content))
             return {'error': None, "content": content}
         else:
-            print("GET returned with status_code: " + str(code))
             return{'error': code, "content": content}
     except:
         print("GET request timed out")

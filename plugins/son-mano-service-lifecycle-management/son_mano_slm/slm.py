@@ -111,6 +111,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.slm_config['old_slm_total'] = 1
         self.slm_config['tasks_other_slm'] = {}
 
+        self.publickey = None
+        self.token = None
+        self.password = '1234'
+        self.clientId = 'son-monitor'
+
         # Create the list of known other SLMs
         self.known_slms = []
 
@@ -200,7 +205,35 @@ class ServiceLifecycleManager(ManoBasePlugin):
         :return:
         """
         super(self.__class__, self).on_lifecycle_start(ch, mthd, prop, msg)
-        LOG.info("SLM started and operational")
+        LOG.info("SLM started and operational. Registering with the GK...")
+
+        counter = 0
+        while counter < 3:
+            try:
+                user = self.clientId
+                secr = self.password
+                # Get Public key
+                url = t.BASE_URL + t.API_VER + t.REG_PATH + t.PUPLIC_KEY_PATH
+                self.publickey = tools.get_platform_public_key(url)
+
+                # Register
+                response = tools.client_register(t.GK_REGISTER, user, secr)
+
+                # Login
+                self.token = tools.client_login(t.GK_LOGIN, user, secr)
+            except:
+                pass
+
+            if self.token is None:
+                LOG.info("Registration with GK failed, retrying...")
+                counter = counter + 1
+            else:
+                break
+
+        if self.token is None:
+            LOG.info("Registration with GK failed, continuing without token.")
+        else:
+            LOG.info("Registration with GK succeeded, token obtained.")
 
     def deregister(self):
         """
@@ -1607,6 +1640,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method handles a response from the SMR on the ssm termination
         call.
         """
+        # Get the serv_id of this service
+        serv_id = tools.servid_from_corrid(self.services,
+                                           prop.correlation_id)
+
         message = yaml.load(payload)
         LOG.info("Response from SMR: " + str(message))
 
@@ -2040,6 +2077,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
             LOG.info("Retrieving of NSR failed: " + code + " " + mess)
             # TODO: get out of this
 
+        # Update the token of the SLM
+        token = tools.client_login(t.GK_LOGIN, self.clientId, self.password)
+        self.token = token
+
+        # base of the ledger
         self.services[serv_id] = {}
         self.services[serv_id]['original_corr_id'] = corr_id
         self.services[serv_id]['service'] = {}
@@ -2055,9 +2097,17 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['service']['nsr'] = request['content']
         LOG.info("Service " + serv_id + ": Recreating ledger: NSR retrieved.")
 
-        # Retrieve the NSD based on the service record
-        # TODO: retrieve NSD
-        self.services[serv_id]['service']['nsd'] = None
+        # Retrieve the NSD
+        nsr = self.services[serv_id]['service']['nsr']
+        nsd_uuid = nsr['descriptor_reference']
+
+        request = tools.getRestData(t.GK_SERVICES, nsd_uuid, token=self.token)
+
+        if request['error'] is not None:
+            request_returned_with_error(request)
+            return
+
+        self.services[serv_id]['service']['nsd'] = request['content']['nsd']
         LOG.info("Service " + serv_id + ": Recreating ledger: NSD retrieved.")
 
         # Retrieve the function records based on the service record
@@ -2083,30 +2133,34 @@ class ServiceLifecycleManager(ManoBasePlugin):
             LOG.info("Service " + serv_id + msg)
 
         # Retrieve the VNFDS based on the function records
-        # TODO: retrieve VNFDs
         for vnf in self.services[serv_id]['function']:
             vnfd_id = vnf['vnfr']['descriptor_reference']
-            vnf['vnfd'] = {}
+
+            req = tools.getRestData(t.GK_FUNCTIONS, vnfd_id, token=self.token)
+
+            if req['error'] is not None:
+                request_returned_with_error(req)
+                return
+
+            vnf['vnfd'] = req['content']['vnfd']
+            LOG.info("Service " + serv_id + ": Recreate: VNFD retrieved.")
 
         LOG.info("Serice " +
                  serv_id + ": Recreating ledger: VNFDs retrieved.")
 
         # Retrieve the deployed SSMs based on the NSD
-        # TODO: this part
-#        nsd = self.services[serv_id]['service']['nsd']
-#        ssm_dict = tools.get_sm_from_descriptor(nsd)
+        nsd = self.services[serv_id]['service']['nsd']
+        ssm_dict = tools.get_sm_from_descriptor(nsd)
 
-        ssm_dict = None
         self.services[serv_id]['service']['ssm'] = ssm_dict
 
         LOG.info("Service " + serv_id + ": ssm_dict: " + str(ssm_dict))
 
         # Retrieve the deployed FSMs based on the VNFD
-        # TODO
         for vnf in self.services[serv_id]['function']:
-            # vnfd = vnf['vnfd']
-            # fsm_dict = tools.get_sm_from_descriptor(vnfd)
-            vnf['fsm'] = None
+            vnfd = vnf['vnfd']
+            fsm_dict = tools.get_sm_from_descriptor(vnfd)
+            vnf['fsm'] = fsm_dict
 
         # Create the service schedule
         self.services[serv_id]['schedule'] = []
@@ -2118,6 +2172,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['vnfs_to_resp'] = 0
         self.services[serv_id]['pause_chain'] = False
         self.services[serv_id]['error'] = None
+
         return
 
     def validate_deploy_request(self, serv_id):
