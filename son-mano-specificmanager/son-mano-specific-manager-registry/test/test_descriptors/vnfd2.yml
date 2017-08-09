@@ -49,9 +49,9 @@ function_specific_managers:
       - key: "myKey"
         value: "myValue"
 
-  - id: "sonfsmservice1function1monitoring1"
+  - id: "sonfsmservice1function1monitoring1" #"sonssmservice1task1"
     description: "Monitoring FSM exampl"
-    image: "hadik3r/sonfsmservice1function1monitoring1"
+    image: "hadik3r/sonfsmservice1function1monitoring1" #"hadik3r/securitytest"
     options:
       - key: "myKey"
         value: "myValue"
