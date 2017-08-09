@@ -70,6 +70,8 @@ IA_DECONF_WAN = 'infrastructure.service.wan.deconfigure'
 SRM_ONBOARD = 'specific.manager.registry.ssm.on-board'
 SRM_INSTANT = 'specific.manager.registry.ssm.instantiate'
 SRM_UPDATE = 'specific.manager.registry.ssm.update'
+SSM_TERM = 'specific.manager.registry.ssm.terminate'
+FSM_TERM = 'specific.manager.registry.fsm.terminate'
 
 # With Executive
 EXEC_PLACE = 'placement.executive.request'
@@ -79,7 +81,7 @@ PL_STATUS = "platform.management.plugin.status"
 
 # With monitoring
 MON_RECEIVE = "son.monitoring"
-FROM_MON_SSM = "monitor.ssm.*"
+FROM_MON_SSM = "monitor.ssm."
 
 # REST APIs
 

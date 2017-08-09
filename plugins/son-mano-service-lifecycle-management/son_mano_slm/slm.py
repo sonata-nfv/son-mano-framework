@@ -54,27 +54,6 @@ logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("plugin:slm")
 LOG.setLevel(logging.INFO)
 
-# Declaration of topics, to be removed after transition
-# To new SLM is completed
-
-# The topic to which service instantiation requests
-# of the GK are published
-GK_INSTANCE_CREATE_TOPIC = "service.instances.create"
-
-GK_INSTANCE_UPDATE = 'service.instances.update'
-
-# The topic to which service instance deploy replies
-# of the Infrastructure Adaptor are published
-INFRA_ADAPTOR_INSTANCE_DEPLOY_REPLY_TOPIC = "infrastructure.service.deploy"
-
-# The topic to which available vims are published
-INFRA_ADAPTOR_AVAILABLE_VIMS = 'infrastructure.management.compute.list'
-
-# Topics for interaction with the specific manager registry
-SRM_ONBOARD = 'specific.manager.registry.ssm.on-board'
-SRM_START = 'specific.manager.registry.ssm.instantiate'
-SRM_UPDATE = 'specific.manager.registry.ssm.update'
-
 
 class ServiceLifecycleManager(ManoBasePlugin):
     """
@@ -132,6 +111,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         self.flm_ledger = {}
 
+        self.ssm_connections = {}
+        self.ssm_user = 'specific-management'
+        self.ssm_pass = 'sonata'
+        base = 'amqp://' + self.ssm_user + ':' + self.ssm_pass
+        self.ssm_url_base = base + '@son-broker:5672/'
+
         # The following can be removed once transition is done
         self.service_requests_being_handled = {}
         self.service_updates_being_handled = {}
@@ -188,9 +173,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # The topic on which monitoring information is received
         self.manoconn.subscribe(self.monitoring_feedback, t.MON_RECEIVE)
-
-        # The topic on which monitoring information is received
-        self.manoconn.subscribe(self.from_monitoring_ssm, t.FROM_MON_SSM)
 
     def on_lifecycle_start(self, ch, mthd, prop, msg):
         """
@@ -610,6 +592,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Forward the received monitoring message to the SSM
         topic = 'generic.ssm.' + uuid
+
+        #        ssm_conn = self.ssm_connections[serv_id]
+
         self.manoconn.notify(topic, new_payload)
 
     def from_monitoring_ssm(self, ch, method, prop, payload):
@@ -721,6 +706,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
             ssm['uuid'] = response['uuid']
 
+        # # Setup broker connection with the SSMs of this service.
+        # url = self.ssm_url_base + 'ssm-' + serv_id
+        # ssm_conn = messaging.ManoBrokerRequestResponseConnection(self.name,
+        #                                                          url=url)
+
+        # self.ssm_connections[serv_id] = ssm_conn
+
         # Continue with the scheduled tasks
         self.start_next_task(serv_id)
 
@@ -775,6 +767,20 @@ class ServiceLifecycleManager(ManoBasePlugin):
             for function in self.services[serv_id]['function']:
                 vnf_id = function['id']
                 function['vim_uuid'] = mapping[vnf_id]['vim']
+
+        # Check if the placement does not contain any loops
+        vim_list = tools.get_ordered_vim_list(self.services[serv_id])
+
+        if vim_list is None:
+            # the placement contains loops
+            self.error_handling(serv_id,
+                                t.GK_CREATE,
+                                'Placement contains loops.')
+
+            return
+        else:
+            LOG.info("Service " + serv_id + ": VIM list ordered")
+            self.services[serv_id]['service']['ordered_vim_list'] = vim_list
 
         self.start_next_task(serv_id)
 
@@ -1192,6 +1198,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Contact SSM
         payload = yaml.dump(message)
+
+#        ssm_conn = self.ssm_connections[serv_id]
+
         self.manoconn.call_async(self.resp_task,
                                  topic,
                                  payload,
@@ -1238,6 +1247,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         msg = ": Placement requested from SSM: " + str(message.keys())
         LOG.info("Service " + serv_id + msg)
 
+#        ssm_conn = self.ssm_connections[serv_id]
+
         self.manoconn.call_async(self.resp_place,
                                  t.EXEC_PLACE,
                                  payload,
@@ -1273,6 +1284,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
         content['workflow'] = self.services[serv_id]["current_workflow"]
 
         topic = "generic.ssm." + str(serv_id)
+
+#        ssm_conn = self.ssm_connections[serv_id]
+
         self.manoconn.call_async(self.resp_ssm_configure,
                                  topic,
                                  yaml.dump(content),
@@ -1486,16 +1500,20 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Add egress and ingress fields
         chain['nap'] = {}
+        nap_empty = True
 
         if self.services[serv_id]['ingress'] is not None:
             chain['nap']['ingresses'] = self.services[serv_id]['ingress']
+            nap_empty = False
         if self.services[serv_id]['egress'] is not None:
             chain['nap']['egresses'] = self.services[serv_id]['egress']
+            nap_empty = False
 
         # Check if `nap` is empty
-        if not chain['nap']:
+        if nap_empty:
             chain.pop('nap')
 
+        LOG.info(str(yaml.dump(chain)))
         self.manoconn.call_async(self.IA_chain_response,
                                  t.IA_CONF_CHAIN,
                                  yaml.dump(chain),
@@ -1628,7 +1646,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         payload = yaml.dump({'NSD': nsd})
         self.manoconn.call_async(self.ssm_termination_response,
-                                 t.SRM_UPDATE,
+                                 t.SSM_TERM,
                                  payload,
                                  correlation_id=corr_id)
 
@@ -1655,7 +1673,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         for vnf in self.services[serv_id]['function']:
 
-            if vnf['fsm'] is not None:
+            if vnf['fsm']:
 
                 # If the vnf has fsms, continue with this process.
                 corr_id = str(uuid.uuid4())
@@ -1664,6 +1682,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 LOG.info("Service " + serv_id +
                          ": Setting termination flag for fsms.")
 
+                LOG.info(str(vnf['vnfd']))
                 for fsm in vnf['vnfd']['function_specific_managers']:
                     if 'options' not in fsm.keys():
                         fsm['options'] = []
@@ -1677,7 +1696,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
                 payload = yaml.dump({'VNFD': vnf['vnfd']})
                 self.manoconn.call_async(self.fsm_termination_response,
-                                         t.SRM_UPDATE,
+                                         t.FSM_TERM,
                                          payload,
                                          correlation_id=corr_id)
 
@@ -1693,6 +1712,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method handles a response from the SMR on the ssm termination
         call.
         """
+        serv_id = tools.servid_from_corrid(self.services,
+                                           prop.correlation_id)
+
         message = yaml.load(payload)
         LOG.info("Response from SMR: " + str(message))
 
@@ -1799,12 +1821,36 @@ class ServiceLifecycleManager(ManoBasePlugin):
         corr_id = str(uuid.uuid4())
         self.services[serv_id]['act_corr_id'] = corr_id
 
-        message = {'service_instance_id': serv_id}
+        message = {}
+        message['service_instance_id'] = serv_id
 
-        # self.manoconn.call_async(self.wan_configure_response,
-        #                          t.IA_CONF_WAN,
-        #                          yaml.dump(message),
-        #                          correlation_id=corr_id)
+        # Add egress and ingress fields
+        message['nap'] = {}
+        nap_empty = True
+
+        if self.services[serv_id]['ingress'] is not None:
+            message['nap']['ingresses'] = self.services[serv_id]['ingress']
+            nap_empty = False
+        if self.services[serv_id]['egress'] is not None:
+            message['nap']['egresses'] = self.services[serv_id]['egress']
+            nap_empty = False
+
+        # Check if `nap` is empty
+        if nap_empty:
+            message.pop('nap')
+
+        # Create ordered vim_list
+        ordered_vim = []
+        calc_list = self.services[serv_id]['service']['ordered_vim_list']
+        for vim in calc_list:
+            ordered_vim.append({'uuid': vim, 'order': calc_list.index(vim)})
+
+        message['vim_list'] = ordered_vim
+
+        self.manoconn.call_async(self.wan_configure_response,
+                                 t.IA_CONF_WAN,
+                                 yaml.dump(message),
+                                 correlation_id=corr_id)
 
         # # Pause the chain of tasks to wait for response
         # self.services[serv_id]['pause_chain'] = True
@@ -1885,6 +1931,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         This method instructs the monitoring manager to start monitoring
         """
+
+        # Configure the Monitoring SSM, if present
         if 'monitor' in self.services[serv_id]['service']['ssm'].keys():
             LOG.info("Service " + serv_id + ": Sending descriptors to Mon SSM")
             message = {}
@@ -1898,7 +1946,14 @@ class ServiceLifecycleManager(ManoBasePlugin):
             message['vnfs'] = vnfs
             message['ssm_type'] = 'monitor'
             topic = 'generic.ssm.' + serv_id
+
+            #        ssm_conn = self.ssm_connections[serv_id]
+
             self.manoconn.notify(topic, yaml.dump(message))
+
+            # subscribe to messages from the monitoring SSM
+            topic = t.FROM_MON_SSM + serv_id
+            self.manoconn.subscribe(self.from_monitoring_ssm, topic)
 
         LOG.info("Service " + serv_id + ": Setting up Monitoring Manager")
         service = self.services[serv_id]['service']
@@ -2053,12 +2108,14 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['egress'] = None
 
         if 'ingresses' in payload.keys():
-            if payload['ingresses'] != []:
-                self.services[serv_id]['ingress'] = payload['ingresses']
+            if payload['ingresses']:
+                if payload['ingresses'] != '[]':
+                    self.services[serv_id]['ingress'] = payload['ingresses']
 
         if 'egresses' in payload.keys():
-            if payload['egresses'] != []:
-                self.services[serv_id]['egress'] = payload['egresses']
+            if payload['egresses']:
+                if payload['ingresses'] != '[]':
+                    self.services[serv_id]['egress'] = payload['egresses']
 
         return serv_id
 
@@ -2161,6 +2218,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
             vnfd = vnf['vnfd']
             fsm_dict = tools.get_sm_from_descriptor(vnfd)
             vnf['fsm'] = fsm_dict
+            LOG.info(str(vnfd))
+            LOG.info(str(fsm_dict))
 
         # Create the service schedule
         self.services[serv_id]['schedule'] = []
@@ -2297,6 +2356,20 @@ class ServiceLifecycleManager(ManoBasePlugin):
             for function in self.services[serv_id]['function']:
                 vnf_id = function['id']
                 function['vim_uuid'] = mapping[vnf_id]['vim']
+
+        # Check if the placement does not contain any loops
+        vim_list = tools.get_ordered_vim_list(self.services[serv_id])
+
+        if vim_list is None:
+            # the placement contains loops
+            self.error_handling(serv_id,
+                                t.GK_CREATE,
+                                'Placement contains loops.')
+
+            return
+        else:
+            LOG.info("Service " + serv_id + ": VIM list ordered")
+            self.services[serv_id]['service']['ordered_vim_list'] = vim_list
 
         self.start_next_task(serv_id)
 

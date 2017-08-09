@@ -306,6 +306,75 @@ def get_sm_from_descriptor(descr):
     return sm_dict
 
 
+def get_ordered_vim_list(payload, which_graph=0):
+    """
+    This method returns a list of vims. The list is ordered in such
+    a way that any VIM is never addressed after the next one in the list
+    """
+
+    def find_vim_based_on_vnf_id(vnf_id):
+        for vnf in payload['service']['nsd']['network_functions']:
+            if vnf['vnf_id'] == vnf_id:
+                for func in payload['function']:
+                    if vnf['vnf_version'] == func['vnfd']['version']:
+                        if vnf['vnf_vendor'] == func['vnfd']['vendor']:
+                            if vnf['vnf_name'] == func['vnfd']['name']:
+                                return func['vim_uuid']
+
+        return None
+
+    nodes = {}
+
+    nsd = payload['service']['nsd']
+    forw_graph = nsd['forwarding_graphs'][which_graph]
+    paths = forw_graph['network_forwarding_paths']
+
+    for path in paths:
+        cps = path["connection_points"]
+        incoming = None
+        for cp in cps:
+            cp_ref = cp['connection_point_ref']
+            if ':' not in cp_ref:
+                pass
+            else:
+                vnf_id = cp_ref.split(':')[0]
+                vim_uuid = find_vim_based_on_vnf_id(vnf_id)
+                if vim_uuid not in nodes.keys():
+                    nodes[vim_uuid] = {"incoming": [],
+                                       "outgoing": []}
+
+                if incoming is not None:
+                    if vim_uuid != incoming:
+                        nodes[vim_uuid]["incoming"].append(incoming)
+                        nodes[incoming]["outgoing"].append(vim_uuid)
+
+                incoming = vim_uuid
+
+    vim_list = []
+    number_of_vnfs = len(payload['function'])
+    while_counter = 0
+
+    while (len(nodes.keys()) > 0):
+        # Exit if loop is infinite
+        if while_counter > number_of_vnfs:
+            vim_list = None
+            break
+        for vim_uuid in nodes.keys():
+            if len(nodes[vim_uuid]['incoming']) == 0:
+                vim_list.append(vim_uuid)
+                outgoing_list = nodes[vim_uuid]['outgoing']
+                for outg_vim in outgoing_list:
+                    nodes[outg_vim]["incoming"].remove(vim_uuid)
+        # remove vims with no incoming links
+        for vim in vim_list:
+            if vim in nodes.keys():
+                del nodes[vim]
+
+        while_counter = while_counter + 1
+
+    return vim_list
+
+
 def getRestData(base, path, expected_code=200, token=None):
     """
     This method can be used to retrieve data through a rest api.
