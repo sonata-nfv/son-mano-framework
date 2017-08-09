@@ -77,6 +77,12 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         self.flm_ledger = {}
 
+        self.fsm_connections = {}
+        self.fsm_user = 'specific-management'
+        self.fsm_pass = 'sonata'
+        base = 'amqp://' + self.fsm_user + ':' + self.fsm_pass
+        self.fsm_url_base = base + '@son-broker:5672/'
+
         # call super class (will automatically connect to
         # broker and register the FLM to the plugin manger)
         ver = "0.1-dev"
@@ -625,6 +631,13 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
             fsm['uuid'] = response['uuid']
 
+        # Setup broker connection with the SSMs of this service.
+        url = self.fsm_url_base + 'fsm-' + func_id
+        fsm_conn = messaging.ManoBrokerRequestResponseConnection(self.name,
+                                                                 url=url)
+
+        self.fsm_connections[serv_id] = fsm_conn
+
         # Continue with the scheduled tasks
         self.start_next_task(func_id)
 
@@ -817,11 +830,13 @@ class FunctionLifecycleManager(ManoBasePlugin):
         corr_id = str(uuid.uuid4())
         self.functions[func_id]['act_corr_id'] = corr_id
 
+        fsm_conn = self.fsm_connections[func_id]
+
         # Making the call
-        self.manoconn.call_async(self.fsm_task_response,
-                                 topic,
-                                 yaml.dump(payload),
-                                 correlation_id=corr_id)
+        fsm_conn.call_async(self.fsm_task_response,
+                            topic,
+                            yaml.dump(payload),
+                            correlation_id=corr_id)
 
         # Pause the chain
         self.functions[func_id]['pause_chain'] = True
@@ -860,6 +875,12 @@ class FunctionLifecycleManager(ManoBasePlugin):
         """
         self.trigger_fsm(func_id, 'stop')
 
+    def trigger_scale_fsm(self, func_id):
+        """
+        This method is called to trigger the scale FSM.
+        """
+        self.trigger_fsm(func_id, 'scale')
+
     def trigger_configure_fsm(self, func_id):
         """
         This method is called to trigger the configure FSM.
@@ -885,11 +906,13 @@ class FunctionLifecycleManager(ManoBasePlugin):
         self.functions[func_id]['act_corr_id'] = corr_id
         self.functions[func_id]['active_fsm'] = fsm_type
 
+        fsm_conn = self.fsm_connections[func_id]
+
         # Making the call
-        self.manoconn.call_async(self.fsm_generic_response,
-                                 topic,
-                                 yaml.dump(payload),
-                                 correlation_id=corr_id)
+        fsm_conn.call_async(self.fsm_generic_response,
+                            topic,
+                            yaml.dump(payload),
+                            correlation_id=corr_id)
 
         # Pause the chain
         self.functions[func_id]['pause_chain'] = True

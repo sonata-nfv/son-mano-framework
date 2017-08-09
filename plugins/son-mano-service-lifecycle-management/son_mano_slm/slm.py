@@ -593,9 +593,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Forward the received monitoring message to the SSM
         topic = 'generic.ssm.' + uuid
 
-        #        ssm_conn = self.ssm_connections[serv_id]
+        ssm_conn = self.ssm_connections[uuid]
 
-        self.manoconn.notify(topic, new_payload)
+        ssm_conn.notify(topic, new_payload)
 
     def from_monitoring_ssm(self, ch, method, prop, payload):
         """
@@ -706,12 +706,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
             ssm['uuid'] = response['uuid']
 
-        # # Setup broker connection with the SSMs of this service.
-        # url = self.ssm_url_base + 'ssm-' + serv_id
-        # ssm_conn = messaging.ManoBrokerRequestResponseConnection(self.name,
-        #                                                          url=url)
+        # Setup broker connection with the SSMs of this service.
+        url = self.ssm_url_base + 'ssm-' + serv_id
+        ssm_conn = messaging.ManoBrokerRequestResponseConnection(self.name,
+                                                                 url=url)
 
-        # self.ssm_connections[serv_id] = ssm_conn
+        self.ssm_connections[serv_id] = ssm_conn
 
         # Continue with the scheduled tasks
         self.start_next_task(serv_id)
@@ -1199,12 +1199,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Contact SSM
         payload = yaml.dump(message)
 
-#        ssm_conn = self.ssm_connections[serv_id]
+        ssm_conn = self.ssm_connections[serv_id]
 
-        self.manoconn.call_async(self.resp_task,
-                                 topic,
-                                 payload,
-                                 correlation_id=corr_id)
+        ssm_conn.call_async(self.resp_task,
+                            topic,
+                            payload,
+                            correlation_id=corr_id)
 
         LOG.info("Service " + serv_id + ": task registered on " + str(topic))
 
@@ -1247,12 +1247,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
         msg = ": Placement requested from SSM: " + str(message.keys())
         LOG.info("Service " + serv_id + msg)
 
-#        ssm_conn = self.ssm_connections[serv_id]
+        ssm_conn = self.ssm_connections[serv_id]
 
-        self.manoconn.call_async(self.resp_place,
-                                 t.EXEC_PLACE,
-                                 payload,
-                                 correlation_id=corr_id)
+        ssm_conn.call_async(self.resp_place,
+                            t.EXEC_PLACE,
+                            payload,
+                            correlation_id=corr_id)
 
         # Pause the chain of tasks to wait for response
         self.services[serv_id]['pause_chain'] = True
@@ -1285,12 +1285,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         topic = "generic.ssm." + str(serv_id)
 
-#        ssm_conn = self.ssm_connections[serv_id]
+        ssm_conn = self.ssm_connections[serv_id]
 
-        self.manoconn.call_async(self.resp_ssm_configure,
-                                 topic,
-                                 yaml.dump(content),
-                                 correlation_id=corr_id)
+        ssm_conn.call_async(self.resp_ssm_configure,
+                            topic,
+                            yaml.dump(content),
+                            correlation_id=corr_id)
 
         # Pause the chain of tasks to wait for response
         self.services[serv_id]['pause_chain'] = True
@@ -1947,9 +1947,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
             message['ssm_type'] = 'monitor'
             topic = 'generic.ssm.' + serv_id
 
-            #        ssm_conn = self.ssm_connections[serv_id]
+            ssm_conn = self.ssm_connections[serv_id]
 
-            self.manoconn.notify(topic, yaml.dump(message))
+            ssm_conn.notify(topic, yaml.dump(message))
 
             # subscribe to messages from the monitoring SSM
             topic = t.FROM_MON_SSM + serv_id
