@@ -63,7 +63,7 @@ setup(
     keywords='NFV orchestrator',
 
     packages=find_packages(),
-    install_requires=['amqpstorm', 'pytest', 'PyYAML', 'requests', 'pycrypto==2.6.1'],
+    install_requires=['amqpstorm', 'pytest', 'PyYAML', 'requests'],
     setup_requires=['pytest-runner'],
 
     # To provide executable scripts, use entry points in preference to the

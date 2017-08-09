@@ -34,12 +34,13 @@ ENV url_monitoring_server http://sp.int3.sonata-nfv.eu:8000/api/v1/
 # add generic project files
 ADD son-mano-base /son-mano-base
 
-# add plugin related files
-ADD plugins/${PLUGIN_BASE} /plugins/${PLUGIN_BASE}
-
 # install son-mano-base to be able to use the plugin base class etc.
 WORKDIR /son-mano-base
 RUN python setup.py install
+
+# add plugin related files
+WORKDIR /
+ADD plugins/${PLUGIN_BASE} /plugins/${PLUGIN_BASE}
 
 # install actual plugin
 WORKDIR /plugins/${PLUGIN_BASE}
