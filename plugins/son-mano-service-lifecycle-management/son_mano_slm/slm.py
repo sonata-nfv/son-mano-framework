@@ -35,6 +35,8 @@ import concurrent.futures as pool
 # import psutil
 
 from sonmanobase.plugin import ManoBasePlugin
+import sonmanobase.messaging as messaging
+
 try:
     from son_mano_slm import slm_helpers as tools
 except:
@@ -1953,7 +1955,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
             # subscribe to messages from the monitoring SSM
             topic = t.FROM_MON_SSM + serv_id
-            self.manoconn.subscribe(self.from_monitoring_ssm, topic)
+            ssm_conn.subscribe(self.from_monitoring_ssm, topic)
 
         LOG.info("Service " + serv_id + ": Setting up Monitoring Manager")
         service = self.services[serv_id]['service']

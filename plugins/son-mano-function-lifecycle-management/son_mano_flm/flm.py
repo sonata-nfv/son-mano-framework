@@ -35,6 +35,8 @@ import concurrent.futures as pool
 # import psutil
 
 from sonmanobase.plugin import ManoBasePlugin
+import sonmanobase.messaging as messaging
+
 try:
     from son_mano_flm import flm_helpers as tools
 except:
@@ -636,7 +638,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
         fsm_conn = messaging.ManoBrokerRequestResponseConnection(self.name,
                                                                  url=url)
 
-        self.fsm_connections[serv_id] = fsm_conn
+        self.fsm_connections[func_id] = fsm_conn
 
         # Continue with the scheduled tasks
         self.start_next_task(func_id)
