@@ -33,6 +33,7 @@ VNF_DEPLOY = "mano.function.deploy"
 VNF_START = "mano.function.start"
 VNF_CONFIG = "mano.function.configure"
 VNF_STOP = "mano.function.stop"
+VNF_SCALE = "mano.function.scale"
 VNF_KILL = "mano.function.terminate"
 
 # With infrastructure adaptor

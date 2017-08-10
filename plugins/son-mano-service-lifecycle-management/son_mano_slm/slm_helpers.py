@@ -24,6 +24,9 @@ partner consortium (www.sonata-nfv.eu).
 import requests
 import uuid
 import yaml
+import json
+import base64
+from Crypto.PublicKey import RSA
 
 
 def convert_corr_id(corr_id):
@@ -224,13 +227,63 @@ def build_nsr(request_status, nsd, vnfr_ids, service_instance_id):
     return nsr
 
 
+def get_platform_public_key(url):
+    """
+    This method gets the public key from the platform
+    """
+#    try:
+    response = requests.get(url, verify=False)
+    parsed_key = json.loads(response.text)
+    parsed_key = parsed_key['items']['public-key']
+    platform_public_key = "-----BEGIN PUBLIC KEY-----\n"
+    platform_public_key += parsed_key
+    platform_public_key += "\n-----END PUBLIC KEY-----\n"
+
+    return RSA.importKey(platform_public_key).exportKey('PEM')
+
+
+def client_register(url, module_id, password):
+    """
+    This method registers the SLM as a micro-service with the GK
+    """
+
+    reg_form = {}
+    reg_form["clientId"] = module_id
+    reg_form["secret"] = password
+    reg_form["redirectUris"] = ["/auth/catalogue"]
+
+    response = requests.post(url, data=json.dumps(reg_form), verify=False)
+    return response.text
+
+
+def client_login(url, module_id, password):
+    """
+    This method gets a token for a registered user
+    """
+    login_string = module_id + ':' + password
+    cred = bytes(login_string, 'utf-8')
+    encoded_cred = base64.b64encode(cred).decode("utf-8")
+    header = {"Authorization": "Basic %s" % encoded_cred}
+
+    response = requests.get(url,
+                            headers=header,
+                            verify=False)
+
+    resp_dict = json.loads(response.text)
+
+    if 'access_token' in resp_dict.keys():
+        return resp_dict['access_token']
+    else:
+        return None
+
+
 def get_sm_from_descriptor(descr):
     """
     This method returns a list of specific managers based on
     a received desriptor
     """
 
-    sm_dict = None
+    sm_dict = {}
 
     if 'service_specific_managers' in descr:
         sm_dict = {}
@@ -253,22 +306,96 @@ def get_sm_from_descriptor(descr):
     return sm_dict
 
 
-def getRestData(base, path, expected_code=200):
+def get_ordered_vim_list(payload, which_graph=0):
+    """
+    This method returns a list of vims. The list is ordered in such
+    a way that any VIM is never addressed after the next one in the list
+    """
+
+    def find_vim_based_on_vnf_id(vnf_id):
+        for vnf in payload['service']['nsd']['network_functions']:
+            if vnf['vnf_id'] == vnf_id:
+                for func in payload['function']:
+                    if vnf['vnf_version'] == func['vnfd']['version']:
+                        if vnf['vnf_vendor'] == func['vnfd']['vendor']:
+                            if vnf['vnf_name'] == func['vnfd']['name']:
+                                return func['vim_uuid']
+
+        return None
+
+    nodes = {}
+
+    nsd = payload['service']['nsd']
+    forw_graph = nsd['forwarding_graphs'][which_graph]
+    paths = forw_graph['network_forwarding_paths']
+
+    for path in paths:
+        cps = path["connection_points"]
+        incoming = None
+        for cp in cps:
+            cp_ref = cp['connection_point_ref']
+            if ':' not in cp_ref:
+                pass
+            else:
+                vnf_id = cp_ref.split(':')[0]
+                vim_uuid = find_vim_based_on_vnf_id(vnf_id)
+                if vim_uuid not in nodes.keys():
+                    nodes[vim_uuid] = {"incoming": [],
+                                       "outgoing": []}
+
+                if incoming is not None:
+                    if vim_uuid != incoming:
+                        nodes[vim_uuid]["incoming"].append(incoming)
+                        nodes[incoming]["outgoing"].append(vim_uuid)
+
+                incoming = vim_uuid
+
+    vim_list = []
+    number_of_vnfs = len(payload['function'])
+    while_counter = 0
+
+    while (len(nodes.keys()) > 0):
+        # Exit if loop is infinite
+        if while_counter > number_of_vnfs:
+            vim_list = None
+            break
+        for vim_uuid in nodes.keys():
+            if len(nodes[vim_uuid]['incoming']) == 0:
+                vim_list.append(vim_uuid)
+                outgoing_list = nodes[vim_uuid]['outgoing']
+                for outg_vim in outgoing_list:
+                    nodes[outg_vim]["incoming"].remove(vim_uuid)
+        # remove vims with no incoming links
+        for vim in vim_list:
+            if vim in nodes.keys():
+                del nodes[vim]
+
+        while_counter = while_counter + 1
+
+    return vim_list
+
+
+def getRestData(base, path, expected_code=200, token=None):
     """
     This method can be used to retrieve data through a rest api.
     """
 
     url = base + path
+    header = None
+    if token is not None:
+        header = {"Authorization": "Bearer %s" % token}
+
     try:
-        get_response = requests.get(url, timeout=1.0)
+        get_response = requests.get(url,
+                                    headers=header,
+                                    timeout=5.0)
+
         content = get_response.json()
         code = get_response.status_code
 
         if (code == expected_code):
-            print("GET for " + str(path) + " succeeded: " + str(content))
             return {'error': None, "content": content}
         else:
-            print("GET returned with status_code: " + str(code))
             return{'error': code, "content": content}
     except:
         print("GET request timed out")

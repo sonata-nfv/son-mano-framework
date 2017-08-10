@@ -44,6 +44,10 @@ MANO_KILL = "mano.instance.terminate"
 MANO_UPDATE = "mano.instances.update"
 MANO_DEPLOY = "mano.function.deploy"
 MANO_PLACE = "mano.service.place"
+MANO_START = "mano.function.start"
+MANO_CONFIG = "mano.function.configure"
+MANO_STOP = "mano.function.stop"
+MANO_SCALE = "mano.function.scale"
 
 # With gatekeeper or other SLM
 WC_CREATE = "*.instances.create"
@@ -66,6 +70,8 @@ IA_DECONF_WAN = 'infrastructure.service.wan.deconfigure'
 SRM_ONBOARD = 'specific.manager.registry.ssm.on-board'
 SRM_INSTANT = 'specific.manager.registry.ssm.instantiate'
 SRM_UPDATE = 'specific.manager.registry.ssm.update'
+SSM_TERM = 'specific.manager.registry.ssm.terminate'
+FSM_TERM = 'specific.manager.registry.fsm.terminate'
 
 # With Executive
 EXEC_PLACE = 'placement.executive.request'
@@ -75,6 +81,7 @@ PL_STATUS = "platform.management.plugin.status"
 
 # With monitoring
 MON_RECEIVE = "son.monitoring"
+FROM_MON_SSM = "monitor.ssm."
 
 # REST APIs
 
@@ -83,6 +90,18 @@ if temp is None:
     temp = "http://api.int.sonata-nfv.eu:4002/records/nsr/"
 
 BASE_URL = temp.split(":")[0] + ':' + temp.split(":")[1]
+GK_PORT = '32001'
+API_VER = '/api/v2'
+PUPLIC_KEY_PATH = '/public-key'
+REG_PATH = '/micro-services'
+LOGIN_PATH = '/micro-services'
+SERVICES = '/services/'
+FUNCTIONS = '/functions/'
+
+GK_REGISTER = BASE_URL + API_VER + REG_PATH
+GK_LOGIN = BASE_URL + API_VER + LOGIN_PATH
+GK_SERVICES = BASE_URL + API_VER + SERVICES
+GK_FUNCTIONS = BASE_URL + API_VER + FUNCTIONS
 
 # REST API with GK
 GK_SERVICES_URL = BASE_URL + '/api/v2/services/'

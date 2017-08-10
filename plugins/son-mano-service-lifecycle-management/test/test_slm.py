@@ -583,7 +583,7 @@ class testSlmFunctionality(unittest.TestCase):
         corr_id = str(uuid.uuid4())
         service_dict[service_id] = {'act_corr_id':corr_id,
                                     'function': [{'id': vnfr['id']}],
-                                    'vnfs_to_deploy': 1,
+                                    'vnfs_to_resp': 1,
                                     'schedule': ['get_ledger'],
                                     'original_corr_id':corr_id,
                                     'pause_chain': True,
@@ -609,7 +609,7 @@ class testSlmFunctionality(unittest.TestCase):
                          result[service_id]['function'][0]['vnfr'],
                          msg="Dictionaries are not equal SUBTEST 1")
 
-        self.assertEqual(result[service_id]['vnfs_to_deploy'],
+        self.assertEqual(result[service_id]['vnfs_to_resp'],
                          0,
                          msg="Values not equal SUBTEST 1")
 
@@ -630,7 +630,7 @@ class testSlmFunctionality(unittest.TestCase):
         corr_id = str(uuid.uuid4())
         service_dict[service_id] = {'act_corr_id':corr_id,
                                     'function': [{'id': vnfr['id']}],
-                                    'vnfs_to_deploy': 2,
+                                    'vnfs_to_resp': 2,
                                     'schedule': ['get_ledger'],
                                     'original_corr_id':corr_id,
                                     'pause_chain': True,
@@ -656,7 +656,7 @@ class testSlmFunctionality(unittest.TestCase):
                          result[service_id]['function'][0]['vnfr'],
                          msg="Dictionaries are not equal SUBTEST 2")
 
-        self.assertEqual(result[service_id]['vnfs_to_deploy'],
+        self.assertEqual(result[service_id]['vnfs_to_resp'],
                          1,
                          msg="Values not equal SUBTEST 2")
 

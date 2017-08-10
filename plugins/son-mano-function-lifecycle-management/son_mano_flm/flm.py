@@ -35,6 +35,8 @@ import concurrent.futures as pool
 # import psutil
 
 from sonmanobase.plugin import ManoBasePlugin
+import sonmanobase.messaging as messaging
+
 try:
     from son_mano_flm import flm_helpers as tools
 except:
@@ -77,6 +79,12 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         self.flm_ledger = {}
 
+        self.fsm_connections = {}
+        self.fsm_user = 'specific-management'
+        self.fsm_pass = 'sonata'
+        base = 'amqp://' + self.fsm_user + ':' + self.fsm_pass
+        self.fsm_url_base = base + '@son-broker:5672/'
+
         # call super class (will automatically connect to
         # broker and register the FLM to the plugin manger)
         ver = "0.1-dev"
@@ -113,6 +121,9 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         # The topic on which stop requests are posted.
         self.manoconn.subscribe(self.function_instance_stop, t.VNF_STOP)
+
+        # The topic on which stop requests are posted.
+        self.manoconn.subscribe(self.function_instance_scale, t.VNF_SCALE)
 
         # The topic on which terminate requests are posted.
         self.manoconn.subscribe(self.function_instance_kill, t.VNF_KILL)
@@ -261,7 +272,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
         add_schedule = []
 
         # Onboard and instantiate the FSMs, if required.
-        if self.functions[func_id]['fsm'] is not None:
+        if self.functions[func_id]['fsm']:
             add_schedule.append('onboard_fsms')
             add_schedule.append('instant_fsms')
 
@@ -296,13 +307,25 @@ class FunctionLifecycleManager(ManoBasePlugin):
         # Extract the correlation id
         corr_id = properties.correlation_id
 
-        func_id = message['id']
+        func_id = message['vnf_id']
 
         # recreate the ledger
         self.recreate_ledger(message, corr_id, func_id, t.VNF_START)
 
+        # Check if VNFD defines a start FSM, if not, no action can be taken
+        if 'start' not in self.functions[func_id]['fsm'].keys():
+            msg = ": No start FSM provided, start event ignored."
+            LOG.info("Function " + func_id + msg)
+
+            self.functions[func_id]['message'] = msg
+            self.respond_to_request(func_id)
+
+            del self.functions[func_id]
+            return
+
+        # If a start FSM is present, continu with workflow
         # add the payload for the FSM
-        self.functions[func_id]['start'] = message['fsm_content']
+        self.functions[func_id]['start'] = message['data']
 
         # Schedule the tasks that the FLM should do for this request.
         add_schedule = []
@@ -334,18 +357,29 @@ class FunctionLifecycleManager(ManoBasePlugin):
         # Extract the correlation id
         corr_id = properties.correlation_id
 
-        func_id = message['id']
+        func_id = message['vnf_id']
 
         # recreate the ledger
         self.recreate_ledger(message, corr_id, func_id, t.VNF_CONFIG)
 
+        # Check if VNFD defines a start FSM, if not, no action can be taken
+        if 'configure' not in self.functions[func_id]['fsm'].keys():
+            msg = ": No config FSM provided, config event ignored."
+            LOG.info("Function " + func_id + msg)
+
+            self.functions[func_id]['message'] = msg
+            self.respond_to_request(func_id)
+
+            del self.functions[func_id]
+            return
+
         # add the payload for the FSM
-        self.functions[func_id]['config'] = message['fsm_content']
+        self.functions[func_id]['configure'] = message['data']
 
         # Schedule the tasks that the FLM should do for this request.
         add_schedule = []
 
-        add_schedule.append("trigger_config_fsm")
+        add_schedule.append("trigger_configure_fsm")
         add_schedule.append("respond_to_request")
 
         self.functions[func_id]['schedule'].extend(add_schedule)
@@ -372,13 +406,24 @@ class FunctionLifecycleManager(ManoBasePlugin):
         # Extract the correlation id
         corr_id = properties.correlation_id
 
-        func_id = message['id']
+        func_id = message['vnf_id']
 
         # recreate the ledger
         self.recreate_ledger(message, corr_id, func_id, t.VNF_STOP)
 
+        # Check if VNFD defines a stop FSM, if not, no action can be taken
+        if 'stop' not in self.functions[func_id]['fsm'].keys():
+            msg = ": No stop FSM provided, start event ignored."
+            LOG.info("Function " + func_id + msg)
+
+            self.functions[func_id]['message'] = msg
+            self.respond_to_request(func_id)
+
+            del self.functions[func_id]
+            return
+
         # add the payload for the FSM
-        self.functions[func_id]['stop'] = message['fsm_content']
+        self.functions[func_id]['stop'] = message['data']
 
         # Schedule the tasks that the FLM should do for this request.
         add_schedule = []
@@ -389,6 +434,58 @@ class FunctionLifecycleManager(ManoBasePlugin):
         self.functions[func_id]['schedule'].extend(add_schedule)
 
         msg = ": New stop request received."
+        LOG.info("Function " + func_id + msg)
+        # Start the chain of tasks
+        self.start_next_task(func_id)
+
+        return self.functions[func_id]['schedule']
+
+    def function_instance_scale(self, ch, method, properties, payload):
+        """
+        This method starts the vnf scale workflow
+        """
+
+        # Don't trigger on self created messages
+        if self.name == properties.app_id:
+            return
+
+        LOG.info("Function instance scale request received.")
+        message = yaml.load(payload)
+
+        # Extract the correlation id
+        corr_id = properties.correlation_id
+
+        func_id = message['vnf_id']
+
+        # recreate the ledger
+        self.recreate_ledger(message, corr_id, func_id, t.VNF_SCALE)
+
+        # Check if VNFD defines a stop FSM, if not, no action can be taken
+        if 'scale' not in self.functions[func_id]['fsm'].keys():
+            msg = ": No scale FSM provided, scale event ignored."
+            LOG.info("Function " + func_id + msg)
+
+            self.functions[func_id]['message'] = msg
+            self.respond_to_request(func_id)
+
+            del self.functions[func_id]
+            return
+
+        # add the payload for the FSM
+        self.functions[func_id]['scale'] = message['data']
+
+        # Schedule the tasks that the FLM should do for this request.
+        add_schedule = []
+
+        add_schedule.append("trigger_scale_fsm")
+        # TODO: add interaction with Mistral when FSM responds (using the
+        # content of the response)
+        add_schedule.append("update_vnfr_after_scale")
+        add_schedule.append("respond_to_request")
+
+        self.functions[func_id]['schedule'].extend(add_schedule)
+
+        msg = ": New scale request received."
         LOG.info("Function " + func_id + msg)
         # Start the chain of tasks
         self.start_next_task(func_id)
@@ -440,7 +537,6 @@ class FunctionLifecycleManager(ManoBasePlugin):
         corr_id = str(uuid.uuid4())
         # Sending the vnfd to the SRM triggers it to onboard the fsms
         msg = {'VNFD': self.functions[func_id]['vnfd']}
-
         pyld = yaml.dump(msg)
         self.manoconn.call_async(self.resp_onboard,
                                  t.SRM_ONBOARD,
@@ -536,6 +632,13 @@ class FunctionLifecycleManager(ManoBasePlugin):
                 self.flm_error(func_id, t.VNF_DEPLOY, error=response['error'])
 
             fsm['uuid'] = response['uuid']
+
+        # Setup broker connection with the SSMs of this service.
+        url = self.fsm_url_base + 'fsm-' + func_id
+        fsm_conn = messaging.ManoBrokerRequestResponseConnection(self.name,
+                                                                 url=url)
+
+        self.fsm_connections[func_id] = fsm_conn
 
         # Continue with the scheduled tasks
         self.start_next_task(func_id)
@@ -636,6 +739,61 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         return
 
+    def update_vnfr_after_scale(self, func_id):
+        """
+        This method updates the vnfr after a vnf scale event
+        """
+
+        # TODO: for now, this method only updates the version
+        # number of the record. Once the mistral interaction
+        # is added, other fields of the record might need upates
+        # as well
+
+        error = None
+        vnfr = self.functions[func_id]['vnfr']
+        vnfr_id = func_id
+
+        # Updating version number
+        old_version = int(vnfr['version'])
+        cur_version = old_version + 1
+        vnfr['version'] = str(cur_version)
+
+        # Updating the record
+        vnfr["id"] = vnfr_id
+        del vnfr["uuid"]
+        del vnfr["updated_at"]
+        del vnfr["created_at"]
+
+        # Put it
+        url = t.VNFR_REPOSITORY_URL + 'vnf-instances/' + vnfr_id
+        header = {'Content-Type': 'application/json'}
+
+        LOG.info("Service " + serv_id + ": VNFR update: " + url)
+
+        try:
+            vnfr_resp = requests.put(url,
+                                     data=json.dumps(vnfr),
+                                     headers=header,
+                                     timeout=1.0)
+            vnfr_resp_json = str(vnfr_resp.json())
+
+            if (vnfr_resp.status_code == 200):
+                msg = ": VNFR update accepted for " + vnfr_id
+                LOG.info("Service " + serv_id + msg)
+            else:
+                msg = ": VNFR update not accepted: " + vnfr_resp_json
+                LOG.info("Service " + serv_id + msg)
+                error = {'http_code': vnfr_resp.status_code,
+                         'message': vnfr_resp_json}
+        except:
+            error = {'http_code': '0',
+                     'message': 'Timeout when contacting VNFR repo'}
+
+        if error is not None:
+            LOG.info("record update failed: " + str(error))
+            self.functions[func_id]["error"] = error
+            self.flm_error(func_id)
+
     def inform_slm_on_deployment(self, func_id):
         """
         In this method, the SLM is contacted to inform on the vnf
@@ -674,11 +832,13 @@ class FunctionLifecycleManager(ManoBasePlugin):
         corr_id = str(uuid.uuid4())
         self.functions[func_id]['act_corr_id'] = corr_id
 
+        fsm_conn = self.fsm_connections[func_id]
+
         # Making the call
-        self.manoconn.call_async(self.fsm_task_response,
-                                 topic,
-                                 yaml.dump(payload),
-                                 correlation_id=corr_id)
+        fsm_conn.call_async(self.fsm_task_response,
+                            topic,
+                            yaml.dump(payload),
+                            correlation_id=corr_id)
 
         # Pause the chain
         self.functions[func_id]['pause_chain'] = True
@@ -709,19 +869,25 @@ class FunctionLifecycleManager(ManoBasePlugin):
         """
         This method is called to trigger the start FSM.
         """
-        self.trigger_fsm(self, func_id, 'start')
+        self.trigger_fsm(func_id, 'start')
 
     def trigger_stop_fsm(self, func_id):
         """
         This method is called to trigger the stop FSM.
         """
-        self.trigger_fsm(self, func_id, 'stop')
+        self.trigger_fsm(func_id, 'stop')
+
+    def trigger_scale_fsm(self, func_id):
+        """
+        This method is called to trigger the scale FSM.
+        """
+        self.trigger_fsm(func_id, 'scale')
 
     def trigger_configure_fsm(self, func_id):
         """
         This method is called to trigger the configure FSM.
         """
-        self.trigger_fsm(self, func_id, 'configure')
+        self.trigger_fsm(func_id, 'configure')
 
     def trigger_fsm(self, func_id, fsm_type):
         """
@@ -730,11 +896,8 @@ class FunctionLifecycleManager(ManoBasePlugin):
         LOG.info("Triggering " + fsm_type + " FSM.")
 
         # Generating the payload for the call
-        if self.functions[func_id][fsm_type] is None:
-            payload = self.functions[func_id]['vnfr']
-        else:
-            payload = self.functions[func_id][fsm_type]
-
+        payload = {}
+        payload["content"] = self.functions[func_id][fsm_type]
         payload['fsm_type'] = fsm_type
 
         # Creating the topic
@@ -745,11 +908,13 @@ class FunctionLifecycleManager(ManoBasePlugin):
         self.functions[func_id]['act_corr_id'] = corr_id
         self.functions[func_id]['active_fsm'] = fsm_type
 
+        fsm_conn = self.fsm_connections[func_id]
+
         # Making the call
-        self.manoconn.call_async(self.fsm_generic_response,
-                                 topic,
-                                 yaml.dump(payload),
-                                 correlation_id=corr_id)
+        fsm_conn.call_async(self.fsm_generic_response,
+                            topic,
+                            yaml.dump(payload),
+                            correlation_id=corr_id)
 
         # Pause the chain
         self.functions[func_id]['pause_chain'] = True
@@ -758,10 +923,10 @@ class FunctionLifecycleManager(ManoBasePlugin):
         """
         This method handles a response to a generic FSM trigger call
         """
-        response = yaml.load(response)
+        response = yaml.load(payload)
 
         func_id = tools.funcid_from_corrid(self.functions, prop.correlation_id)
-        fsm_type = self.function[func_id]['active_fsm']
+        fsm_type = self.functions[func_id]['active_fsm']
 
         LOG.info("Response from " + fsm_type + " FSM received")
 
@@ -782,8 +947,14 @@ class FunctionLifecycleManager(ManoBasePlugin):
         """
 
         message = {}
-        message["status"] = "COMPLETED"
         message["timestamp"] = time.time()
+        message["error"] = self.functions[func_id]['error']
+        message["vnf_id"] = func_id
+
+        if self.functions[func_id]['error'] is None:
+            message["status"] = "COMPLETED"
+        else:
+            message["status"] = "FAILED"
 
         if self.functions[func_id]['message'] is not None:
             message["message"] = self.functions[func_id]['message']
@@ -849,6 +1020,12 @@ class FunctionLifecycleManager(ManoBasePlugin):
         self.functions[func_id]['stop'] = None
         self.functions[func_id]['configure'] = None
 
+        self.functions[func_id]['act_corr_id'] = None
+        self.functions[func_id]['message'] = None
+
+        # Add error field
+        self.functions[func_id]['error'] = None
+
         return func_id
 
     def recreate_ledger(self, payload, corr_id, func_id, topic):
@@ -868,8 +1045,11 @@ class FunctionLifecycleManager(ManoBasePlugin):
         vnfr = {}
         self.functions[func_id]['vnfr'] = vnfr
 
-        # TODO: add the real vnfd here
-        vnfd = {}
+        if 'vnfd' in payload.keys():
+            vnfd = payload['vnfd']
+        else:
+            # TODO: retrieve VNFD from CAT based on func_id
+            vnfd = {}
         self.functions[func_id]['vnfd'] = vnfd
 
         self.functions[func_id]['id'] = func_id
@@ -893,8 +1073,8 @@ class FunctionLifecycleManager(ManoBasePlugin):
         self.functions[func_id]['schedule'] = []
 
         # Create the FSM dict if FSMs are defined in VNFD
-#        fsm_dict = tools.get_fsm_from_vnfd(payload['vnfd'])
-#        self.functions[func_id]['fsm'] = fsm_dict
+        fsm_dict = tools.get_fsm_from_vnfd(vnfd)
+        self.functions[func_id]['fsm'] = fsm_dict
 
         # Create the chain pause and kill flag
 
@@ -905,6 +1085,11 @@ class FunctionLifecycleManager(ManoBasePlugin):
         self.functions[func_id]['start'] = None
         self.functions[func_id]['stop'] = None
         self.functions[func_id]['configure'] = None
+        self.functions[func_id]['act_corr_id'] = None
+        self.functions[func_id]['message'] = None
+
+        # Add error field
+        self.functions[func_id]['error'] = None
 
         return func_id
 
