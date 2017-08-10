@@ -586,18 +586,21 @@ class ServiceLifecycleManager(ManoBasePlugin):
         LOG.info("Monitoring message received")
         LOG.info(payload)
 
-        content = json.loads(str(payload))
+        try:
+            content = json.loads(str(payload))
 
-        content['ssm_type'] = 'monitor'
-        uuid = content['serviceID']
-        new_payload = yaml.dump(content)
+            content['ssm_type'] = 'monitor'
+            uuid = content['serviceID']
+            new_payload = yaml.dump(content)
 
-        # Forward the received monitoring message to the SSM
-        topic = 'generic.ssm.' + uuid
+            # Forward the received monitoring message to the SSM
+            topic = 'generic.ssm.' + uuid
 
-        ssm_conn = self.ssm_connections[uuid]
+            ssm_conn = self.ssm_connections[uuid]
 
-        ssm_conn.notify(topic, new_payload)
+            ssm_conn.notify(topic, new_payload)
+        except:
+            pass
 
     def from_monitoring_ssm(self, ch, method, prop, payload):
         """
