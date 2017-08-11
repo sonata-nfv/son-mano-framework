@@ -93,11 +93,13 @@ while ! nc -z localhost 27017; do
 sleep 1 && echo -n .; # waiting for mongo
 done;
 sleep 3
+
 # spin up the plugin manager
 docker run -d --name test.pluginmanager --net=test.sonata-plugins --network-alias=pluginmanager --restart on-failure \
 registry.sonata-nfv.eu:5000/pluginmanager
 # wait a bit for manager startup
 sleep 10
+
 # spin up smr container and run py.test
 docker run --name test.smr --net=test.sonata-plugins --network-alias==specificmanagerregistry \
 -v '/var/run/docker.sock:/var/run/docker.sock' \
