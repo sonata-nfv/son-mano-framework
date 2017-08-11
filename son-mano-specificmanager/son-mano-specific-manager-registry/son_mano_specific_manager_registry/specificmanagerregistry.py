@@ -35,6 +35,7 @@ import yaml
 import string
 import random
 import threading
+import os
 
 from sonmanobase.plugin import ManoBasePlugin
 from sonmanobase import messaging
@@ -48,6 +49,7 @@ logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
 
 class SpecificManagerRegistry(ManoBasePlugin):
+
     def __init__(self):
 
         self.version = 'v0.02'
@@ -61,6 +63,30 @@ class SpecificManagerRegistry(ManoBasePlugin):
 
         # register smr into the plugin manager
         super(self.__class__, self).__init__(version=self.version, description=self.description)
+
+    def __del__(self):
+        """
+        Destroy SMR instance. De-register. Disconnect.
+        :return:
+        """
+        super(self.__class__, self).__del__()
+
+    def deregister(self):
+        """
+        Send a deregister request to the plugin manager.
+        """
+        LOG.info('De-registering SMR with uuid ' + str(self.uuid))
+        message = {"uuid": self.uuid}
+        self.manoconn.notify("platform.management.plugin.deregister",
+                             yaml.dump(message))
+        os._exit(0)
+
+    def on_registration_ok(self):
+        """
+        This method is called when the SMR is registered to the plugin manager
+        """
+        super(self.__class__, self).on_registration_ok()
+        LOG.debug("Received registration ok event.")
 
 
 
@@ -164,20 +190,20 @@ class SpecificManagerRegistry(ManoBasePlugin):
         if properties.app_id != self.name:
             try:
                 message = yaml.load(message)
-                #check if the message format is correct
+
+                # check if the message format is correct
                 if 'specific_manager_id' in message:
                     LOG.debug("Registration request received for: {0}".format(message['specific_manager_id']))
+                    sm_repo_id = "{0}{1}".format(message['specific_manager_id'], message['sf_uuid'])
 
                     # check if the SM is already registered
-                    keys = self.ssm_repo.keys()
-                    if message['specific_manager_id'] in keys:
-
-                        #check if the sm is an updating version
+                    if sm_repo_id in self.ssm_repo.keys():
+                        # check if the sm is an updating version
                         if message['update_version'] == 'true':
-                            self.ssm_repo[message['specific_manager_id']]['status']= 'registered'
-                            self.ssm_repo[message['specific_manager_id']]['version'] = message['version']
-                            self.ssm_repo[message['specific_manager_id']]['description'] = message['description']
-                            result = self.ssm_repo[message['specific_manager_id']]
+                            self.ssm_repo[sm_repo_id]['status']= 'registered'
+                            self.ssm_repo[sm_repo_id]['version'] = message['version']
+                            self.ssm_repo[sm_repo_id]['description'] = message['description']
+                            result = self.ssm_repo[sm_repo_id]
                         else:
                             LOG.error("Cannot register '{0}', already exists".format(message['specific_manager_id']))
                             result = {'status': 'Failed', 'error': "Cannot register '{0}', "
@@ -193,12 +219,11 @@ class SpecificManagerRegistry(ManoBasePlugin):
                             "version": message['version'],
                             "description": message['description'],
                             "uuid": pid,
-                            "sfuuid": None,
+                            "sfuuid": message['sf_uuid'],
                             "error": None
                         }
-                        self.ssm_repo.update({message['specific_manager_id']: response})
+                        self.ssm_repo.update({sm_repo_id: response})
                         result = response
-
                 else:
                     result = {'status': 'Failed', 'error': 'Invalid registration request format'}
                     LOG.error("registration failed, invalid registration request format")
@@ -265,14 +290,16 @@ class SpecificManagerRegistry(ManoBasePlugin):
 
         # Create virtual host for the service/function to be used by SSM/FSM
         response = self.smrengine.create_vh(sm_type=sm_type, uuid=message['UUID'])
-        if response == (201, 201):
+
+        if response == (201, 201) or (0,0):
             url = "{0}/{1}-{2}".format(self.smrengine.sm_broker_host, sm_type, message['UUID'])
             connection = messaging.ManoBrokerRequestResponseConnection(app_id=self.name, url=url)
             connection.register_async_endpoint(self.on_ssm_register, topic.SSM_REGISTRATION)
             time.sleep(1)
-            LOG.info('Virtual Host: {0}-{1} has been created!'.format(sm_type, message['UUID']))
-        elif response == (0,0):
-            LOG.info('Virtual Host already exists')
+            if response == (201, 201):
+                LOG.info('Virtual Host: {0}-{1} has been created!'.format(sm_type, message['UUID']))
+            else:
+                LOG.info('Virtual Host already exists')
         else:
             v_host_error = True
         for i in range(len(message[descriptor][manager])):
@@ -280,6 +307,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
                 m_id = message[descriptor][manager][i]['id']
                 m_image = message[descriptor][manager][i]['image']
                 LOG.info('Instantiation request received for: {0}'.format(m_id))
+                sm_repo_name= "{0}{1}".format(m_id, message['UUID'])
                 try:
                     self.smrengine.start(id=m_id, image=m_image, sm_type=sm_type, uuid=message['UUID'])
                 except BaseException as error:
@@ -290,15 +318,15 @@ class SpecificManagerRegistry(ManoBasePlugin):
                     registration.daemon = True
                     registration.start()
                     registration.join()
-                    if m_id in self.ssm_repo.keys():
+                    if sm_repo_name in self.ssm_repo.keys():
                         LOG.debug('Registration & instantiation succeeded for: {0}'.format(m_id))
-                        self.ssm_repo[m_id]['status'] = 'running'
+                        self.ssm_repo[sm_repo_name]['status'] = 'running'
                         result_dict.update({m_id: {'status': 'Instantiated',
-                                             'uuid': self.ssm_repo[m_id]['uuid'], 'error': 'None'}})
+                                            'uuid': self.ssm_repo[sm_repo_name]['uuid'], 'error': 'None'}})
                     else:
                         LOG.error('Instantiation failed for: {0}, Error: Registration failed'.format(m_id))
                         result_dict.update({m_id: {'status': 'Failed', 'uuid': 'None', 'error': 'Registration failed'}})
-                        self.smrengine.rm(id=m_id, image=m_image)
+                        self.smrengine.rm(id=m_id, image=m_image, uuid= message['UUID'])
             else:
                 LOG.error('Instantiation failed for: {0}, Error: RabbitMQ virtual host creation failed'.format(m_id))
                 result_dict.update(
@@ -320,14 +348,15 @@ class SpecificManagerRegistry(ManoBasePlugin):
 
         # Create virtual host for the service/function to be used by SSM/FSM
         response = self.smrengine.create_vh(sm_type=sm_type, uuid=message['UUID'])
-        if response == (201, 201):
+        if response == (201, 201) or (0,0):
             url = "{0}/{1}-{2}".format(self.smrengine.sm_broker_host, sm_type, message['UUID'])
             connection = messaging.ManoBrokerRequestResponseConnection(app_id=self.name, url=url)
             connection.register_async_endpoint(self.on_ssm_register, topic.SSM_REGISTRATION)
             time.sleep(1)
-            LOG.info('Virtual Host: {0}-{1} has been created!'.format(sm_type, message['UUID']))
-        elif response == (0,0):
-            LOG.info('Virtual Host already exists')
+            if (201,201):
+                LOG.info('Virtual Host: {0}-{1} has been created!'.format(sm_type, message['UUID']))
+            else:
+                LOG.info('Virtual Host already exists')
         else:
             v_host_error = True
 
@@ -347,11 +376,12 @@ class SpecificManagerRegistry(ManoBasePlugin):
                         c_image = op_list[k]['value']
                         break
 
-                if c_id and c_image != None:
+                if c_id and c_image is not None:
 
                     LOG.info('Updating request received for: {0}'.format(c_id))
                     m_id = message[descriptor][manager][i]['id']
                     m_image = message[descriptor][manager][i]['image']
+                    sm_repo_name = "{0}{1}".format(m_id, message['UUID'])
 
                     # onboard the new SM
                     LOG.info('On-boarding started for : {0}'.format(m_id))
@@ -368,55 +398,60 @@ class SpecificManagerRegistry(ManoBasePlugin):
                         else:
                             LOG.info('On-boarding succeeded for: {0}'.format(m_id))
 
-                            if c_id == m_id:
+                            if c_id == m_id and self.ssm_repo[sm_repo_name]['sfuuid'] == message['UUID']:
 
                                 # instantiate the new SM
                                 LOG.info('Instantiation started for: {0}'.format(m_id))
                                 try:
                                     random_id = self.id_generator()
-                                    self.smrengine.start(id=random_id, image=m_image, sm_type=sm_type, uuid=message['UUID'])
+                                    self.smrengine.start(id=random_id, image=m_image, sm_type=sm_type,
+                                                         uuid=message['UUID'])
                                 except BaseException as error:
                                     LOG.error('Instantiation failed for: {0}, Error: {1}'.format(m_id, error))
-                                    result_dict.update({m_id: {'status': 'Failed', 'uuid': 'None', 'error': str(error)}})
+                                    result_dict.update({m_id: {'status': 'Failed', 'uuid': 'None',
+                                                               'error': str(error)}})
                                 else:
 
                                     # Check if update is successfully done.
-                                    update = threading.Thread(target=self._wait_for_update, args=[m_id])
+                                    update = threading.Thread(target=self._wait_for_update, args=[sm_repo_name])
                                     update.daemon = True
                                     update.start()
                                     update.join()
 
-                                    if self.ssm_repo[m_id]['status'] == 'registered':
+                                    if self.ssm_repo[sm_repo_name]['status'] == 'registered':
                                         LOG.debug('Registration & instantiation succeeded for: {0}'.format(m_id))
-                                        self.ssm_repo[m_id]['status'] = 'running'
+                                        self.ssm_repo[sm_repo_name]['status'] = 'running'
                                         result_dict.update({m_id: {'status': 'Updated',
-                                                                   'uuid': self.ssm_repo[m_id]['uuid'], 'error': 'None'}})
-                                        self.ssm_repo[c_id]['last_id'] = c_id
+                                                                   'uuid': self.ssm_repo[sm_repo_name]['uuid'],
+                                                                   'error': 'None'}})
 
                                         # terminate the current SM
                                         try:
-                                            self.smrengine.rm(c_id, c_image)
+                                            self.smrengine.rm(id=c_id, image=c_image, uuid=message['UUID'])
                                         except BaseException as error:
                                             LOG.error("Termination failed for: {0} , Error: {1}".format(c_id, error))
-                                            self.smrengine.rm(random_id, m_image)
+                                            self.smrengine.rm(id=random_id, image=m_image, uuid=message['UUID'])
                                             result_dict.update({m_id: {'status': 'Failed', 'error': str(error)}})
                                         else:
                                             try:
-                                                self.smrengine.rename(random_id,m_id)
+                                                self.smrengine.rename("{0}{1}".format(random_id, message['UUID']),
+                                                                      "{0}{1}".format(m_id, message['UUID']))
 
                                             except BaseException as error:
                                                 LOG.error("Rename failed for: {0} , Error: {1}".format(c_id, error))
-                                                self.smrengine.rm(random_id, m_image)
+                                                self.smrengine.rm(id=random_id, image=m_image, uuid= message['UUID'])
                                                 result_dict.update({m_id: {'status': 'Failed', 'error': str(error)}})
                                             else:
-                                                self.ssm_repo[m_id]['status'] = 'updated'
+                                                self.ssm_repo[sm_repo_name]['status'] = 'updated'
                                                 LOG.debug("Termination succeeded for: {0} (old version)".format(c_id))
                                                 LOG.debug('{0} updating succeeded'.format(m_id))
                                     else:
-                                        LOG.error("Instantiation failed for: {0}, Error: Registration failed".format(m_id))
+                                        LOG.error("Instantiation failed for: {0}, "
+                                                  "Error: Registration failed".format(m_id))
                                         result_dict.update(
-                                            {m_id: {'status': 'Failed', 'uuid': 'None', 'error': 'Registration failed'}})
-                                        self.smrengine.rm(id=m_id, image=m_image)
+                                            {m_id: {'status': 'Failed', 'uuid': 'None',
+                                                    'error': 'Registration failed'}})
+                                        self.smrengine.rm(id=m_id, image=m_image, uuid=message['UUID'])
                             else:
                                 # instantiate the new SM
                                 LOG.info('Instantiation started for: {0}'.format(m_id))
@@ -424,45 +459,45 @@ class SpecificManagerRegistry(ManoBasePlugin):
                                     self.smrengine.start(id=m_id, image=m_image, sm_type=sm_type, uuid=message['UUID'])
                                 except BaseException as error:
                                     LOG.error('Instantiation failed for: {0}, Error: {1}'.format(m_id, error))
-                                    result_dict.update({m_id: {'status': 'Failed', 'uuid': 'None', 'error': str(error)}})
+                                    result_dict.update({m_id: {'status': 'Failed',
+                                                               'uuid': 'None', 'error': str(error)}})
                                 else:
 
                                     # Check if the registration is successfully done
-                                    registration = threading.Thread(target=self._wait_for_sm_registration, args=[m_id])
+                                    registration = threading.Thread(target=self._wait_for_sm_registration,
+                                                                    args=[sm_repo_name])
                                     registration.daemon = True
                                     registration.start()
                                     registration.join()
 
-                                    if m_id in self.ssm_repo.keys():
+                                    if sm_repo_name in self.ssm_repo.keys():
                                         LOG.debug('Registration & instantiation succeeded for: {0}'.format(m_id))
-                                        self.ssm_repo[m_id]['status'] = 'running'
+                                        self.ssm_repo[sm_repo_name]['status'] = 'running'
                                         result_dict.update({m_id: {'status': 'Updated',
-                                                             'uuid': self.ssm_repo[m_id]['uuid'], 'error': 'None'}})
-                                        self.ssm_repo[c_id]['last_id'] = c_id
+                                                            'uuid': self.ssm_repo[sm_repo_name]['uuid'], 'error': 'None'}})
 
                                         # terminate the current SM
                                         try:
-                                            self.smrengine.rm(c_id, c_image)
+                                            self.smrengine.rm(id=c_id, image=c_image, uuid=message['UUID'])
                                         except BaseException as error:
                                             LOG.error("Termination failed for: {0} , Error: {1}".format(c_id, error))
-                                            self.smrengine.rm(m_id, m_image)
-                                            del self.ssm_repo[m_id]
+                                            self.smrengine.rm(id=m_id, image=m_image, uuid=message['UUID'])
+                                            del self.ssm_repo[sm_repo_name]
                                             result_dict.update({m_id: {'status': 'Failed', 'error': str(error)}})
                                         else:
                                             LOG.debug("Termination succeeded for: {0} (old version)".format(c_id))
-                                            self.ssm_repo[c_id]['status'] = 'terminated'
+                                            self.ssm_repo[sm_repo_name]['status'] = 'terminated'
                                             LOG.debug('Updating succeeded, {0} has replaced by {1}'.format(c_id, m_id))
                                     else:
                                         LOG.error("Instantiation failed for: {0}, Error: Registration failed".format(m_id))
                                         result_dict.update(
                                             {m_id: {'status': 'Failed', 'uuid': 'None', 'error': 'Registration failed'}})
-                                        self.smrengine.rm(id=m_id, image=m_image)
+                                        self.smrengine.rm(id=m_id, image=m_image, uuid=message['UUID'])
             else:
                 LOG.error('Instantiation failed for: {0}, Error: RabbitMQ virtual host creation failed'.format(m_id))
                 result_dict.update(
                     {m_id: {'status': 'Failed', 'uuid': 'None', 'error': 'RabbitMQ virtual host creation failed'}})
         return result_dict
-
 
     def terminate(self, message):
 
@@ -483,23 +518,16 @@ class SpecificManagerRegistry(ManoBasePlugin):
                     m_id = message[descriptor][manager][i]['id']
                     m_image = message[descriptor][manager][i]['image']
                     try:
-                        self.smrengine.rm(m_id,m_image)
+                        self.smrengine.rm(id=m_id,image=m_image, uuid=message['UUID'])
                     except BaseException as error:
                         LOG.error("Termination failed for: {0} , Error: {1}".format(m_id,error))
                         result_dict.update({m_id: {'status': 'Failed', 'error': str(error)}})
                     else:
                         LOG.debug("Termination succeeded for: {0}".format(m_id))
-                        self.ssm_repo[m_id]['status']= 'terminated'
+                        self.ssm_repo["{0}{1}".format(m_id, message['UUID'])]['status']= 'terminated'
                         result_dict.update({m_id: {'status': 'Terminated', 'error': 'None'}})
 
         return result_dict
-
-
-    def ssm_kill(self, id):
-        self.smrengine.stop(id)
-        self.ssm_repo['dumb']['status'] = 'killed'
-        LOG.debug('dumb kill: succeeded')
-
 
     def _wait_for_sm_registration(self, name):
         c = 0

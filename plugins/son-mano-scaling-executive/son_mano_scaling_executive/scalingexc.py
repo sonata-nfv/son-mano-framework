@@ -29,13 +29,13 @@ partner consortium (www.sonata-nfv.eu).
 This is the main module of the Scaling Executive Plugin.
 """
 import logging
-import uuid
 import yaml
+import os
 from sonmanobase.plugin import ManoBasePlugin
-
+from sonmanobase import messaging
 
 logging.basicConfig(level=logging.INFO)
-LOG = logging.getLogger("son-mano-specific-manager-registry")
+LOG = logging.getLogger("son-mano-scaling-executive")
 LOG.setLevel(logging.DEBUG)
 logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
 
@@ -47,7 +47,12 @@ class ScalingExecutive(ManoBasePlugin):
         self.version = 'v0.01'
         self.description = 'Scaling Executive Plugin'
 
-        # register smr into the plugin manager
+        if 'sm_broker_host' in os.environ:
+            self.sm_broker_host = os.environ['sm_broker_host']
+        else:
+            self.sm_broker_host = 'amqp://specific-management:sonata@son-broker:5672'
+
+        # register scaling executive in the plugin manager
         super(self.__class__, self).__init__(version=self.version, description=self.description)
 
     def declare_subscriptions(self):
@@ -56,19 +61,58 @@ class ScalingExecutive(ManoBasePlugin):
         """
         self.manoconn.subscribe(self.on_scaling_request, "scaling.executive.request")
 
+    def __del__(self):
+        """
+        Destroy Scaling Executive instance. De-register. Disconnect.
+        :return:
+        """
+        super(self.__class__, self).__del__()
+
+    def deregister(self):
+        """
+        Send a de-register request to the plugin manager.
+        """
+        LOG.info('De-registering Scaling Executive with uuid ' + str(self.uuid))
+        message = {"uuid": self.uuid}
+        self.manoconn.notify("platform.management.plugin.deregister",
+                             yaml.dump(message))
+        os._exit(0)
+
+    def on_registration_ok(self):
+        """
+        This method is called when the Scaling Executive is registered to the plugin manager
+        """
+        super(self.__class__, self).on_registration_ok()
+        LOG.debug("Received registration ok event.")
+
     def on_scaling_request(self, ch, method, properties, payload):
         if properties.app_id != self.name:
-            print ('Scaling request recieved')
+            LOG.info('Scaling request received')
             message = yaml.load(payload)
-            topic = 'scaling.fsm'+ message['uuid']
-            self.manoconn.call_async(self.on_scaling_result,topic,payload,correlation_id= properties.correlation_id)
+            req = yaml.dump(message)
+            topic = 'scaling.fsm.{0}'.format(message['uuid'])
+            url = "{0}/fsm-{1}".format(self.sm_broker_host, message['uuid'])
+            connection = messaging.ManoBrokerRequestResponseConnection(app_id=self.name, url=url)
+            connection.call_async(self.on_scaling_result,topic=topic, msg=req, correlation_id= properties.correlation_id)
+            LOG.info("Scaling request forwarded to FSM on topic: {0}".format(topic))
 
     def on_scaling_result(self, ch, method, properties, payload):
-            print ('Scaling result recieved')
+        if properties.app_id != self.name:
+            LOG.info('Scaling result received')
             message = yaml.load(payload)
             resp = yaml.dump(message)
-            self.manoconn.notify(topic= 'scaling.executive.request', msg = resp, correlation_id=properties.correlation_id)
-            print ('Scaling result sent to SLM')
+            inspect = self.inspector(resp)
+            if inspect:
+
+                self.manoconn.notify(topic= 'scaling.executive.request', msg=resp, correlation_id=properties.correlation_id)
+                LOG.info('Scaling result sent to FLM')
+
+            else:
+                LOG.info('FSM message was dropped!')
+
+    def inspector(self, message):
+        check = message
+        return True
 
 
 def main():

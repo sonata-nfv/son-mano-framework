@@ -85,7 +85,9 @@ registry.sonata-nfv.eu:5000/pluginmanager
 # wait a bit for manager startup
 sleep 10
 # spin up scaling executive container and run py.test
-docker run --net=test.sonata-plugins --network-alias=test.scalingexecutive --name test.scalingexecutive \
+docker run --name test.scalingexecutive --net=test.sonata-plugins --network-alias=test.scalingexecutive  \
+-e broker_host=amqp://guest:guest@broker:5672/%2F \
+-e sm_broker_host=amqp://specific-management:sonata@broker:5672 -e broker_man_host=http://broker:15672 \
 registry.sonata-nfv.eu:5000/scalingexecutive py.test -v
 
 echo "done. #test_son-mano-scaling-executive"

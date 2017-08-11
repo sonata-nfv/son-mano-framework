@@ -27,6 +27,7 @@ ENV PLUGIN_BASE son-mano-placement-executive
 # Configuration
 ENV broker_host amqp://guest:guest@broker:5672/%2F
 ENV broker_exchange son-kernel
+ENV sm_broker_host amqp://specific-management:sonata@son-broker:5672
 
 # add generic project files
 ADD son-mano-base /son-mano-base
