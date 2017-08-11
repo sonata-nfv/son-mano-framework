@@ -778,9 +778,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         if vim_list is None:
             # the placement contains loops
+            msg = 'Placement contains loop, improve Placement SSM.'
             self.error_handling(serv_id,
                                 t.GK_CREATE,
-                                'Placement contains loops.')
+                                msg)
 
             return
         else:
@@ -1245,6 +1246,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
                    'topology': top,
                    'uuid': serv_id,
                    'vnfds': vnfds}
+
+        message['nap'] = {}
+
+        if self.services[serv_id]['ingress'] is not None:
+            message['nap']['ingresses'] = self.services[serv_id]['ingress']
+        if self.services[serv_id]['egress'] is not None:
+            message['nap']['egresses'] = self.services[serv_id]['egress']
 
         # Contact SSM
         payload = yaml.dump(message)
@@ -2324,7 +2332,15 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         content = {'nsd': NSD,
                    'functions': functions,
-                   'topology': topology}
+                   'topology': topology,
+                   'serv_id': serv_id}
+
+        content['nap'] = {}
+
+        if self.services[serv_id]['ingress'] is not None:
+            content['nap']['ingresses'] = self.services[serv_id]['ingress']
+        if self.services[serv_id]['egress'] is not None:
+            content['nap']['egresses'] = self.services[serv_id]['egress']
 
         self.manoconn.call_async(self.resp_mapping,
                                  t.MANO_PLACE,
@@ -2366,10 +2382,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
         vim_list = tools.get_ordered_vim_list(self.services[serv_id])
 
         if vim_list is None:
+            msg = 'Placement contains loop, improve Placement Plugin'
             # the placement contains loops
             self.error_handling(serv_id,
                                 t.GK_CREATE,
-                                'Placement contains loops.')
+                                msg)
 
             return
         else:
