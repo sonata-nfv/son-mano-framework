@@ -79,15 +79,22 @@ class ManoBasePlugin(object):
         LOG.info(
             "Starting MANO Plugin: %r ..." % self.name)
         # create and initialize broker connection
-        self.manoconn = messaging.ManoBrokerRequestResponseConnection(self.name)
+        while True:
+            try:
+                self.manoconn = messaging.ManoBrokerRequestResponseConnection(self.name)
+                break
+            except:
+                time.sleep(5)
         # register subscriptions
+        LOG.info("Plugin connected to broker.")
 
         self.declare_subscriptions()
         # register to plugin manager
         if auto_register:
-            self.register()
-            if wait_for_registration:
-                self._wait_for_registration()
+            while self.uuid is None:
+                self.register()
+                if wait_for_registration:
+                    self._wait_for_registration()
         # kick-off automatic heartbeat mechanism
         self._auto_heartbeat(auto_heartbeat_rate)
         # jump to run
