@@ -101,6 +101,9 @@ sleep 10
 # spin up smr container and run py.test
 docker run --name test.smr --net=test.sonata-plugins --network-alias==specificmanagerregistry \
 -v '/var/run/docker.sock:/var/run/docker.sock' \
--e network_id=test.sonata-plugins  -e broker_man_host=http://broker:15672 -e broker_host=amqp://guest:guest@broker:5672/%2F -e sm_broker_host=amqp://specific-management:sonata@broker:5672 registry.sonata-nfv.eu:5000/specificmanagerregistry py.test -v
+-e network_id=test.sonata-plugins  -e broker_man_host=http://broker:15672 \
+-e broker_host=amqp://guest:guest@broker:5672/%2F \
+-e sm_broker_host=amqp://specific-management:sonata@broker:5672 \
+registry.sonata-nfv.eu:5000/specificmanagerregistry py.test -v
 
 echo "done. #test_plugin-son-mano-smr"
