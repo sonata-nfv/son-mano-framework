@@ -48,12 +48,12 @@ if ! [[ "$(docker inspect -f {{.State.Running}} test.pluginmanager 2> /dev/null)
 if ! [[ "$(docker inspect -f {{.State.Running}} test.smr 2> /dev/null)" == "" ]]; then docker rm -fv test.smr ; fi
 # ensure f/ssms cleanup
 if ! [[ "$(docker inspect -f {{.State.Running}} ssmexample 2> /dev/null)" == "" ]]; then docker rm -fv ssmexample ; fi
-if ! [[ "$(docker inspect -f {{.State.Running}} sonfsmservice1firewallconfiguration1 2> /dev/null)" == "" ]]; then docker rm -fv sonfsmservice1firewallconfiguration1 ; fi
-if ! [[ "$(docker inspect -f {{.State.Running}} sonfsmservice1function1dumb1 2> /dev/null)" == "" ]]; then docker rm -fv sonfsmservice1function1dumb1 ; fi
-if ! [[ "$(docker inspect -f {{.State.Running}} sonfsmservice1function1monitoring1 2> /dev/null)" == "" ]]; then docker rm -fv sonfsmservice1function1monitoring1 ; fi
-if ! [[ "$(docker inspect -f {{.State.Running}} sonfsmservice1function1updateddumb1 2> /dev/null)" == "" ]]; then docker rm -fv sonfsmservice1function1updateddumb1 ; fi
-if ! [[ "$(docker inspect -f {{.State.Running}} sonssmservice1dumb1 2> /dev/null)" == "" ]]; then docker rm -fv sonssmservice1dumb1 ; fi
-if ! [[ "$(docker inspect -f {{.State.Running}} sonssmservice1placement1 2> /dev/null)" == "" ]]; then docker rm -fv sonssmservice1placement1 ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} sonfsmservice1firewallconfiguration1754fe4fe-96c9-484d-9683-1a1e8b9a31a3 2> /dev/null)" == "" ]]; then docker rm -fv sonfsmservice1firewallconfiguration1754fe4fe-96c9-484d-9683-1a1e8b9a31a3 ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} sonfsmservice1function1dumb1c32b731f-7eea-4afd-9c60-0b0d0ea37eed 2> /dev/null)" == "" ]]; then docker rm -fv sonfsmservice1function1dumb1c32b731f-7eea-4afd-9c60-0b0d0ea37eed ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} sonfsmservice1function1monitoring1754fe4fe-96c9-484d-9683-1a1e8b9a31a3 2> /dev/null)" == "" ]]; then docker rm -fv sonfsmservice1function1monitoring1754fe4fe-96c9-484d-9683-1a1e8b9a31a3 ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} sonfsmservice1function1updateddumb1754fe4fe-96c9-484d-9683-1a1e8b9a31a3 2> /dev/null)" == "" ]]; then docker rm -fv sonfsmservice1function1updateddumb1754fe4fe-96c9-484d-9683-1a1e8b9a31a3 ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} sonssmservice1dumb1937213ae-890b-413c-a11e-45c62c4eee3f 2> /dev/null)" == "" ]]; then docker rm -fv sonssmservice1dumb1937213ae-890b-413c-a11e-45c62c4eee3f ; fi
+if ! [[ "$(docker inspect -f {{.State.Running}} sonssmservice1placement1937213ae-890b-413c-a11e-45c62c4eee3f 2> /dev/null)" == "" ]]; then docker rm -fv sonssmservice1placement1937213ae-890b-413c-a11e-45c62c4eee3f ; fi
 
 #docker rm -fv test.broker
 #docker rm -fv test.mongo
@@ -93,14 +93,20 @@ while ! nc -z localhost 27017; do
 sleep 1 && echo -n .; # waiting for mongo
 done;
 sleep 3
+
 # spin up the plugin manager
 docker run -d --name test.pluginmanager --net=test.sonata-plugins --network-alias=pluginmanager --restart on-failure \
 registry.sonata-nfv.eu:5000/pluginmanager
+
 # wait a bit for manager startup
 sleep 10
+
 # spin up smr container and run py.test
 docker run --name test.smr --net=test.sonata-plugins --network-alias==specificmanagerregistry \
 -v '/var/run/docker.sock:/var/run/docker.sock' \
--e network_id=test.sonata-plugins  -e broker_man_host=http://broker:15672 -e broker_host=amqp://guest:guest@broker:5672/%2F -e sm_broker_host=amqp://specific-management:sonata@broker:5672 registry.sonata-nfv.eu:5000/specificmanagerregistry py.test -v
+-e network_id=test.sonata-plugins  -e broker_man_host=http://broker:15672 \
+-e broker_host=amqp://guest:guest@broker:5672/%2F \
+-e sm_broker_host=amqp://specific-management:sonata@broker:5672 \
+registry.sonata-nfv.eu:5000/specificmanagerregistry py.test -v
 
 echo "done. #test_plugin-son-mano-smr"

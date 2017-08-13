@@ -245,7 +245,7 @@ class test_SMR_functionalities(unittest.TestCase):
 
                     self.event2 = True
 
-                if self.event1 and self.event2 == True:
+                if self.event1 and self.event2:
                     self.fsm_eventFinished()
 
         self.manoconn.subscribe(on_ssm_instantiation_result, 'specific.manager.registry.ssm.instantiate')
@@ -256,8 +256,8 @@ class test_SMR_functionalities(unittest.TestCase):
 
         instantiation_proc.start()
 
-        self.waitForSSMEvent(timeout=20, msg='SSM instantiation request not received.')
-        self.waitForFSMEvent(timeout=20, msg='FSM instantiation request not received.')
+        self.waitForSSMEvent(timeout=40, msg='SSM instantiation request not received.')
+        self.waitForFSMEvent(timeout=40, msg='FSM instantiation request not received.')
 
         self.wait_for_ssm_event.clear()
         self.wait_for_fsm_event.clear()
@@ -318,6 +318,9 @@ class test_SMR_functionalities(unittest.TestCase):
 
     def test_4_SMR_terminate(self):
 
+        self.event1 = False
+        self.event2 = False
+
         def on_ssm_termination_result(ch, method, properties, message):
 
             if properties.app_id == 'son-plugin.SpecificManagerRegistry':
@@ -346,24 +349,40 @@ class test_SMR_functionalities(unittest.TestCase):
 
                 result = yaml.load(message)
 
-                self.assertTrue(result['sonfsmservice1function1dumb1']['status'] == 'Terminated',
-                                msg='error in termination status field sonfsmservice1function1dumb1')
+                if list(result.keys()) == ['sonfsmservice1function1dumb1']:
 
-                self.assertTrue(result['sonfsmservice1function1dumb1']['error'] == 'None',
-                            msg='error in termination error field sonfsmservice1function1dumb1')
+                    self.assertTrue(result['sonfsmservice1function1dumb1']['status'] == 'Terminated',
+                                    msg='error in termination status field sonfsmservice1function1dumb1')
 
-                self.assertTrue(result['sonfsmservice1function1monitoring1']['status'] == 'Terminated',
-                                msg='error in termination status field sonfsmservice1function1monitoring1')
+                    self.assertTrue(result['sonfsmservice1function1dumb1']['error'] == 'None',
+                                msg='error in termination error field sonfsmservice1function1dumb1')
 
-                self.assertTrue(result['sonfsmservice1function1monitoring1']['error'] == 'None',
-                            msg='error in termination error field sonfsmservice1function1monitoring1')
+                    self.event1 = True
 
-                self.assertTrue(result['sonfsmservice1function1updateddumb1']['status'] == 'Terminated',
-                                msg='error in termination status field sonfsmservice1function1updateddumb1')
+                else:
+                    self.assertTrue(list(result.keys()) ==
+                                    ['sonfsmservice1function1monitoring1', 'sonfsmservice1function1updateddumb1'] or
+                                    list(result.keys()) ==
+                                    ['sonfsmservice1function1updateddumb1', 'sonfsmservice1function1monitoring1']
+                                    , msg='not all FSMs Termination results in vnfdt2 received')
 
-                self.assertTrue(result['sonfsmservice1function1updateddumb1']['error'] == 'None',
-                            msg='error in termination error field sonfsmservice1function1updateddumb1')
+                    self.assertTrue(result['sonfsmservice1function1monitoring1']['status'] == 'Terminated',
+                                    msg='error in termination status field sonfsmservice1function1monitoring1')
 
+                    self.assertTrue(result['sonfsmservice1function1monitoring1']['error'] == 'None',
+                                msg='error in termination error field sonfsmservice1function1monitoring1')
+
+                    self.assertTrue(result['sonfsmservice1function1updateddumb1']['status'] == 'Terminated',
+                                    msg='error in termination status field sonfsmservice1function1updateddumb1')
+
+                    self.assertTrue(result['sonfsmservice1function1updateddumb1']['error'] == 'None',
+                                msg='error in termination error field sonfsmservice1function1updateddumb1')
+
+                    self.event2 = True
+
+                self.fsm_eventFinished()
+
+            if self.event1 and self.event2:
                 self.fsm_eventFinished()
 
         self.manoconn.subscribe(on_ssm_termination_result, 'specific.manager.registry.ssm.terminate')

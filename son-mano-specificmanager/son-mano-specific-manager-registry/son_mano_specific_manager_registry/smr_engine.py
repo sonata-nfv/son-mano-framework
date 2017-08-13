@@ -136,9 +136,11 @@ class SMREngine(object):
         vh_name = '{0}-{1}'.format(sm_type,uuid)
         broker_host = "{0}/{1}".format(self.sm_broker_host, vh_name)
 
+        cn_name = "{0}{1}".format(id,uuid)
+
         container = self.dc.create_container(image=image,
                                              tty=True,
-                                             name=id,
+                                             name=cn_name,
                                              environment={'broker_host':broker_host, 'sf_uuid':uuid})
 
         networks = self.dc.networks()
@@ -160,10 +162,12 @@ class SMREngine(object):
     def stop(self, ssm_name):
         self.dc.kill(ssm_name)
 
-    def rm (self,id, image):
-        self.dc.stop(container=id)
-        self.dc.remove_container(container= id, force= True)
-        self.dc.remove_image(image= image, force= True)
+    def rm (self, id, image, uuid):
+
+        cn_name = "{0}{1}".format(id,uuid)
+        self.dc.stop(container=cn_name)
+        self.dc.remove_container(container=cn_name, force=True)
+        self.dc.remove_image(image= image, force=True)
 
     def retrieve_broker_name(self, broker):
         mid = broker.find(',')
