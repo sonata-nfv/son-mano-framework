@@ -1657,7 +1657,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         msg = ": SSM part of NSD: " + str(nsd['service_specific_managers'])
         LOG.info("Service " + serv_id + msg)
 
-        payload = yaml.dump({'NSD': nsd})
+        payload = yaml.dump({'NSD': nsd, 'UUID': serv_id})
         self.manoconn.call_async(self.ssm_termination_response,
                                  t.SSM_TERM,
                                  payload,
@@ -1707,7 +1707,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 msg = ": FSM in VNFD: " + fsm_segment
                 LOG.info("Service " + serv_id + msg)
 
-                payload = yaml.dump({'VNFD': vnf['vnfd']})
+                payload = yaml.dump({'VNFD': vnf['vnfd'], 'UUID': vnf['id']})
                 self.manoconn.call_async(self.fsm_termination_response,
                                          t.FSM_TERM,
                                          payload,
