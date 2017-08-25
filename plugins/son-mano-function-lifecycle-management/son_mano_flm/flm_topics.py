@@ -53,7 +53,7 @@ if temp is None:
 
 p = urlparse(temp)
 BASE_URL = p.scheme + "://" + p.hostname
-
+CAT_PORT = p.port
 # REST API with GK
 GK_SERVICES_URL = BASE_URL + '/api/v2/services/'
 GK_FUNCTIONS_URL = BASE_URL + '/api/v2/functions/'
