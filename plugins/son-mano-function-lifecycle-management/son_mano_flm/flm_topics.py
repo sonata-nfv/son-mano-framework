@@ -59,8 +59,8 @@ GK_SERVICES_URL = BASE_URL + '/api/v2/services/'
 GK_FUNCTIONS_URL = BASE_URL + '/api/v2/functions/'
 
 # With Repositories
-NSR_REPOSITORY_URL = BASE_URL + ":" + CAT_PORT + "/records/nsr/"
-VNFR_REPOSITORY_URL = BASE_URL + ":" + CAT_PORT + "/records/vnfr/"
+NSR_REPOSITORY_URL = BASE_URL + ":" + str(CAT_PORT) + "/records/nsr/"
+VNFR_REPOSITORY_URL = BASE_URL + ":" + str(CAT_PORT) + "/records/vnfr/"
 
 # With Monitoring Manager
 # TODO: Secure this get against failure
