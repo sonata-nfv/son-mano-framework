@@ -25,6 +25,7 @@ This is SONATA's function lifecycle management plugin
 """
 
 import os
+from urllib.parse import urlparse
 
 # List of topics that are used by the FLM for its rabbitMQ communication
 
@@ -50,15 +51,16 @@ temp = os.environ.get("url_vnfr_repository")
 if temp is None:
     temp = "http://api.int.sonata-nfv.eu:4002/records/vnfr/"
 
-BASE_URL = temp.split(":")[0] + ':' + temp.split(":")[1]
-
+p = urlparse(temp)
+BASE_URL = p.scheme + "://" + p.hostname
+CAT_PORT = p.port
 # REST API with GK
 GK_SERVICES_URL = BASE_URL + '/api/v2/services/'
 GK_FUNCTIONS_URL = BASE_URL + '/api/v2/functions/'
 
 # With Repositories
-NSR_REPOSITORY_URL = BASE_URL + ":4002/records/nsr/"
-VNFR_REPOSITORY_URL = BASE_URL + ":4002/records/vnfr/"
+NSR_REPOSITORY_URL = BASE_URL + ":" + str(CAT_PORT) + "/records/nsr/"
+VNFR_REPOSITORY_URL = BASE_URL + ":" + str(CAT_PORT) + "/records/vnfr/"
 
 # With Monitoring Manager
 # TODO: Secure this get against failure
