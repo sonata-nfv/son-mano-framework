@@ -111,9 +111,9 @@ GK_FUNCTIONS_URL = BASE_URL + '/api/v2/functions/'
 temp = os.environ.get("url_nsr_repository")
 if temp is None:
     temp = "http://son-catalogue-repos:4011/api/v2/"
-c.urlparse(temp)
+c = urlparse(temp)
 CAT_PORT = c.port
-CAT_BASE_URL = c.scheme + "://" + p.hostname + ":" + str(CAT_PORT)
+CAT_BASE_URL = c.scheme + "://" + c.hostname + ":" + str(CAT_PORT)
 
 NSR_REPOSITORY_URL = CAT_BASE_URL + "/records/nsr/"
 VNFR_REPOSITORY_URL = CAT_BASE_URL + "/records/vnfr/"
