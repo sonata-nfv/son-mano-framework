@@ -533,13 +533,15 @@ class ServiceLifecycleManager(ManoBasePlugin):
         add_schedule.append("vnfs_stop")
         add_schedule.append("terminate_service")
 
-        if self.services[serv_id]['service']['ssm']:
-            add_schedule.append("terminate_ssms")
+        if 'ssm' in self.services[serv_id]['service'].keys():
+            if self.services[serv_id]['service']['ssm']:
+                add_schedule.append("terminate_ssms")
 
         for vnf in self.services[serv_id]['function']:
-            if vnf['fsm'] is not None:
-                add_schedule.append("terminate_fsms")
-                break
+            if 'fsm' in vnf.keys():
+                if vnf['fsm'] is not None:
+                    add_schedule.append("terminate_fsms")
+                    break
 
         add_schedule.append("update_records_to_terminated")
         if orig == 'GK':
