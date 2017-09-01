@@ -1887,7 +1887,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method will deconfigure the WAN
         """
 
-	LOG.info("Service " + serv_id + ": WAN Deonfiguration")
+        LOG.info("Service " + serv_id + ": WAN Deonfiguration")
         corr_id = str(uuid.uuid4())
         self.services[serv_id]['act_corr_id'] = corr_id
 
@@ -1905,7 +1905,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method handles responses on the wan_deconfigure call
         """
 
-	# Get the serv_id of this service
+        # Get the serv_id of this service
         serv_id = tools.servid_from_corrid(self.services, prop.correlation_id)
 
         message = yaml.load(payload)
