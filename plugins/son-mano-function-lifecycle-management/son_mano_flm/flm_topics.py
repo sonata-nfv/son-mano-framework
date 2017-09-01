@@ -25,6 +25,7 @@ This is SONATA's function lifecycle management plugin
 """
 
 import os
+from urllib.parse import urlparse
 
 # List of topics that are used by the FLM for its rabbitMQ communication
 
@@ -45,20 +46,27 @@ SRM_INSTANT = 'specific.manager.registry.fsm.instantiate'
 SRM_UPDATE = 'specific.manager.registry.fsm.update'
 
 # REST APIs
-
-temp = os.environ.get("url_vnfr_repository")
+temp = os.environ.get("url_gk_api")
 if temp is None:
-    temp = "http://api.int.sonata-nfv.eu:4002/records/vnfr/"
-
-BASE_URL = temp.split(":")[0] + ':' + temp.split(":")[1]
+    temp = "http://son-gtkapi:5000/api/v2/"
+p = urlparse(temp)
+GK_PORT = p.port
+BASE_URL = p.scheme + "://" + p.hostname + ":" + str(GK_PORT)
 
 # REST API with GK
 GK_SERVICES_URL = BASE_URL + '/api/v2/services/'
 GK_FUNCTIONS_URL = BASE_URL + '/api/v2/functions/'
 
 # With Repositories
-NSR_REPOSITORY_URL = BASE_URL + ":4002/records/nsr/"
-VNFR_REPOSITORY_URL = BASE_URL + ":4002/records/vnfr/"
+temp = os.environ.get("url_vnfr_repository")
+if temp is None:
+    temp = "http://son-catalogue-repos:4011/records/vnfr/"
+c = urlparse(temp)
+CAT_PORT = c.port
+CAT_BASE_URL = c.scheme + "://" + c.hostname + ":" + str(CAT_PORT)
+
+NSR_REPOSITORY_URL = CAT_BASE_URL + "/records/nsr/"
+VNFR_REPOSITORY_URL = CAT_BASE_URL + "/records/vnfr/"
 
 # With Monitoring Manager
 # TODO: Secure this get against failure
