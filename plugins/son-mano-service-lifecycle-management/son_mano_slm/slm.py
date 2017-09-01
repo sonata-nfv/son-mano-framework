@@ -1876,10 +1876,14 @@ class ServiceLifecycleManager(ManoBasePlugin):
         serv_id = tools.servid_from_corrid(self.services, prop.correlation_id)
 
         message = yaml.load(payload)
-        self.services[serv_id]['status'] = message['status']
-        self.services[serv_id]['error'] = None
 
-        # TODO: handle negative status
+        LOG.info("Service " + serv_id + ": WAN configure request completed.")
+
+        if message['message'] != '':
+            error = message['message']
+            LOG.info('Error occured during WAN: ' + str(error))
+            self.error_handling(serv_id, t.GK_CREATE, error)
+
         self.start_next_task(serv_id)
 
     def wan_deconfigure(self, serv_id):
@@ -1899,7 +1903,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
                                  yaml.dump(message),
                                  correlation_id=corr_id)
 
-
     def wan_deconfigure_response(self, ch, method, prop, payload):
         """
         This method handles responses on the wan_deconfigure call
@@ -1909,10 +1912,14 @@ class ServiceLifecycleManager(ManoBasePlugin):
         serv_id = tools.servid_from_corrid(self.services, prop.correlation_id)
 
         message = yaml.load(payload)
-        self.services[serv_id]['status'] = message['status']
-        self.services[serv_id]['error'] = None
 
-        # TODO: handle negative status
+        LOG.info("Service " + serv_id + ": WAN deconfigure request completed.")
+
+        if message['message'] != '':
+            error = message['message']
+            LOG.info('Error occured during deconfiguring WAN: ' + str(error))
+            self.error_handling(serv_id, t.GK_KILL, error)
+
         self.start_next_task(serv_id)
 
     def stop_monitoring(self, serv_id):
