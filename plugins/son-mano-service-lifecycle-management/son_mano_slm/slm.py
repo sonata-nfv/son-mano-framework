@@ -533,15 +533,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
         add_schedule.append("vnfs_stop")
         add_schedule.append("terminate_service")
 
-        if 'ssm' in self.services[serv_id]['service'].keys():
-            if self.services[serv_id]['service']['ssm']:
-                add_schedule.append("terminate_ssms")
+        if self.services[serv_id]['service']['ssm']:
+            add_schedule.append("terminate_ssms")
 
         for vnf in self.services[serv_id]['function']:
-            if 'fsm' in vnf.keys():
-                if vnf['fsm'] is not None:
-                    add_schedule.append("terminate_fsms")
-                    break
+            if vnf['fsm'] is not None:
+                add_schedule.append("terminate_fsms")
+                break
 
         add_schedule.append("update_records_to_terminated")
         if orig == 'GK':
@@ -1868,7 +1866,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                                  correlation_id=corr_id)
 
         # # Pause the chain of tasks to wait for response
-        # self.services[serv_id]['pause_chain'] = True
+        self.services[serv_id]['pause_chain'] = True
 
     def wan_configure_response(self, ch, method, prop, payload):
         """
