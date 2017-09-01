@@ -1887,18 +1887,33 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method will deconfigure the WAN
         """
 
-        # TODO: when WIM implementation is finished
+	LOG.info("Service " + serv_id + ": WAN Deonfiguration")
+        corr_id = str(uuid.uuid4())
+        self.services[serv_id]['act_corr_id'] = corr_id
 
-        pass
+        message = {}
+        message['service_instance_id'] = serv_id
+
+        self.manoconn.call_async(self.wan_deconfigure_response,
+                                 t.IA_DECONF_WAN,
+                                 yaml.dump(message),
+                                 correlation_id=corr_id)
+
 
     def wan_deconfigure_response(self, ch, method, prop, payload):
         """
         This method handles responses on the wan_deconfigure call
         """
 
-        # TODO: when WIM implementation is finished
+	# Get the serv_id of this service
+        serv_id = tools.servid_from_corrid(self.services, prop.correlation_id)
 
-        pass
+        message = yaml.load(payload)
+        self.services[serv_id]['status'] = message['status']
+        self.services[serv_id]['error'] = None
+
+        # TODO: handle negative status
+        self.start_next_task(serv_id)
 
     def stop_monitoring(self, serv_id):
         """
