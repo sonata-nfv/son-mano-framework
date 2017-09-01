@@ -1866,7 +1866,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                                  correlation_id=corr_id)
 
         # # Pause the chain of tasks to wait for response
-        # self.services[serv_id]['pause_chain'] = True
+        self.services[serv_id]['pause_chain'] = True
 
     def wan_configure_response(self, ch, method, prop, payload):
         """
