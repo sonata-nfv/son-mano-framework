@@ -11,6 +11,8 @@ The MANO framework exposes the following workflows, through the GK, to the user:
 * Instantiate a service
 * Terminate a running service
 
+*@tsonen: isn't there also a service update? We've used in the Y1 demo, to include the SSM/FSM, remember?*
+
 The MANO framework exposes the following life cycle events to be customised/overwritten by SSMs and FSMs:
 
 * The placement of a service (Placement SSM)
@@ -26,21 +28,21 @@ More details on these processes can be found in the wiki. The overall SONATA ser
 
 ## Development
 
-SONATA's MANO framework is designed and implemented through micro services. The following micro services are currently implemented:
+SONATA's MANO framework is designed and implemented with micro-services. The following micro-services are currently implemented:
 
-1. [`son-mano-base`](https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-base): not a standalone service but a collection of base classes that are used by the other MANO plugins, also contains a message abstraction layer that encapsulates the RabbitMQ related communication code
-2. [`son-mano-pluginmanager`](https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-pluginmanager): every MANO plugin registers to this service, the PM provides a CLI to control and monitor active plugins
-3. [`plugins/son-mano-service-lifecycle-management`](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-service-lifecycle-management): main orchestration component, manages the lifecycle of the serivces
-4. [`plugins/son-mano-function-lifecycle-management`](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-function-lifecycle-management): manages the lifecycle of the individual vnfs, based on instructions from the SLM
-5. [`plugins/son-mano-placement-executive`](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-placement-executive): manages the communication between placement SSMs and the core of the MANO framework
-6. [`son-mano-specificmanager`](https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-specificmanager): manages the lifecycle of the SSMs and FSMs
-7. [`plugins/son-mano-placement`](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-placement):  provides the in-house placement algorithm, if the placement for a service needs to be calculated and there was no Placement SSM provided by the developer, this plugin is used
+1. [`son-mano-base`](https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-base): not a standalone service but a collection of base classes that are used by the other MANO plugins, also contains a message abstraction layer that encapsulates the RabbitMQ related communication code;
+2. [`son-mano-pluginmanager`](https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-pluginmanager): every MANO plugin registers to this service, the PM provides a CLI to control and monitor active plugins;
+3. [`plugins/son-mano-service-lifecycle-management`](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-service-lifecycle-management): main orchestration component, manages the lifecycle of the serivces;
+4. [`plugins/son-mano-function-lifecycle-management`](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-function-lifecycle-management): manages the lifecycle of the individual vnfs, based on instructions from the SLM;
+5. [`plugins/son-mano-placement-executive`](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-placement-executive): manages the communication between placement SSMs and the core of the MANO framework;
+6. [`son-mano-specificmanager`](https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-specificmanager): manages the lifecycle of the SSMs and FSMs;
+7. [`plugins/son-mano-placement`](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-placement):  provides the in-house placement algorithm, if the placement for a service needs to be calculated and there was no Placement SSM provided by the developer, this plugin is used;
 
 Each of these components is entirely implemented in Python.
 
 ### Building
 
-Each micro service of the framework is executed in its own Docker container. So 'building' the framework becomes building all the containers. The build steps for this are described in a `Dockerfile` that is placed in the folder of each micro service. Building the containers goes is done as follows:
+Each micro-service of the framework is executed in its own Docker container. So 'building' the framework becomes building all the containers. The build steps for this are described in a `Dockerfile` that is placed in the folder of each micro service. Building the containers goes is done as follows:
 
 
 1. `docker build -t sonatanfv/pluginmanager -f son-mano-pluginmanager/Dockerfile .`
@@ -50,6 +52,7 @@ Each micro service of the framework is executed in its own Docker container. So 
 5. `docker build -t sonatanfv/placementexecutive -f plugins/son-mano-placement-executive/Dockerfile .`
 6. `docker build -t sonatanfv/placementplugin -f plugins/son-mano-placement/Dockerfile .`
 
+*@tsonen: what about other dependencies, like RabitMQ, don't we need a `docker-compose.yml` file on top of these?*
 
 ### Dependencies
 
@@ -85,14 +88,13 @@ Contributing to the son-mano-framework is really easy. You must:
 
 ## Installation
 
-If you do not want to execute the components within a Docker container, you can also install them on a normal machine. Each micro service contains a `setup.py` file so that you can follow the standard Python installation procedure by doing:
+If you do not want to execute the components within a Docker container, you can also install them on a normal machine. Each micro-service contains a `setup.py` file so that you can follow the standard Python installation procedure by doing:
 
 ```
 python setup.py install
 ```
 
 or 
-
 
 ```
 python setup.py develop
