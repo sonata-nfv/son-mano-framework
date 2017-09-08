@@ -11,8 +11,6 @@ The MANO framework exposes the following workflows, through the GK, to the user:
 * Instantiate a service
 * Terminate a running service instance
 
-*@tsonen: isn't there also a service update? We've used in the Y1 demo, to include the SSM/FSM, remember?*
-
 The MANO framework exposes the following life cycle events to be customised/overwritten by SSMs and FSMs:
 
 * The placement of a service (Placement SSM)
@@ -51,8 +49,6 @@ Each micro-service of the framework is executed in its own Docker container. So 
 4. `docker build -t sonatanfv/specificmanagerregistry -f son-mano-specificmanager/son-mano-specific-manager-registry/Dockerfile .`
 5. `docker build -t sonatanfv/placementexecutive -f plugins/son-mano-placement-executive/Dockerfile .`
 6. `docker build -t sonatanfv/placementplugin -f plugins/son-mano-placement/Dockerfile .`
-
-*@tsonen: what about other dependencies, like RabitMQ, don't we need a `docker-compose.yml` file on top of these?*
 
 ### Dependencies
 
