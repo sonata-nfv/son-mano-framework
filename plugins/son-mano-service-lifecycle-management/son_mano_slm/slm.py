@@ -1103,7 +1103,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                             vnfrs.append(vnf_new['vnfr'])
                         data = {'nsr': nsr, 'vnfrs': vnfrs}
                     else:
-                        data = {'vnfr': vnf['vnfr']}
+                        data = {'vnfr': vnf['vnfr'], 'vnfd': vnf['vnfd']}
 
                     payload['data'] = data
 
