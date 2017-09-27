@@ -986,6 +986,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 vm_uuid = tools.generate_image_uuid(vdu, function['vnfd'])
 
                 content = {'image_uuid': vm_uuid, 'image_url': url}
+
+                if 'vm_image_md5' in vdu.keys():
+                    content['image_md5'] = vdu['vm_image_md5']
+
                 IA_mapping['vim_list'][index]['vm_images'].append(content)
 
         # Add correlation id to the ledger for future reference
