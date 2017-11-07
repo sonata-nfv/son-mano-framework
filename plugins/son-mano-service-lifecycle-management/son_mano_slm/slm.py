@@ -2391,7 +2391,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
             # The GK should be informed that the placement failed and the
             # deployment was aborted.
             LOG.info("Service " + serv_id + ": Placement not possible")
-            self.error_handling(serv_id, t.GK_CREATE, error)
             self.error_handling(serv_id,
                                 t.GK_CREATE,
                                 'Unable to perform placement.')
