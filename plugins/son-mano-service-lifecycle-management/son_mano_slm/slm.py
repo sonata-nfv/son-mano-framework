@@ -260,6 +260,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
     def error_handling(self, serv_id, topic, message):
 
+        LOG.info("Service " + serv_id + ": Error occured, killing workflow")
+        LOG.info("Service " + serv_id + ": Error: " + message)
         self.services[serv_id]['kill_chain'] = True
 
         message = {'error': message,
@@ -762,6 +764,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         error = message['error']
 
         if error is not None:
+            LOG.info("Service " + serv_id + ": Error from place: " + error)
             self.error_handling(serv_id, t.GK_CREATE, error)
 
         else:
@@ -2387,6 +2390,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         if mapping is None:
             # The GK should be informed that the placement failed and the
             # deployment was aborted.
+            LOG.info("Service " + serv_id + ": Placement not possible")
+            self.error_handling(serv_id, t.GK_CREATE, error)
             self.error_handling(serv_id,
                                 t.GK_CREATE,
                                 'Unable to perform placement.')

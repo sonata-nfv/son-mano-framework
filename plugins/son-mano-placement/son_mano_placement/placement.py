@@ -137,13 +137,14 @@ class PlacementPlugin(ManoBasePlugin):
         if prop.app_id == self.name:
             return
 
-        LOG.info("Placement request received")
         content = yaml.load(payload)
+        LOG.info("Placement request for service: " + content['serv_id'])
         topology = content['topology']
         nsd = content['nsd']
         functions = content['functions']
 
         placement = self.placement(nsd, functions, topology)
+        LOG.info("Placement calculated:" + placement)
 
         response = {'mapping': placement}
         topic = 'mano.service.place'
@@ -152,9 +153,9 @@ class PlacementPlugin(ManoBasePlugin):
                              yaml.dump(response),
                              correlation_id=prop.correlation_id)
 
-        LOG.info("Response to placement request sent")
+        LOG.info("Placement response sent for service: " + content['serv_id'])
 
-    def placement(self, NSD, functions, topology):
+    def placement(self, nsd, functions, topology):
         """
         This is the default placement algorithm that is used if the SLM
         is responsible to perform the placement
@@ -184,6 +185,7 @@ class PlacementPlugin(ManoBasePlugin):
         if len(mapping.keys()) == len(functions):
             return mapping
         else:
+            LOG.info("Placement was not possible, topology: " + topology)
             return None
 
 
