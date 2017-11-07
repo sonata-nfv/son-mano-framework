@@ -144,7 +144,7 @@ class PlacementPlugin(ManoBasePlugin):
         functions = content['functions']
 
         placement = self.placement(nsd, functions, topology)
-        LOG.info("Placement calculated:" + placement)
+        LOG.info("Placement calculated:" + str(placement))
 
         response = {'mapping': placement}
         topic = 'mano.service.place'
@@ -185,7 +185,7 @@ class PlacementPlugin(ManoBasePlugin):
         if len(mapping.keys()) == len(functions):
             return mapping
         else:
-            LOG.info("Placement was not possible, topology: " + topology)
+            LOG.info("Placement was not possible, topology: " + str(topology))
             return None
 
 

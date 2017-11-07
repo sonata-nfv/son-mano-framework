@@ -261,7 +261,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
     def error_handling(self, serv_id, topic, message):
 
         LOG.info("Service " + serv_id + ": Error occured, killing workflow")
-        LOG.info("Service " + serv_id + ": Error: " + message)
+        LOG.info("Service " + serv_id + ": Error: " + str(message))
         self.services[serv_id]['kill_chain'] = True
 
         message = {'error': message,
