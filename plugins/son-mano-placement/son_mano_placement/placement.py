@@ -160,6 +160,7 @@ class PlacementPlugin(ManoBasePlugin):
         This is the default placement algorithm that is used if the SLM
         is responsible to perform the placement
         """
+        LOG.info("Embedding started on following topology: " + str(topology))
 
         mapping = {}
 
@@ -185,7 +186,7 @@ class PlacementPlugin(ManoBasePlugin):
         if len(mapping.keys()) == len(functions):
             return mapping
         else:
-            LOG.info("Placement was not possible, topology: " + str(topology))
+            LOG.info("Placement was not possible")
             return None
 
 
