@@ -1998,8 +1998,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
         LOG.info("Service " + serv_id + ": Setting up Monitoring Manager")
         service = self.services[serv_id]['service']
         functions = self.services[serv_id]['function']
+        userdata = self.services[serv_id]['user_data']
 
-        mon_mess = tools.build_monitoring_message(service, functions)
+        mon_mess = tools.build_monitoring_message(service, functions, userdata)
 
         LOG.debug("Monitoring message created: " + yaml.dump(mon_mess))
 
@@ -2101,6 +2102,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['service']['nsd'] = payload['NSD']
         self.services[serv_id]['service']['id'] = serv_id
 
+        msg = ": NSD uuid is " + str(payload['NSD']['uuid'])
+        LOG.info("Service " + serv_id + msg)
+
         self.services[serv_id]['function'] = []
         for key in payload.keys():
             if key[:4] == 'VNFD':
@@ -2156,6 +2160,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
             if payload['egresses']:
                 if payload['ingresses'] != '[]':
                     self.services[serv_id]['egress'] = payload['egresses']
+
+        # Add user data to ledger
+        self.services[serv_id]['user_data'] = payload['user_data']
 
         return serv_id
 
