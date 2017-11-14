@@ -76,60 +76,6 @@ def generate_image_uuid(vdu, vnfd):
     return new_string
 
 
-def placement(NSD, functions, topology):
-    """
-    This is the default placement algorithm that is used if the SLM
-    is responsible to perform the placement
-    """
-
-    mapping = {}
-
-    for function in functions:
-        vnfd = function['vnfd']
-        needed_cpu = vnfd['virtual_deployment_units'][0]['resource_requirements']['cpu']['vcpus']
-        needed_mem = vnfd['virtual_deployment_units'][0]['resource_requirements']['memory']['size']
-        needed_sto = vnfd['virtual_deployment_units'][0]['resource_requirements']['storage']['size']
-
-        for vim in topology:
-            cpu_req = needed_cpu <= (vim['core_total'] - vim['core_used'])
-            mem_req = needed_mem <= (vim['memory_total'] - vim['memory_used'])
-
-            if cpu_req and mem_req:
-                mapping[function['id']] = {}
-                mapping[function['id']]['vim'] = vim['vim_uuid']
-                vim['core_used'] = vim['core_used'] + needed_cpu
-                vim['memory_used'] = vim['memory_used'] + needed_mem
-                break
-
-    # Check if all VNFs have been mapped
-    if len(mapping.keys()) == len(functions):
-        return mapping
-    else:
-        return None
-
-
-def build_resource_request(descriptors, vim):
-    """
-    This method builds a resource request message based on the needed resourcs.
-    The needed resources for a service are described in the descriptors.
-    """
-
-    needed_cpu = 0
-    needed_memory = 0
-    needed_storage = 0
-
-    memory_unit = 'GB'
-    storage_unit = 'GB'
-
-    for key in descriptors.keys():
-        if key[:4] == 'VNFD':
-            needed_cpu = needed_cpu + descriptors[key]['virtual_deployment_units'][0]['resource_requirements']['cpu']['vcpus']
-            needed_memory = needed_memory + descriptors[key]['virtual_deployment_units'][0]['resource_requirements']['memory']['size']
-            needed_storage = needed_storage + descriptors[key]['virtual_deployment_units'][0]['resource_requirements']['storage']['size']
-
-    return {'vim_uuid': vim, 'cpu': needed_cpu, 'memory': needed_memory, 'storage': needed_storage, 'memory_unit': memory_unit, 'storage_unit': storage_unit}
-
-
 def replace_old_corr_id_by_new(dictionary, old_correlation_id):
     """
     This method takes a dictionary with uuid's as keys. The method replaces a
@@ -185,7 +131,8 @@ def build_nsr(request_status, nsd, vnfr_ids, service_instance_id):
             vlink = {}
             vlink['id'] = virtual_link['id']
             vlink['connectivity_type'] = virtual_link['connectivity_type']
-            vlink['connection_points_reference'] = virtual_link['connection_points_reference']
+            cpr = virtual_link['connection_points_reference']
+            vlink['connection_points_reference'] = cpr
             nsr['virtual_links'].append(vlink)
 
     # forwarding graphs
@@ -505,7 +452,7 @@ def get_vnfd_by_reference(gk_request, vnfd_reference):
     return None
 
 
-def build_monitoring_message(service, functions):
+def build_monitoring_message(service, functions, userdata):
     """
     This method builds the message for the Monitoring Manager.
     """
@@ -513,7 +460,7 @@ def build_monitoring_message(service, functions):
     nsd = service['nsd']
     nsr = service['nsr']
 
-    def get_associated_monitoring_rule(vnfd, monitoring_parameter_name):
+    def get_associated_rule(vnfd, monitoring_parameter_name):
         """
         This method searches with monitoring rule of the VNFD is assocated to a
         monitoring parameter, identified by the provided monitoring_parameter
@@ -544,9 +491,21 @@ def build_monitoring_message(service, functions):
     service['name'] = nsd['name']
     service['description'] = nsd['description']
     service['host_id'] = None
-    # TODO add pop_id and sonata_usr_id
     service['pop_id'] = None
-    service['sonata_usr_id'] = None
+
+    customer_data = {}
+    customer_data['email'] = userdata['customer']['email']
+    customer_data['phone'] = userdata['customer']['phone']
+
+    developer_data = {}
+    developer_data['email'] = userdata['developer']['email']
+    developer_data['phone'] = userdata['developer']['phone']
+
+    service['sonata_usr'] = customer_data
+
+    # TODO: data on the developer should be added if customer allows developer
+    # to receive monitoring data
+#    service['sonata_dev'] = developer_data
 
     message['service'] = service
     message['functions'] = []
@@ -581,7 +540,7 @@ def build_monitoring_message(service, functions):
                         metric['name'] = mp['name']
                         metric['unit'] = mp['unit']
 
-                        associated_rule = get_associated_monitoring_rule(vnfd, mp['name'])
+                        associated_rule = get_associated_rule(vnfd, mp['name'])
                         if (associated_rule is not None):
                             if 'threshold' in mp.keys():
                                 metric['threshold'] = mp['threshold']
@@ -608,10 +567,10 @@ def build_monitoring_message(service, functions):
 
             # variable used to map the received notification_type to the
             # integers expected by the monitoring repo
-            notification_type_mapping = {}
-            notification_type_mapping['sms'] = 1
-            notification_type_mapping['rabbitmq_message'] = 2
-            notification_type_mapping['email'] = 3
+            notification_type = {}
+            notification_type['sms'] = 1
+            notification_type['rabbitmq_message'] = 2
+            notification_type['email'] = 3
 
             for mr in vnfd['monitoring_rules']:
                 vdu_id = mr['condition'].split(":")[0]
@@ -622,19 +581,22 @@ def build_monitoring_message(service, functions):
                         rule = {}
                         rule['name'] = mr['name']
                         rule['summary'] = ''
-                        rule['duration'] = str(mr['duration']) + mr['duration_unit']
+                        duration = str(mr['duration']) + mr['duration_unit']
+                        rule['duration'] = duration
 
                         if 'description' in mr.keys():
                             rule['description'] = mr['description']
                         else:
                             rule['description'] = ""
 
-                        rule['condition'] = host_id + ":" + mr['condition'].split(":")[1]
+                        condition = mr['condition'].split(":")[1]
+                        rule['condition'] = host_id + ":" + condition
 
                         # we add a rule for each notification type
                         for notification in mr['notification']:
                             r = rule
-                            r['notification_type'] = notification_type_mapping[notification['type']]
+                            nt = notification_type[notification['type']]
+                            r['notification_type'] = nt
                             # add rule to message
                             message['rules'].append(r)
 
