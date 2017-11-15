@@ -2522,7 +2522,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Kill the stack
         payload = json.dumps({'instance_uuid': serv_id})
-        self.manoconn.notify(t.IA_REMOVE, payload)
+        self.manoconn.notify(t.IA_REMOVE, payload, reply_to=t.IA_REMOVE)
 
         # Kill the SSMs and FSMs
         self.terminate_ssms(serv_id, require_resp=False)
