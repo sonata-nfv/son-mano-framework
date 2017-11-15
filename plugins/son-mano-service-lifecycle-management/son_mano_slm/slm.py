@@ -287,9 +287,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # If the kill field is active, the chain is killed
         if self.services[serv_id]['kill_chain']:
             LOG.info("Service " + serv_id + ": Killing running workflow")
-            # TODO: delete SSMs, already deployed fucntions, records, stop
-            # monitoring
-            # TODO: Or, jump into the kill workflow.
+
+            if (self.services[serv_id]["current_workflow"] == 'instantiation'):
+                # If the current workflow is an instantiation workflow, we need
+                # to delete the stack, the SSMs/FSMs and the generated records, if
+                # they already exist
+                self.roll_back_instantiation(serv_id)
+
             del self.services[serv_id]
             return
 
@@ -1643,7 +1647,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         self.start_next_task(serv_id)
 
-    def terminate_ssms(self, serv_id):
+    def terminate_ssms(self, serv_id, require_resp=True):
         """
         This method contacts the SMR to terminate the running ssms.
         """
@@ -1663,10 +1667,17 @@ class ServiceLifecycleManager(ManoBasePlugin):
         LOG.info("Service " + serv_id + msg)
 
         payload = yaml.dump({'NSD': nsd, 'UUID': serv_id})
-        self.manoconn.call_async(self.ssm_termination_response,
-                                 t.SSM_TERM,
-                                 payload,
-                                 correlation_id=corr_id)
+
+        if require_resp:
+            self.manoconn.call_async(self.ssm_termination_response,
+                                     t.SSM_TERM,
+                                     payload,
+                                     correlation_id=corr_id)
+
+        else:
+            self.manoconn.call_async(self.no_resp_needed,
+                                     t.SSM_TERM,
+                                     payload)
 
         # Pause the chain of tasks to wait for response
         self.services[serv_id]['pause_chain'] = True
@@ -1685,7 +1696,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         self.start_next_task(serv_id)
 
-    def terminate_fsms(self, serv_id):
+    def terminate_fsms(self, serv_id, require_resp=True):
         """
         This method contacts the SMR to terminate the running ssms.
         """
@@ -1713,17 +1724,21 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 LOG.info("Service " + serv_id + msg)
 
                 payload = yaml.dump({'VNFD': vnf['vnfd'], 'UUID': vnf['id']})
-                self.manoconn.call_async(self.fsm_termination_response,
-                                         t.FSM_TERM,
-                                         payload,
-                                         correlation_id=corr_id)
 
-                vnf['fsm'] = None
+                if require_resp:
+                    self.manoconn.call_async(self.fsm_termination_response,
+                                             t.FSM_TERM,
+                                             payload,
+                                             correlation_id=corr_id)
 
-                # Pause the chain of tasks to wait for response
-                self.services[serv_id]['pause_chain'] = True
+                else:
+                    self.manoconn.call_async(self.no_resp_needed,
+                                             t.FSM_TERM,
+                                             payload)
 
-                break
+        if require_resp:
+            # Pause the chain of tasks to wait for response
+            self.services[serv_id]['pause_chain'] = True
 
     def fsm_termination_response(self, ch, method, prop, payload):
         """
@@ -1737,6 +1752,14 @@ class ServiceLifecycleManager(ManoBasePlugin):
         LOG.info("Response from SMR: " + str(message))
 
         self.start_next_task(serv_id)
+
+    def no_resp_needed(self, ch, method, prop, payload):
+        """
+        Dummy response method when other component will send a response, but
+        SLM does not need it
+        """
+
+        pass
 
     def update_records_to_terminated(self, serv_id):
         """
@@ -1998,8 +2021,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
         LOG.info("Service " + serv_id + ": Setting up Monitoring Manager")
         service = self.services[serv_id]['service']
         functions = self.services[serv_id]['function']
+        userdata = self.services[serv_id]['user_data']
 
-        mon_mess = tools.build_monitoring_message(service, functions)
+        mon_mess = tools.build_monitoring_message(service, functions, userdata)
 
         LOG.debug("Monitoring message created: " + yaml.dump(mon_mess))
 
@@ -2101,6 +2125,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['service']['nsd'] = payload['NSD']
         self.services[serv_id]['service']['id'] = serv_id
 
+        msg = ": NSD uuid is " + str(payload['NSD']['uuid'])
+        LOG.info("Service " + serv_id + msg)
+
         self.services[serv_id]['function'] = []
         for key in payload.keys():
             if key[:4] == 'VNFD':
@@ -2156,6 +2183,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
             if payload['egresses']:
                 if payload['ingresses'] != '[]':
                     self.services[serv_id]['egress'] = payload['egresses']
+
+        # Add user data to ledger
+        self.services[serv_id]['user_data'] = payload['user_data']
 
         return serv_id
 
@@ -2391,7 +2421,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
             # The GK should be informed that the placement failed and the
             # deployment was aborted.
             LOG.info("Service " + serv_id + ": Placement not possible")
-            self.error_handling(serv_id, t.GK_CREATE, error)
             self.error_handling(serv_id,
                                 t.GK_CREATE,
                                 'Unable to perform placement.')
@@ -2482,6 +2511,24 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
             if down:
                 self.slm_down()
+
+    def roll_back_instantiation(self, serv_id):
+        """
+        This method tries to roll back the instantiation workflow if an error
+        occured. It will send messages to the SMR and the IA to remove deployed
+        SSMs, FSMs and stacks. It will instruct the Repositories to delete the
+        records.
+        """
+
+        # Kill the stack
+        payload = json.dumps({'instance_uuid': serv_id})
+        self.manoconn.notify(t.IA_REMOVE, payload, reply_to=t.IA_REMOVE)
+
+        # Kill the SSMs and FSMs
+        self.terminate_ssms(serv_id, require_resp=False)
+        self.terminate_fsms(serv_id, require_resp=False)
+
+        # TODO: Delete the records
 
 
 def main():

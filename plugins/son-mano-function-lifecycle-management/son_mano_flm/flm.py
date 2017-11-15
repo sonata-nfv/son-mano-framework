@@ -629,7 +629,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
             else:
                 msg = ": FSM instantiation failed: " + response['error']
                 LOG.info("Function " + func_id + msg)
-                self.flm_error(func_id, t.VNF_DEPLOY, error=response['error'])
+                self.flm_error(func_id, error=response['error'])
 
             fsm['uuid'] = response['uuid']
 
