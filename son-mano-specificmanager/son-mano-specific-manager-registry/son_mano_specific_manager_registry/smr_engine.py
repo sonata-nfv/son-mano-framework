@@ -165,6 +165,7 @@ class SMREngine(object):
     def rm (self, id, image, uuid):
 
         cn_name = "{0}{1}".format(id,uuid)
+        LOG.error("{0} Logs: {1}".format(id,self.dc.logs(container=cn_name)))
         self.dc.stop(container=cn_name)
         self.dc.remove_container(container=cn_name, force=True)
         self.dc.remove_image(image= image, force=True)
