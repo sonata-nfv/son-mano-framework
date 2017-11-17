@@ -338,6 +338,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
 
         return result_dict
 
+
     def update(self, message):
 
         descriptor = None; manager = None; result_dict = {}; sm_type = 'ssm'; v_host_error = False
