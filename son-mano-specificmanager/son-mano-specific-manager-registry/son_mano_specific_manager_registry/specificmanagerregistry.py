@@ -306,10 +306,14 @@ class SpecificManagerRegistry(ManoBasePlugin):
             if not v_host_error:
                 m_id = message[descriptor][manager][i]['id']
                 m_image = message[descriptor][manager][i]['image']
+                if 'private_key' in message:
+                    p_key = message['private_key']
+                else:
+                    p_key = None
                 LOG.info('Instantiation request received for: {0}'.format(m_id))
                 sm_repo_name= "{0}{1}".format(m_id, message['UUID'])
                 try:
-                    self.smrengine.start(id=m_id, image=m_image, sm_type=sm_type, uuid=message['UUID'])
+                    self.smrengine.start(id=m_id, image=m_image, sm_type=sm_type, uuid=message['UUID'], p_key= p_key)
                 except BaseException as error:
                     LOG.error('Instantiation failed for: {0}, Error: {1}'.format(m_id, error))
                     result_dict.update({m_id: {'status': 'Failed', 'uuid': 'None', 'error': str(error)}})
@@ -402,10 +406,14 @@ class SpecificManagerRegistry(ManoBasePlugin):
 
                                 # instantiate the new SM
                                 LOG.info('Instantiation started for: {0}'.format(m_id))
+                                if 'private_key' in message:
+                                    p_key = message['private_key']
+                                else:
+                                    p_key = None
                                 try:
                                     random_id = self.id_generator()
                                     self.smrengine.start(id=random_id, image=m_image, sm_type=sm_type,
-                                                         uuid=message['UUID'])
+                                                         uuid=message['UUID'], p_key= p_key)
                                 except BaseException as error:
                                     LOG.error('Instantiation failed for: {0}, Error: {1}'.format(m_id, error))
                                     result_dict.update({m_id: {'status': 'Failed', 'uuid': 'None',
@@ -455,8 +463,12 @@ class SpecificManagerRegistry(ManoBasePlugin):
                             else:
                                 # instantiate the new SM
                                 LOG.info('Instantiation started for: {0}'.format(m_id))
+                                if 'private_key' in message:
+                                    p_key = message['private_key']
+                                else:
+                                    p_key = None
                                 try:
-                                    self.smrengine.start(id=m_id, image=m_image, sm_type=sm_type, uuid=message['UUID'])
+                                    self.smrengine.start(id=m_id, image=m_image, sm_type=sm_type, uuid=message['UUID'], p_key= p_key)
                                 except BaseException as error:
                                     LOG.error('Instantiation failed for: {0}, Error: {1}'.format(m_id, error))
                                     result_dict.update({m_id: {'status': 'Failed',
