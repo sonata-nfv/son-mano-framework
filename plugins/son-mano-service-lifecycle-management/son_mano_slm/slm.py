@@ -1032,6 +1032,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
             message['id'] = function['id']
             message['vim_uuid'] = function['vim_uuid']
             message['serv_id'] = serv_id
+            message['public_key'] = self.services[serv_id]['public_key']
+            message['private_key'] = self.services[serv_id]['private_key']
 
             msg = ": Requesting the deployment of vnf " + function['id']
             LOG.info("Service " + serv_id + msg)
@@ -1651,36 +1653,38 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         This method contacts the SMR to terminate the running ssms.
         """
-        corr_id = str(uuid.uuid4())
-        self.services[serv_id]['act_corr_id'] = corr_id
 
-        LOG.info("Service " + serv_id + ": Setting termination flag for ssms.")
+        if self.services[serv_id]['service']['ssm']:
+            corr_id = str(uuid.uuid4())
+            self.services[serv_id]['act_corr_id'] = corr_id
 
-        nsd = self.services[serv_id]['service']['nsd']
+            LOG.info("Service " + serv_id + ": Setting kill flag for ssms.")
 
-        for ssm in nsd['service_specific_managers']:
-            if 'options' not in ssm.keys():
-                ssm['options'] = []
-            ssm['options'].append({'key': 'termination', 'value': 'true'})
+            nsd = self.services[serv_id]['service']['nsd']
 
-        msg = ": SSM part of NSD: " + str(nsd['service_specific_managers'])
-        LOG.info("Service " + serv_id + msg)
+            for ssm in nsd['service_specific_managers']:
+                if 'options' not in ssm.keys():
+                    ssm['options'] = []
+                ssm['options'].append({'key': 'termination', 'value': 'true'})
 
-        payload = yaml.dump({'NSD': nsd, 'UUID': serv_id})
+            msg = ": SSM part of NSD: " + str(nsd['service_specific_managers'])
+            LOG.info("Service " + serv_id + msg)
 
-        if require_resp:
-            self.manoconn.call_async(self.ssm_termination_response,
-                                     t.SSM_TERM,
-                                     payload,
-                                     correlation_id=corr_id)
+            payload = yaml.dump({'NSD': nsd, 'UUID': serv_id})
 
-        else:
-            self.manoconn.call_async(self.no_resp_needed,
-                                     t.SSM_TERM,
-                                     payload)
+            if require_resp:
+                self.manoconn.call_async(self.ssm_termination_response,
+                                         t.SSM_TERM,
+                                         payload,
+                                         correlation_id=corr_id)
 
-        # Pause the chain of tasks to wait for response
-        self.services[serv_id]['pause_chain'] = True
+                # Pause the chain of tasks to wait for response
+                self.services[serv_id]['pause_chain'] = True
+
+            else:
+                self.manoconn.call_async(self.no_resp_needed,
+                                         t.SSM_TERM,
+                                         payload)
 
     def ssm_termination_response(self, ch, method, prop, payload):
         """
@@ -1725,20 +1729,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
                 payload = yaml.dump({'VNFD': vnf['vnfd'], 'UUID': vnf['id']})
 
-                if require_resp:
-                    self.manoconn.call_async(self.fsm_termination_response,
-                                             t.FSM_TERM,
-                                             payload,
-                                             correlation_id=corr_id)
-
-                else:
-                    self.manoconn.call_async(self.no_resp_needed,
-                                             t.FSM_TERM,
-                                             payload)
-
-        if require_resp:
-            # Pause the chain of tasks to wait for response
-            self.services[serv_id]['pause_chain'] = True
+                self.manoconn.call_async(self.no_resp_needed,
+                                         t.FSM_TERM,
+                                         payload)
 
     def fsm_termination_response(self, ch, method, prop, payload):
         """
@@ -2187,6 +2180,17 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Add user data to ledger
         self.services[serv_id]['user_data'] = payload['user_data']
 
+        # Add keys to ledger
+        try:
+            keys = payload['user_data']['customer']['keys']
+            self.services[serv_id]['public_key'] = keys['public']
+            self.services[serv_id]['private_key'] = keys['private']
+        except:
+            msg = ": extracting keys failed " + str(payload['user_data'])
+            LOG.info("Service " + serv_id + msg)
+            self.services[serv_id]['public_key'] = None
+            self.services[serv_id]['private_key'] = None
+
         return serv_id
 
     def recreate_ledger(self, corr_id, serv_id):
@@ -2521,11 +2525,16 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
 
         # Kill the stack
+        corr_id = str(uuid.uuid4())
         payload = json.dumps({'instance_uuid': serv_id})
-        self.manoconn.notify(t.IA_REMOVE, payload, reply_to=t.IA_REMOVE)
+        self.manoconn.notify(t.IA_REMOVE,
+                             payload,
+                             reply_to=t.IA_REMOVE,
+                             correlation_id=corr_id)
 
         # Kill the SSMs and FSMs
         self.terminate_ssms(serv_id, require_resp=False)
+
         self.terminate_fsms(serv_id, require_resp=False)
 
         # TODO: Delete the records
