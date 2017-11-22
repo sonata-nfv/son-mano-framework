@@ -116,7 +116,7 @@ class SMREngine(object):
                 error_count = 4
         return res
 
-    def start(self, id, image, sm_type, uuid):
+    def start(self, id, image, sm_type, uuid, p_key):
 
         if 'broker_host' in os.environ:
             broker_host = os.environ['broker_host']
@@ -141,7 +141,7 @@ class SMREngine(object):
         container = self.dc.create_container(image=image,
                                              tty=True,
                                              name=cn_name,
-                                             environment={'broker_host':broker_host, 'sf_uuid':uuid})
+                                             environment={'broker_host':broker_host, 'sf_uuid':uuid, 'PRIVATE_KEY':p_key})
 
         networks = self.dc.networks()
         net_found = False
@@ -165,6 +165,7 @@ class SMREngine(object):
     def rm (self, id, image, uuid):
 
         cn_name = "{0}{1}".format(id,uuid)
+        LOG.error("{0} Logs: {1}".format(id,self.dc.logs(container=cn_name)))
         self.dc.stop(container=cn_name)
         self.dc.remove_container(container=cn_name, force=True)
         self.dc.remove_image(image= image, force=True)
