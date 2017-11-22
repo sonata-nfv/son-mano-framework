@@ -589,6 +589,9 @@ class FunctionLifecycleManager(ManoBasePlugin):
         msg_for_smr['VNFD'] = self.functions[func_id]['vnfd']
         msg_for_smr['UUID'] = func_id
 
+        if self.functions[func_id]['private_key']:
+            msg_for_smr['private_key'] = self.functions[func_id]['private_key']
+
         msg = ": Keys in message for FSM instant: " + str(msg_for_smr.keys())
         LOG.info("Function " + func_id + msg)
         pyld = yaml.dump(msg_for_smr)
@@ -655,6 +658,8 @@ class FunctionLifecycleManager(ManoBasePlugin):
         outg_message['vnfd']['instance_uuid'] = function['id']
         outg_message['vim_uuid'] = function['vim_uuid']
         outg_message['service_instance_id'] = function['serv_id']
+        if function['public_key']:
+            outg_message['public_key'] = function['public_key']
 
         payload = yaml.dump(outg_message)
 
@@ -1025,6 +1030,10 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         # Add error field
         self.functions[func_id]['error'] = None
+
+        # Add keys
+        self.functions[func_id]['public_key'] = payload['public_key']
+        self.functions[func_id]['private_key'] = payload['private_key']
 
         return func_id
 
