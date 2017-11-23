@@ -1706,7 +1706,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         for vnf in self.services[serv_id]['function']:
 
-            if vnf['fsm']:
+            if 'function_specific_managers' in vnf['vnfd'].keys():
 
                 # If the vnf has fsms, continue with this process.
                 corr_id = str(uuid.uuid4())
@@ -2536,6 +2536,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.terminate_ssms(serv_id, require_resp=False)
 
         self.terminate_fsms(serv_id, require_resp=False)
+
+        LOG.info("Instantiation aborted, cleanup completed")
 
         # TODO: Delete the records
 
