@@ -1273,12 +1273,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
         msg = ": Placement requested from SSM: " + str(message.keys())
         LOG.info("Service " + serv_id + msg)
 
-        ssm_conn = self.ssm_connections[serv_id]
-
-        ssm_conn.call_async(self.resp_place,
-                            t.EXEC_PLACE,
-                            payload,
-                            correlation_id=corr_id)
+        self.manoconn.call_async(self.resp_place,
+                                 t.EXEC_PLACE,
+                                 payload,
+                                 correlation_id=corr_id)
 
         # Pause the chain of tasks to wait for response
         self.services[serv_id]['pause_chain'] = True
