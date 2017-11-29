@@ -89,6 +89,7 @@ class PlacementExecutive(ManoBasePlugin):
         if properties.app_id != self.name:
             message = yaml.load(payload)
             LOG.info('Placement request received')
+            
             #topic = 'placement.ssm.{0}'.format(message['uuid'])
             topic = topic = 'placement.ssm.' + message['uuid']
             req = yaml.dump(message)
