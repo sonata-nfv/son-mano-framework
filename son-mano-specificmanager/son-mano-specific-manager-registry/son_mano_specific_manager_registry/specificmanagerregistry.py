@@ -544,7 +544,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
 
     def _wait_for_sm_registration(self, name):
         c = 0
-        timeout = 60
+        timeout = 20
         sleep_interval = 2
         while name not in self.ssm_repo.keys() and c < timeout:
             time.sleep(sleep_interval)
@@ -555,7 +555,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
 
     def _wait_for_update(self, name):
         c = 0
-        timeout = 60
+        timeout = 20
         sleep_interval = 2
         while self.ssm_repo[name]['status'] != 'registered' and c < timeout:
             time.sleep(sleep_interval)
