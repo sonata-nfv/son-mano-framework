@@ -256,8 +256,8 @@ class test_SMR_functionalities(unittest.TestCase):
 
         instantiation_proc.start()
 
-        self.waitForSSMEvent(timeout=40, msg='SSM instantiation request not received.')
-        self.waitForFSMEvent(timeout=40, msg='FSM instantiation request not received.')
+        self.waitForSSMEvent(timeout=70, msg='SSM instantiation request not received.')
+        self.waitForFSMEvent(timeout=70, msg='FSM instantiation request not received.')
 
         self.wait_for_ssm_event.clear()
         self.wait_for_fsm_event.clear()
@@ -307,8 +307,8 @@ class test_SMR_functionalities(unittest.TestCase):
         updating_proc.daemon = True
         updating_proc.start()
 
-        self.waitForSSMEvent(timeout=40, msg='SSM updating request not received.')
-        self.waitForFSMEvent(timeout=40, msg='FSM updating request not received.')
+        self.waitForSSMEvent(timeout=70, msg='SSM updating request not received.')
+        self.waitForFSMEvent(timeout=70, msg='FSM updating request not received.')
 
         self.wait_for_fsm_event.clear()
         self.wait_for_ssm_event.clear()
@@ -392,8 +392,8 @@ class test_SMR_functionalities(unittest.TestCase):
         termination_proc.daemon = True
         termination_proc.start()
 
-        self.waitForSSMEvent(timeout=40, msg='SSM termination request not received.')
-        self.waitForFSMEvent(timeout=40, msg='FSM termination request not received.')
+        self.waitForSSMEvent(timeout=70, msg='SSM termination request not received.')
+        self.waitForFSMEvent(timeout=70, msg='FSM termination request not received.')
 
         self.wait_for_fsm_event.clear()
         self.wait_for_ssm_event.clear()
