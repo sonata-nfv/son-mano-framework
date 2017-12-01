@@ -139,7 +139,6 @@ class SMREngine(object):
         cn_name = "{0}{1}".format(id,uuid)
 
         container = self.dc.create_container(image=image,
-                                             tty=True,
                                              name=cn_name,
                                              environment={'broker_host':broker_host, 'sf_uuid':uuid, 'PRIVATE_KEY':p_key})
 
@@ -165,7 +164,7 @@ class SMREngine(object):
     def rm (self, id, image, uuid):
 
         cn_name = "{0}{1}".format(id,uuid)
-        LOG.error("{0} Logs: {1}".format(id,self.dc.logs(container=cn_name)))
+        LOG.info("{0} Logs: {1}".format(id,self.dc.logs(container=cn_name)))
         self.dc.stop(container=cn_name)
         self.dc.remove_container(container=cn_name, force=True)
         self.dc.remove_image(image= image, force=True)
