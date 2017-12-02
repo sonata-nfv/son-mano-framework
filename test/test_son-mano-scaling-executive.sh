@@ -65,11 +65,21 @@ fi
 docker network create test.sonata-plugins
 
 # spin up container with broker (in daemon mode)
-docker run -d -p 5672:5672 --name test.broker --net=test.sonata-plugins --network-alias=broker rabbitmq:3-management
+docker run -d -p 5672:5672 -p 8080:15672 --name test.broker --net=test.sonata-plugins --network-alias=broker rabbitmq:3-management
 # wait a bit for broker startup
-while ! nc -z localhost 5672; do
-sleep 1 && echo -n .; # waiting for rabbitmq
-done;
+while [ true ]
+do
+	export vhosts=`curl http://localhost:8080/api/vhosts/ -u guest:guest | grep "name"`
+    if [ -z $vhosts ]
+    then
+            echo "broker has not started yet"
+    else
+            echo "broker has started"
+            break
+    fi
+    sleep 1
+done
+
 # spin up container with MongoDB (in daemon mode)
 docker run -d -p 27017:27017 --name test.mongo --net=test.sonata-plugins --network-alias=mongo mongo
 
