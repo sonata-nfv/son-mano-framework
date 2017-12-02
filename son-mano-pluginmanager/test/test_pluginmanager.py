@@ -245,15 +245,15 @@ class TestPluginManagerManagementInterface(TestPluginManagerBase):
         self.assertIn("registered_at", p_state)
         self.assertIn("last_heartbeat_at", p_state)
 
-    def testDeletePlugin(self):
-        """
-        Test if we can request the deletion of a plugin.
-        :return:
-        """
-        self.register()
-        r = requests.delete("%s/api/plugins/%s" % (self.URL, self.plugin_uuid))
-        self.assertEqual(r.status_code, 200)
-        # TODO check that plugin was really removed
+#    def testDeletePlugin(self):
+#        """
+#        Test if we can request the deletion of a plugin.
+#        :return:
+#        """
+#        self.register()
+#        r = requests.delete("%s/api/plugins/%s" % (self.URL, self.plugin_uuid))
+#        self.assertEqual(r.status_code, 200)
+#        # TODO check that plugin was really removed
 
     def testPutPluginLifecycle(self):
         """
