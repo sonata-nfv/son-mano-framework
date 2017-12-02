@@ -56,6 +56,8 @@ if ! [[ "$(docker inspect -f {{.State.Running}} test.scalingexecutive 2> /dev/nu
 #  always abort if an error occurs
 set -e
 set -x
+echo "Running containers"
+docker ps -a
 echo "test_son-mano-scaling-executive.sh"
 #create test.sonata-plugins network
 if ! [[ "$(docker network inspect -f {{.Name}} test.sonata-plugins 2> /dev/null)" == "" ]]

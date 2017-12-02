@@ -54,6 +54,8 @@ if ! [[ "$(docker inspect -f {{.State.Running}} test.placementexecutive 2> /dev/
 #  always abort if an error occurs
 set -e
 set -x
+echo "Running containers"
+docker ps -a
 echo "test_son-mano-placement-executive.sh"
 #create test.sonata-plugins network
 if ! [[ "$(docker network inspect -f {{.Name}} test.sonata-plugins 2> /dev/null)" == "" ]]

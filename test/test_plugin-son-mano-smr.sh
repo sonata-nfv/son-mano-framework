@@ -73,6 +73,8 @@ if ! [[ "$(docker inspect -f {{.State.Running}} sonssmservice1placement1937213ae
 #  always abort if an error occurs
 set -e
 set -x
+echo "Running containers"
+docker ps -a
 echo "test_plugin-son-mano-smr.sh"
 #create sonata-plugins network
 if ! [[ "$(docker network inspect -f {{.Name}} test.sonata-plugins 2> /dev/null)" == "" ]]

@@ -51,6 +51,8 @@ if ! [[ "$(docker inspect -f {{.State.Running}} test.pluginmanager 2> /dev/null)
 #  always abort if an error occurs
 set -e
 set -x
+echo "Running containers"
+docker ps -a
 echo "test_son-mano-pluginmanager.sh"
 #create test.sonata-plugins network
 if ! [[ "$(docker network inspect -f {{.Name}} test.sonata-plugins 2> /dev/null)" == "" ]]
