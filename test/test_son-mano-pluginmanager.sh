@@ -51,6 +51,8 @@ if ! [[ "$(docker inspect -f {{.State.Running}} test.pluginmanager 2> /dev/null)
 #  always abort if an error occurs
 set -e
 set -x
+echo "Running containers"
+docker ps -a
 echo "test_son-mano-pluginmanager.sh"
 #create test.sonata-plugins network
 if ! [[ "$(docker network inspect -f {{.Name}} test.sonata-plugins 2> /dev/null)" == "" ]]
@@ -58,11 +60,20 @@ then docker network rm test.sonata-plugins ; fi
 docker network create test.sonata-plugins
 
 # spin up container with broker (in daemon mode)
-docker run -d -p 5672:5672 --name test.broker --net=test.sonata-plugins --network-alias=broker rabbitmq:3-management
+docker run -d -p 5672:5672 -p 15672:15672 --name test.broker --net=test.sonata-plugins --network-alias=broker rabbitmq:3-management
 # wait a bit for broker startup
-while ! nc -z localhost 5672; do
-sleep 1 && echo -n .; # waiting for rabbitmq
-done;
+while [ true ]
+do
+	export vhosts=`curl http://localhost:15672/api/vhosts/ -u guest:guest | grep "name"`
+    if [ -z $vhosts ]
+    then
+            echo "broker has not started yet"
+    else
+            echo "broker has started"
+            break
+    fi
+    sleep 1
+done
 # spin up container with MongoDB (in daemon mode)
 docker run -d -p 27017:27017 --name test.mongo --net=test.sonata-plugins --network-alias=mongo  mongo
 # wait a bit for db startup
