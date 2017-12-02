@@ -95,7 +95,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.publickey = None
         self.token = None
         self.password = '1234'
-        self.clientId = 'son-monitor'
+        self.clientId = 'son-slm'
 
         # Create the list of known other SLMs
         self.known_slms = []
@@ -199,12 +199,15 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 # Get Public key
                 url = t.BASE_URL + t.API_VER + t.REG_PATH + t.PUPLIC_KEY_PATH
                 self.publickey = tools.get_platform_public_key(url)
+                LOG.info("Received key: " + str(self.publickey))
 
                 # Register
                 response = tools.client_register(t.GK_REGISTER, user, secr)
+                LOG.info("Registration response: " + str(response))
 
                 # Login
                 self.token = tools.client_login(t.GK_LOGIN, user, secr)
+                LOG.info("Login response: " + str(self.token))
             except:
                 pass
 
