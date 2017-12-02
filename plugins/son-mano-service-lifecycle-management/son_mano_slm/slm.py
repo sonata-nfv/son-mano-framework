@@ -191,6 +191,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
         super(self.__class__, self).on_lifecycle_start(ch, mthd, prop, msg)
         LOG.info("SLM started and operational. Registering with the GK...")
 
+        self.register_slm_with_gk()
+
+    def register_slm_with_gk(self):
+        """
+        This methods tries to register the SLM with the GK
+        """
         counter = 0
         while counter < 3:
             try:
@@ -2212,8 +2218,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
             # TODO: get out of this
 
         # Update the token of the SLM
+        if self.token is None:
+            self.register_slm_with_gk()
+
         token = tools.client_login(t.GK_LOGIN, self.clientId, self.password)
         self.token = token
+        LOG.info("Service " + serv_id + ": new token: " + str(self.token))
 
         # base of the ledger
         self.services[serv_id] = {}
