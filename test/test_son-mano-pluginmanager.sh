@@ -58,11 +58,11 @@ then docker network rm test.sonata-plugins ; fi
 docker network create test.sonata-plugins
 
 # spin up container with broker (in daemon mode)
-docker run -d -p 5672:5672 -p 8080:15672 --name test.broker --net=test.sonata-plugins --network-alias=broker rabbitmq:3-management
+docker run -d -p 5672:5672 -p 15672:15672 --name test.broker --net=test.sonata-plugins --network-alias=broker rabbitmq:3-management
 # wait a bit for broker startup
 while [ true ]
 do
-	export vhosts=`curl http://localhost:8080/api/vhosts/ -u guest:guest | grep "name"`
+	export vhosts=`curl http://localhost:15672/api/vhosts/ -u guest:guest | grep "name"`
     if [ -z $vhosts ]
     then
             echo "broker has not started yet"
