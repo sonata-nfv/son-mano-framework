@@ -139,10 +139,9 @@ class SMREngine(object):
         cn_name = "{0}{1}".format(id,uuid)
 
         container = self.dc.create_container(image=image,
-                                             tty=True,
+                                             detach=True,
                                              name=cn_name,
                                              environment={'broker_host':broker_host, 'sf_uuid':uuid, 'PRIVATE_KEY':p_key})
-
         networks = self.dc.networks()
         net_found = False
         for i in range(len(networks)):
