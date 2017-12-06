@@ -318,7 +318,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
                     LOG.error('Instantiation failed for: {0}, Error: {1}'.format(m_id, error))
                     result_dict.update({m_id: {'status': 'Failed', 'uuid': 'None', 'error': str(error)}})
                 else:
-                    registration = threading.Thread(target= self._wait_for_sm_registration, args=[m_id])
+                    registration = threading.Thread(target= self._wait_for_sm_registration, args=[sm_repo_name,m_id])
                     registration.daemon = True
                     registration.start()
                     registration.join()
@@ -328,7 +328,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
                         result_dict.update({m_id: {'status': 'Instantiated',
                                             'uuid': self.ssm_repo[sm_repo_name]['uuid'], 'error': 'None'}})
                     else:
-                        LOG.error('Instantiation failed for: {0}, Error: Registration failed'.format(m_id))
+                        LOG.error('Instantiation failed:SSM name {0} not found!'.format(m_id))
                         result_dict.update({m_id: {'status': 'Failed', 'uuid': 'None', 'error': 'Registration failed'}})
                         self.smrengine.rm(id=m_id, image=m_image, uuid= message['UUID'])
             else:
@@ -478,7 +478,7 @@ class SpecificManagerRegistry(ManoBasePlugin):
 
                                     # Check if the registration is successfully done
                                     registration = threading.Thread(target=self._wait_for_sm_registration,
-                                                                    args=[sm_repo_name])
+                                                                    args=[sm_repo_name, m_id])
                                     registration.daemon = True
                                     registration.start()
                                     registration.join()
@@ -542,11 +542,11 @@ class SpecificManagerRegistry(ManoBasePlugin):
 
         return result_dict
 
-    def _wait_for_sm_registration(self, name):
+    def _wait_for_sm_registration(self, rep_name, name):
         c = 0
-        timeout = 20
+        timeout = 60
         sleep_interval = 2
-        while name not in self.ssm_repo.keys() and c < timeout:
+        while rep_name not in self.ssm_repo.keys() and c < timeout:
             time.sleep(sleep_interval)
             c += sleep_interval
 
@@ -555,11 +555,14 @@ class SpecificManagerRegistry(ManoBasePlugin):
 
     def _wait_for_update(self, name):
         c = 0
-        timeout = 20
+        timeout = 60
         sleep_interval = 2
         while self.ssm_repo[name]['status'] != 'registered' and c < timeout:
             time.sleep(sleep_interval)
             c += sleep_interval
+
+        if c >= 60:
+            LOG.error('Updating failed for: {0}, timeout error'.format(name))
 
 
     def on_ssm_status(self, ch, method, properties, message):
