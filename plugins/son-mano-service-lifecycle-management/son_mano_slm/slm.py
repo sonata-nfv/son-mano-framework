@@ -1140,7 +1140,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                                          yaml.dump(payload),
                                          correlation_id=corr_id)
 
-        self.services[serv_id]['pause_chain'] = True
+                self.services[serv_id]['pause_chain'] = True
 
     def onboard_ssms(self, serv_id):
         """
