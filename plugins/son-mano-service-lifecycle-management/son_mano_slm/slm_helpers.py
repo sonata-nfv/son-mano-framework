@@ -54,12 +54,13 @@ def servid_from_corrid(ledger, corr_id):
     """
 
     for serv_id in ledger.keys():
-        if isinstance(ledger[serv_id]['act_corr_id'], list):
-            if str(corr_id) in ledger[serv_id]['act_corr_id']:
-                break
-        else:
-            if ledger[serv_id]['act_corr_id'] == str(corr_id):
-                break
+        if 'act_corr_id' in ledger[serv_id].keys():
+            if isinstance(ledger[serv_id]['act_corr_id'], list):
+                if str(corr_id) in ledger[serv_id]['act_corr_id']:
+                    break
+            else:
+                if ledger[serv_id]['act_corr_id'] == str(corr_id):
+                    break
 
     return serv_id
 
@@ -273,51 +274,59 @@ def get_ordered_vim_list(payload, which_graph=0):
     nodes = {}
 
     nsd = payload['service']['nsd']
-    forw_graph = nsd['forwarding_graphs'][which_graph]
-    paths = forw_graph['network_forwarding_paths']
-
-    for path in paths:
-        cps = path["connection_points"]
-        incoming = None
-        for cp in cps:
-            cp_ref = cp['connection_point_ref']
-            if ':' not in cp_ref:
-                pass
-            else:
-                vnf_id = cp_ref.split(':')[0]
-                vim_uuid = find_vim_based_on_vnf_id(vnf_id)
-                if vim_uuid not in nodes.keys():
-                    nodes[vim_uuid] = {"incoming": [],
-                                       "outgoing": []}
-
-                if incoming is not None:
-                    if vim_uuid != incoming:
-                        nodes[vim_uuid]["incoming"].append(incoming)
-                        nodes[incoming]["outgoing"].append(vim_uuid)
-
-                incoming = vim_uuid
-
     vim_list = []
-    number_of_vnfs = len(payload['function'])
-    while_counter = 0
 
-    while (len(nodes.keys()) > 0):
-        # Exit if loop is infinite
-        if while_counter > number_of_vnfs:
-            vim_list = None
-            break
-        for vim_uuid in nodes.keys():
-            if len(nodes[vim_uuid]['incoming']) == 0:
-                vim_list.append(vim_uuid)
-                outgoing_list = nodes[vim_uuid]['outgoing']
-                for outg_vim in outgoing_list:
-                    nodes[outg_vim]["incoming"].remove(vim_uuid)
-        # remove vims with no incoming links
-        for vim in vim_list:
-            if vim in nodes.keys():
-                del nodes[vim]
+    if 'forwarding_graphs' in nsd.keys():
+        forw_graph = nsd['forwarding_graphs'][which_graph]
+        paths = forw_graph['network_forwarding_paths']
 
-        while_counter = while_counter + 1
+        for path in paths:
+            cps = path["connection_points"]
+            incoming = None
+            for cp in cps:
+                cp_ref = cp['connection_point_ref']
+                if ':' not in cp_ref:
+                    pass
+                else:
+                    vnf_id = cp_ref.split(':')[0]
+                    vim_uuid = find_vim_based_on_vnf_id(vnf_id)
+                    if vim_uuid not in nodes.keys():
+                        nodes[vim_uuid] = {"incoming": [],
+                                           "outgoing": []}
+
+                    if incoming is not None:
+                        if vim_uuid != incoming:
+                            nodes[vim_uuid]["incoming"].append(incoming)
+                            nodes[incoming]["outgoing"].append(vim_uuid)
+
+                    incoming = vim_uuid
+
+        number_of_vnfs = len(payload['function'])
+        while_counter = 0
+
+        while (len(nodes.keys()) > 0):
+            # Exit if loop is infinite
+            if while_counter > number_of_vnfs:
+                vim_list = None
+                break
+            for vim_uuid in nodes.keys():
+                if len(nodes[vim_uuid]['incoming']) == 0:
+                    vim_list.append(vim_uuid)
+                    outgoing_list = nodes[vim_uuid]['outgoing']
+                    for outg_vim in outgoing_list:
+                        nodes[outg_vim]["incoming"].remove(vim_uuid)
+            # remove vims with no incoming links
+            for vim in vim_list:
+                if vim in nodes.keys():
+                    del nodes[vim]
+
+            while_counter = while_counter + 1
+
+    else:
+        # If no forwarding grapgh is present, the order is irrelevant
+        for func in payload['function']:
+            if func['vim_uuid'] not in vim_list:
+                vim_list.append(func['vim_uuid'])
 
     return vim_list
 
