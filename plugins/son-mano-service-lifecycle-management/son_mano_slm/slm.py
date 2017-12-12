@@ -1338,9 +1338,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Building the content message for the configuration ssm
         content = {'service': self.services[serv_id]['service'],
-                   'functions': self.services[serv_id]['function'],
-                   'ingress': self.services[serv_id]['ingress'],
-                   'egress': self.services[serv_id]['egress']}
+                   'functions': self.services[serv_id]['function']}
+        
+        if self.services[serv_id]["current_workflow"] == 'instantiation':
+            content['ingress'] = self.services[serv_id]['ingress']
+            content['egress'] = self.services[serv_id]['egress']
+                    
         content['ssm_type'] = 'configure'
         content['workflow'] = self.services[serv_id]["current_workflow"]
 
