@@ -527,6 +527,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method triggers a reconfiguration workflow.
         """
 
+        LOG.info('Service ' + str(serv_id) + ': reconfigure workflow request')
         self.services[serv_id]['status'] = 'reconfigurating'
         self.services[serv_id]["current_workflow"] = 'reconfigure'
 
@@ -534,6 +535,14 @@ class ServiceLifecycleManager(ManoBasePlugin):
         add_schedule.append("configure_ssm")
         add_schedule.append("vnfs_config")
         add_schedule.append("inform_config_ssm")
+
+        self.services[serv_id]['schedule'].extend(add_schedule)
+
+        LOG.info('Service ' + str(serv_id) + ': reconfigure workflow started')
+        # Start the chain of tasks
+        self.start_next_task(serv_id)
+
+        return self.services[serv_id]['schedule']
 
     def terminate_workflow(self, serv_id, corr_id=None, topic=None, orig=None):
         """
