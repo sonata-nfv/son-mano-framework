@@ -522,6 +522,19 @@ class ServiceLifecycleManager(ManoBasePlugin):
                                 t.GK_KILL,
                                 orig='GK')
 
+    def reconfigure_workflow(self, serv_id):
+        """
+        This method triggers a reconfiguration workflow.
+        """
+
+        self.services[serv_id]['status'] = 'reconfigurating'
+        self.services[serv_id]["current_workflow"] = 'reconfigure'
+
+        add_schedule = []
+        add_schedule.append("configure_ssm")
+        add_schedule.append("vnfs_config")
+        add_schedule.append("inform_config_ssm")
+
     def terminate_workflow(self, serv_id, corr_id=None, topic=None, orig=None):
         """
         This function handles the actual termination
@@ -648,6 +661,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 self.terminate_workflow(serv_id)
             if content['workflow'] == 'pause':
                 pass
+            if content['workflow'] == 'reconfigure':
+                self.reconfigure_workflow(serv_id)
             # TODO: add additional workflows
         if 'schedule' in content.keys():
             schedule = content['schedule']
@@ -882,10 +897,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
             LOG.info("Service " + serv_id + ": VNF csss event failed")
             LOG.debug("Message: " + str(message))
             topic = self.services[serv_id]['topic']
+            self.services[serv_id]['config_status'] = 'failed'
             self.error_handling(serv_id, topic, message['error'])
 
         else:
             vnf_id = str(message["vnf_id"])
+            self.services[serv_id]['config_status'] = 'ready'
             message = ": VNF " + vnf_id + " correctly handled."
             LOG.info("Service " + serv_id + message)
 
@@ -1140,7 +1157,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                                          yaml.dump(payload),
                                          correlation_id=corr_id)
 
-        self.services[serv_id]['pause_chain'] = True
+                self.services[serv_id]['pause_chain'] = True
 
     def onboard_ssms(self, serv_id):
         """
@@ -1312,7 +1329,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Building the content message for the configuration ssm
         content = {'service': self.services[serv_id]['service'],
-                   'functions': self.services[serv_id]['function']}
+                   'functions': self.services[serv_id]['function'],
+                   'ingress': self.services[serv_id]['ingress'],
+                   'egress': self.services[serv_id]['egress']}
         content['ssm_type'] = 'configure'
         content['workflow'] = self.services[serv_id]["current_workflow"]
 
@@ -1327,6 +1346,24 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Pause the chain of tasks to wait for response
         self.services[serv_id]['pause_chain'] = True
+
+    def inform_config_ssm(self, serv_id):
+        """
+        Sent the status to the configuration SSM.
+        """
+
+        content = {}
+        content['ssm_type'] = 'configure'
+        content['workflow'] = 'status'
+        content['status'] = self.services[serv_id]['config_status']
+
+        topic = "generic.ssm." + str(serv_id)
+
+        ssm_conn = self.ssm_connections[serv_id]
+
+        ssm_conn.notify(topic,
+                        yaml.dump(content),
+                        correlation_id=corr_id)
 
     def slm_share(self, status, content):
 
