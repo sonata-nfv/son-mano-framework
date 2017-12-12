@@ -1353,6 +1353,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
                             yaml.dump(content),
                             correlation_id=corr_id)
 
+        msg = ": Call sent to configuration SSM."
+        LOG.info("Service " + serv_id + msg)
+
         # Pause the chain of tasks to wait for response
         self.services[serv_id]['pause_chain'] = True
 
