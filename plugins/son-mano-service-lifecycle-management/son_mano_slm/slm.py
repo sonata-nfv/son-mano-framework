@@ -1352,6 +1352,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
         Sent the status to the configuration SSM.
         """
 
+        corr_id = str(uuid.uuid4())
+
+        msg = ": Sending status to config SSM"
+        LOG.info("Service " + serv_id + msg)
+
         content = {}
         content['ssm_type'] = 'configure'
         content['workflow'] = 'status'
