@@ -1150,6 +1150,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
                         for vnf_new in functions:
                             vnfrs.append(vnf_new['vnfr'])
                         data = {'nsr': nsr, 'vnfrs': vnfrs}
+                        if 'ingress' in self.services[serv_id].keys():
+                            ingress = self.services[serv_id]['ingress']
+                            data['ingress'] = ingress
+                        if 'egress' in self.services[serv_id].keys():
+                            egress = self.services[serv_id]['egress']
+                            data['egress'] = egress
                     else:
                         data = {'vnfr': vnf['vnfr'], 'vnfd': vnf['vnfd']}
 
