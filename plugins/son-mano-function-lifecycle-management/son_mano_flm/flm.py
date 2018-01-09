@@ -684,7 +684,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
         """
 
         LOG.info("Response from IA on vnf deploy call received.")
-        LOG.debug("Payload of request: " + str(payload))
+        LOG.info("Payload of request: " + str(payload))
 
         inc_message = yaml.load(payload)
 
