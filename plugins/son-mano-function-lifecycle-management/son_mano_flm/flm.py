@@ -696,6 +696,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
             LOG.info("Vnf deployed correctly")
             self.functions[func_id]["ia_vnfr"] = inc_message["vnfr"]
             self.functions[func_id]["error"] = None
+            self.functions[func_id]["ip_mapping"] = []
 
         else:
             LOG.info("Deployment failed: " + inc_message["message"])
@@ -812,6 +813,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
         message["vnfr"] = function["vnfr"]
         message["status"] = function["status"]
         message["error"] = function["error"]
+        message["ip_mapping"] = function["ip_mapping"]
 
         corr_id = self.functions[func_id]['orig_corr_id']
         self.manoconn.notify(t.VNF_DEPLOY,
