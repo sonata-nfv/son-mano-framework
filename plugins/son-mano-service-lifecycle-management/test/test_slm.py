@@ -573,6 +573,7 @@ class testSlmFunctionality(unittest.TestCase):
         vnfr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/expected_vnfr_iperf.yml', 'r'))
         message = {'status': 'DEPLOYED',
                    'error': None,
+                   'ip_mapping': [],
                    'vnfr': vnfr}
 
         payload = yaml.dump(message)
@@ -620,6 +621,7 @@ class testSlmFunctionality(unittest.TestCase):
         vnfr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/expected_vnfr_iperf.yml', 'r'))
         message = {'status': 'DEPLOYED',
                    'error': None,
+                   'ip_mapping': [],
                    'vnfr': vnfr}
 
         payload = yaml.dump(message)
