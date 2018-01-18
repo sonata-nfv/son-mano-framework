@@ -696,10 +696,11 @@ class FunctionLifecycleManager(ManoBasePlugin):
             LOG.info("Vnf deployed correctly")
             self.functions[func_id]["ia_vnfr"] = inc_message["vnfr"]
             self.functions[func_id]["error"] = None
-            
+
             # TODO:Temporary fix for the HSP case, needs fixing in longterm
             if "ip_mapping" in inc_message.keys():
-                self.functions[func_id]["ip_mapping"] = inc_message["ip_mapping"]
+                mapping = inc_message["ip_mapping"]
+                self.functions[func_id]["ip_mapping"] = mapping
             else:
                 self.functions[func_id]["ip_mapping"] = []
 
