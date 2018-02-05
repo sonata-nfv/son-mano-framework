@@ -648,7 +648,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
         LOG.info("monitoring SSM responded: " + str(content))
 
         serv_id = content['service_instance_id']
-        self.recreate_ledger(None, serv_id)
+        ledger_recreation = self.recreate_ledger(None, serv_id)
+
+        if ledger_recreation is None:
+            LOG.info("Recreation of ledger failed, aborting monitoring event")
+            return
 
         # Extract additional content provided by the SSM
         if 'vnf' in content.keys():
@@ -2302,11 +2306,18 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Update the token of the SLM
         if self.token is None:
+            LOG.info("Retrying authentication of SLM")
             self.register_slm_with_gk()
 
         token = tools.client_login(t.GK_LOGIN, self.clientId, self.password)
         self.token = token
         LOG.info("Service " + serv_id + ": new token: " + str(self.token))
+
+        if self.token is None:
+            LOG.info("SLM authentication failed")
+            LOG.info("url: " + str(t.GK_LOGIN))
+            LOG.info("ClientID: " + str(self.clientId))
+            LOG.info("password: " + str(self.password))
 
         # base of the ledger
         self.services[serv_id] = {}
@@ -2319,7 +2330,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         if request['error'] is not None:
             request_returned_with_error(request)
-            return
+            return None
 
         self.services[serv_id]['service']['nsr'] = request['content']
         LOG.info("Service " + serv_id + ": Recreating ledger: NSR retrieved.")
@@ -2332,7 +2343,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         if request['error'] is not None:
             request_returned_with_error(request)
-            return
+            return None
 
         self.services[serv_id]['service']['nsd'] = request['content']['nsd']
         LOG.info("Service " + serv_id + ": Recreating ledger: NSD retrieved.")
@@ -2346,7 +2357,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
             if request['error'] is not None:
                 request_returned_with_error(request)
-                return
+                return None
 
             new_function = {'id': vnf['vnfr_id'],
                             'start': {'trigger': True, 'payload': {}},
@@ -2367,7 +2378,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
             if req['error'] is not None:
                 request_returned_with_error(req)
-                return
+                return None
 
             vnf['vnfd'] = req['content']['vnfd']
             LOG.info("Service " + serv_id + ": Recreate: VNFD retrieved.")
@@ -2402,7 +2413,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['pause_chain'] = False
         self.services[serv_id]['error'] = None
 
-        return
+        return True
 
     def validate_deploy_request(self, serv_id):
         """
