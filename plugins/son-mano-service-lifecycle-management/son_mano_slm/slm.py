@@ -648,7 +648,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
         LOG.info("monitoring SSM responded: " + str(content))
 
         serv_id = content['service_instance_id']
-        self.recreate_ledger(None, serv_id)
+        ledger_recreation = self.recreate_ledger(None, serv_id)
+
+        if ledger_recreation is None:
+            LOG.info("Recreation of ledger failed, aborting monitoring event")
+            return
 
         # Extract additional content provided by the SSM
         if 'vnf' in content.keys():
@@ -880,6 +884,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 if function['id'] == message['vnfr']['id']:
                     function['vnfr'] = message['vnfr']
                     LOG.info("Added vnfr for inst: " + message['vnfr']['id'])
+
+                    ip_mapping = message['ip_mapping']
+                    self.services[serv_id]['ip_mapping'].extend(ip_mapping)
+                    new_mapping = self.services[serv_id]['ip_mapping']
+                    msg = ": IP Mapping extended: " + str(new_mapping)
+                    LOG.info("Service " + serv_id + msg)
 
         vnfs_to_depl = self.services[serv_id]['vnfs_to_resp'] - 1
         self.services[serv_id]['vnfs_to_resp'] = vnfs_to_depl
@@ -1144,12 +1154,26 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     payload['data'] = vnf[csss_type]['payload']
                 # if not, create it
                 else:
+                    msg = ": Creating general csss message"
+                    LOG.info("Service " + serv_id + msg)
                     if csss_type == "configure":
                         nsr = self.services[serv_id]['service']['nsr']
                         vnfrs = []
                         for vnf_new in functions:
                             vnfrs.append(vnf_new['vnfr'])
                         data = {'nsr': nsr, 'vnfrs': vnfrs}
+
+                        keys = str(self.services[serv_id].keys())
+                        msg = ": keys in service ledger: " + keys
+                        LOG.info("Service " + serv_id + msg)
+                        if 'ingress' in self.services[serv_id].keys():
+                            msg = ": Adding ingress/egress to csss message"
+                            LOG.info("Service " + serv_id + msg)
+                            ingress = self.services[serv_id]['ingress']
+                            data['ingress'] = ingress
+                        if 'egress' in self.services[serv_id].keys():
+                            egress = self.services[serv_id]['egress']
+                            data['egress'] = egress
                     else:
                         data = {'vnfr': vnf['vnfr'], 'vnfd': vnf['vnfd']}
 
@@ -1339,13 +1363,16 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Building the content message for the configuration ssm
         content = {'service': self.services[serv_id]['service'],
                    'functions': self.services[serv_id]['function']}
-        
+
         if self.services[serv_id]["current_workflow"] == 'instantiation':
             content['ingress'] = self.services[serv_id]['ingress']
             content['egress'] = self.services[serv_id]['egress']
-                    
+
         content['ssm_type'] = 'configure'
         content['workflow'] = self.services[serv_id]["current_workflow"]
+
+        if 'ip_mapping' in self.services[serv_id].keys():
+            content['ip_mapping'] = self.services[serv_id]['ip_mapping']
 
         topic = "generic.ssm." + str(serv_id)
 
@@ -1355,6 +1382,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
                             topic,
                             yaml.dump(content),
                             correlation_id=corr_id)
+
+        msg = ": Call sent to configuration SSM."
+        LOG.info("Service " + serv_id + msg)
 
         # Pause the chain of tasks to wait for response
         self.services[serv_id]['pause_chain'] = True
@@ -2226,6 +2256,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['pause_chain'] = False
         self.services[serv_id]['kill_chain'] = False
 
+        # Create IP Mapping
+        self.services[serv_id]['ip_mapping'] = []
+
         # Add ingress and egress fields
         self.services[serv_id]['ingress'] = None
         self.services[serv_id]['egress'] = None
@@ -2273,11 +2306,18 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Update the token of the SLM
         if self.token is None:
+            LOG.info("Retrying authentication of SLM")
             self.register_slm_with_gk()
 
         token = tools.client_login(t.GK_LOGIN, self.clientId, self.password)
         self.token = token
         LOG.info("Service " + serv_id + ": new token: " + str(self.token))
+
+        if self.token is None:
+            LOG.info("SLM authentication failed")
+            LOG.info("url: " + str(t.GK_LOGIN))
+            LOG.info("ClientID: " + str(self.clientId))
+            LOG.info("password: " + str(self.password))
 
         # base of the ledger
         self.services[serv_id] = {}
@@ -2290,7 +2330,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         if request['error'] is not None:
             request_returned_with_error(request)
-            return
+            return None
 
         self.services[serv_id]['service']['nsr'] = request['content']
         LOG.info("Service " + serv_id + ": Recreating ledger: NSR retrieved.")
@@ -2303,7 +2343,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         if request['error'] is not None:
             request_returned_with_error(request)
-            return
+            return None
 
         self.services[serv_id]['service']['nsd'] = request['content']['nsd']
         LOG.info("Service " + serv_id + ": Recreating ledger: NSD retrieved.")
@@ -2317,7 +2357,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
             if request['error'] is not None:
                 request_returned_with_error(request)
-                return
+                return None
 
             new_function = {'id': vnf['vnfr_id'],
                             'start': {'trigger': True, 'payload': {}},
@@ -2338,7 +2378,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
             if req['error'] is not None:
                 request_returned_with_error(req)
-                return
+                return None
 
             vnf['vnfd'] = req['content']['vnfd']
             LOG.info("Service " + serv_id + ": Recreate: VNFD retrieved.")
@@ -2373,7 +2413,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['pause_chain'] = False
         self.services[serv_id]['error'] = None
 
-        return
+        return True
 
     def validate_deploy_request(self, serv_id):
         """

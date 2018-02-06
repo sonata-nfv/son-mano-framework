@@ -697,6 +697,13 @@ class FunctionLifecycleManager(ManoBasePlugin):
             self.functions[func_id]["ia_vnfr"] = inc_message["vnfr"]
             self.functions[func_id]["error"] = None
 
+            # TODO:Temporary fix for the HSP case, needs fixing in longterm
+            if "ip_mapping" in inc_message.keys():
+                mapping = inc_message["ip_mapping"]
+                self.functions[func_id]["ip_mapping"] = mapping
+            else:
+                self.functions[func_id]["ip_mapping"] = []
+
         else:
             LOG.info("Deployment failed: " + inc_message["message"])
             self.functions[func_id]["error"] = inc_message["message"]
@@ -812,6 +819,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
         message["vnfr"] = function["vnfr"]
         message["status"] = function["status"]
         message["error"] = function["error"]
+        message["ip_mapping"] = function["ip_mapping"]
 
         corr_id = self.functions[func_id]['orig_corr_id']
         self.manoconn.notify(t.VNF_DEPLOY,

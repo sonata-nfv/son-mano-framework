@@ -573,6 +573,7 @@ class testSlmFunctionality(unittest.TestCase):
         vnfr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/expected_vnfr_iperf.yml', 'r'))
         message = {'status': 'DEPLOYED',
                    'error': None,
+                   'ip_mapping': [],
                    'vnfr': vnfr}
 
         payload = yaml.dump(message)
@@ -584,6 +585,7 @@ class testSlmFunctionality(unittest.TestCase):
         service_dict[service_id] = {'act_corr_id':corr_id,
                                     'function': [{'id': vnfr['id']}],
                                     'vnfs_to_resp': 1,
+                                    'ip_mapping': [],
                                     'schedule': ['get_ledger'],
                                     'original_corr_id':corr_id,
                                     'pause_chain': True,
@@ -620,6 +622,7 @@ class testSlmFunctionality(unittest.TestCase):
         vnfr = yaml.load(open('/plugins/son-mano-service-lifecycle-management/test/test_records/expected_vnfr_iperf.yml', 'r'))
         message = {'status': 'DEPLOYED',
                    'error': None,
+                   'ip_mapping': [],
                    'vnfr': vnfr}
 
         payload = yaml.dump(message)
@@ -631,6 +634,7 @@ class testSlmFunctionality(unittest.TestCase):
         service_dict[service_id] = {'act_corr_id':corr_id,
                                     'function': [{'id': vnfr['id']}],
                                     'vnfs_to_resp': 2,
+                                    'ip_mapping': [],
                                     'schedule': ['get_ledger'],
                                     'original_corr_id':corr_id,
                                     'pause_chain': True,
