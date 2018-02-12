@@ -178,7 +178,8 @@ class PlacementPlugin(ManoBasePlugin):
                 # HARDCODED FIX for pilots
                 client_pop = "1111-22222222-33333333-4444"
                 vcache_name = "vcc-vnf"
-                if vnfd['name'] == vcache_name and vim['vim_uuid'] == client_pop:
+                if False:
+#                if vnfd['name'] == vcache_name and vim['vim_uuid'] == client_pop:
                     LOG.info("Skipping vcache on client PoP")
                 else:
 
