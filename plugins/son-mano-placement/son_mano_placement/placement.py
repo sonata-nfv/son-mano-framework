@@ -175,12 +175,19 @@ class PlacementPlugin(ManoBasePlugin):
                 cpu_req = needed_cpu <= (vim['core_total'] - vim['core_used'])
                 mem_req = needed_mem <= (vim['memory_total'] - vim['memory_used'])
 
-                if cpu_req and mem_req:
-                    mapping[function['id']] = {}
-                    mapping[function['id']]['vim'] = vim['vim_uuid']
-                    vim['core_used'] = vim['core_used'] + needed_cpu
-                    vim['memory_used'] = vim['memory_used'] + needed_mem
-                    break
+                # HARDCODED FIX for pilots
+                client_pop = "1111-22222222-33333333-4444"
+                vcache_name = "vcc-vnf"
+                if vnfd['name'] == vcache_name and vim['vim_uuid'] == client_pop:
+                    LOG.info("Skipping vcache on client PoP")
+                else:
+
+                    if cpu_req and mem_req:
+                        mapping[function['id']] = {}
+                        mapping[function['id']]['vim'] = vim['vim_uuid']
+                        vim['core_used'] = vim['core_used'] + needed_cpu
+                        vim['memory_used'] = vim['memory_used'] + needed_mem
+                        break
 
         # Check if all VNFs have been mapped
         if len(mapping.keys()) == len(functions):
