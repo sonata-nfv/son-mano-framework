@@ -2093,6 +2093,16 @@ class ServiceLifecycleManager(ManoBasePlugin):
                              'id': vnf['id'],
                              'vnfr': vnf['vnfr']})
             message['vnfs'] = vnfs
+
+            if 'ingress' in self.services[serv_id].keys():
+                message['ingress'] = self.services[serv_id]['ingress']
+            else:
+                message['ingress'] = None
+            if 'egress' in self.services[serv_id].keys():
+                message['egress'] = self.services[serv_id]['egress']
+            else:
+                message['egress'] = None
+
             message['ssm_type'] = 'monitor'
             topic = 'generic.ssm.' + serv_id
 
