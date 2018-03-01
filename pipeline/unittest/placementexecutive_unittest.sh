@@ -14,7 +14,7 @@ registry.sonata-nfv.eu:5000/placementexecutive py.test -v
 echo "placement executive unittests finised"
 
 #clean-up
-docker rm -fv test.manao.placementexecutive
+docker rm -fv test.mano.placementexecutive
 
 # abort of tests failed
 if [ $? -ne 0 ]; then exit 1; fi;
