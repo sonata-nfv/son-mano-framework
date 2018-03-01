@@ -47,21 +47,19 @@ pipeline {
         }
       }
     }
-    stage('Unittest first phase') {
-      stage('Setup Dependencies') {
-        steps {
-          sh './pipeline/unittest/create_dependencies.sh'
-        }
+    stage('Unittest Dependencies') {
+      steps {
+        sh './pipeline/unittest/create_dependencies.sh'
       }
-      stage('Unittest Plugin Manager') {
-        steps {
-          sh './pipeline/unittest/pluginmanager_unittest.sh'
-        }
+    }
+    stage('Unittest Plugin Manager') {
+      steps {
+        sh './pipeline/unittest/pluginmanager_unittest.sh'
       }
-      stage('Setup next dependencies') {
-        steps {
-          sh './pipeline/unittest/create_pm_dependency.sh'
-        }
+    }
+    stage('Uniittest next dependencies') {
+      steps {
+        sh './pipeline/unittest/create_pm_dependency.sh'
       }
     }
     stage('Unittest second phase'){
