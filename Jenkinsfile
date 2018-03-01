@@ -47,7 +47,7 @@ pipeline {
         }
       }
     }
-    stage('Unittest') {
+    stage('Unittest first phase') {
       stage('Setup Dependencies') {
         steps {
           sh './pipeline/unittest/create_dependencies.sh'
@@ -63,6 +63,8 @@ pipeline {
           sh './pipeline/unittest/create_pm_dependency.sh'
         }
       }
+    }
+    stage('Unittest second phase'){
       parallel {
         stage('Unittest Service Lifecycle Manager') {
           steps {
