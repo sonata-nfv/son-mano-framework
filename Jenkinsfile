@@ -96,6 +96,45 @@ pipeline {
         }
       }
     }
+    stage('Checkstyle') {
+      parallel {
+        stage('Service Lifecycle Manager') {
+          steps {
+            sh './pipeline/checkstyle/servicelifecyclemanager_stylecheck.sh'
+          }
+        }
+        stage('Function Lifecycle Manager') {
+          steps {
+            sh './pipeline/checkstyle/functionlifecyclemanager_stylecheck.sh'
+          }
+        }
+        stage('Plugin Manager') {
+          steps {
+            sh './pipeline/checkstyle/pluginmanager_stylecheck.sh'
+          }
+        }
+        stage('sonmanobase') {
+          steps {
+            sh './pipeline/checkstyle/sonmanobase_stylecheck.sh'
+          }
+        }
+        stage('Specifc Manager Registry') {
+          steps {
+            sh './pipeline/checkstyle/specificmanagerregistry_stylecheck.sh'
+          }
+        }
+        stage('Placement Executive') {
+          steps {
+            sh './pipeline/checkstyle/placementexecutive_stylecheck.sh'
+          }
+        }
+        stage('Placement Plugin') {
+          steps {
+            sh './pipeline/checkstyle/placementplugin_stylecheck.sh'
+          }
+        }
+      }
+    }
   }
   post {
     always {
