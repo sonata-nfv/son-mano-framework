@@ -62,6 +62,11 @@ pipeline {
         sh './pipeline/unittest/create_pm_dependency.sh'
       }
     }
+    stage('Unittest Specifc Manager Registry') {
+      steps {
+        sh './pipeline/unittest/specificmanagerregistry_unittest.sh'
+      }
+    }
     stage('Unittest second phase'){
       parallel {
         stage('Unittest Service Lifecycle Manager') {
@@ -77,11 +82,6 @@ pipeline {
         stage('Unittest sonmanobase') {
           steps {
             sh './pipeline/unittest/sonmanobase_unittest.sh'
-          }
-        }
-        stage('Unittest Specifc Manager Registry') {
-          steps {
-            sh './pipeline/unittest/specificmanagerregistry_unittest.sh'
           }
         }
         stage('Unittest Placement Executive') {
