@@ -57,7 +57,7 @@ class test_SMR_functionalities(unittest.TestCase):
         self.event2 = False
 
         self.smr_proc.start()
-        time.sleep(4)
+        time.sleep(10)
 
     @classmethod
     def tearDownClass(self):
