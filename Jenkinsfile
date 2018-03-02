@@ -47,8 +47,61 @@ pipeline {
         }
       }
     }
+    stage('Unittest Dependencies') {
+      steps {
+        sh './pipeline/unittest/create_dependencies.sh'
+      }
+    }
+    stage('Unittest Plugin Manager') {
+      steps {
+        sh './pipeline/unittest/pluginmanager_unittest.sh'
+      }
+    }
+    stage('Uniittest next dependencies') {
+      steps {
+        sh './pipeline/unittest/create_pm_dependency.sh'
+      }
+    }
+    stage('Unittest Specifc Manager Registry') {
+      steps {
+        sh './pipeline/unittest/specificmanagerregistry_unittest.sh'
+      }
+    }
+    stage('Unittest second phase'){
+      parallel {
+        stage('Unittest Service Lifecycle Manager') {
+          steps {
+            sh './pipeline/unittest/servicelifecyclemanager_unittest.sh'
+          }
+        }
+        stage('Unittest Function Lifecycle Manager') {
+          steps {
+            sh './pipeline/unittest/functionlifecyclemanager_unittest.sh'
+          }
+        }
+        stage('Unittest sonmanobase') {
+          steps {
+            sh './pipeline/unittest/sonmanobase_unittest.sh'
+          }
+        }
+        stage('Unittest Placement Executive') {
+          steps {
+            sh './pipeline/unittest/placementexecutive_unittest.sh'
+          }
+        }
+        stage('Unittest Placement Plugin') {
+          steps {
+            sh './pipeline/unittest/placementplugin_unittest.sh'
+          }
+        }
+      }
+    }
   }
   post {
+    always {
+      echo 'Clean Up'
+      sh './pipeline/unittest/clean_environment.sh'
+    }
     success {
         emailext (
           subject: "SUCCESS: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
