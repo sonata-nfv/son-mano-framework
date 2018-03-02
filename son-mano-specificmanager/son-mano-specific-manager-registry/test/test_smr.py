@@ -2,6 +2,8 @@ import unittest
 import threading
 import time
 import yaml
+import json
+import time
 import logging
 from multiprocessing import Process
 
@@ -40,12 +42,25 @@ class test_SMR_functionalities(unittest.TestCase):
     @classmethod
     def setUpClass(self):
 
+        def wait_for_smr(ch, method, properties, message):
+
+            LOG.info("PM status message received")
+            status = json.loads(message)
+            plugin_dict = status['plugin_dict']
+            for uuid in plugin_dict.keys():
+                if plugin_dict[uuid]['name'] == 'son-plugin.SpecificManagerRegistry':
+                    LOG.info("SMR detected")
+                    self.smr_active = True
+
+        print("SetUpClass triggered")
+
+        self.smr_active = False
+        self.manoconn = ManoBrokerRequestResponseConnection('smr-unittest')
+        self.manoconn.subscribe(wait_for_smr, 'platform.management.plugin.status')
+
         self.smr_proc = Process(target=SpecificManagerRegistry)
-
         self.smr_proc.daemon = True
-
-        self.manoconn = ManoBrokerRequestResponseConnection('son-plugin.SpecificManagerRegistry')
-
+        self.smr_proc.start()
 
         self.wait_for_ssm_event = threading.Event()
         self.wait_for_ssm_event.clear()
@@ -56,8 +71,11 @@ class test_SMR_functionalities(unittest.TestCase):
         self.event1 = False
         self.event2 = False
 
-        self.smr_proc.start()
-        time.sleep(4)
+        while not self.smr_active:
+            LOG.info("SMR not active yet, sleeping...")
+            time.sleep(1)
+
+        LOG.info('SMR is active')
 
     @classmethod
     def tearDownClass(self):

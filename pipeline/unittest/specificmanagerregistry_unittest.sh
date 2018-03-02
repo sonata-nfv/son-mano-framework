@@ -16,8 +16,8 @@ registry.sonata-nfv.eu:5000/specificmanagerregistry py.test -v
 echo "Specific Manager Registry unittests finised"
 
 #clean-up
-docker rm -fv $(docker ps -a -f "name=sonssm")
-docker rm -fv $(docker ps -a -f "name=sonfsm")
+#docker rm -fv $(docker ps -a -f "name=sonssm")
+#docker rm -fv $(docker ps -a -f "name=sonfsm")
 docker rm -fv test.mano.smr
 
 # abort of tests failed
