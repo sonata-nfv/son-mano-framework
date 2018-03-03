@@ -62,11 +62,6 @@ pipeline {
         sh './pipeline/unittest/create_pm_dependency.sh'
       }
     }
-    stage('Unittest Specifc Manager Registry') {
-      steps {
-        sh './pipeline/unittest/specificmanagerregistry_unittest.sh'
-      }
-    }
     stage('Unittest second phase'){
       parallel {
         stage('Unittest Service Lifecycle Manager') {
@@ -74,14 +69,14 @@ pipeline {
             sh './pipeline/unittest/servicelifecyclemanager_unittest.sh'
           }
         }
+        stage('Unittest Specifc Manager Registry') {
+          steps {
+            sh './pipeline/unittest/specificmanagerregistry_unittest.sh'
+          }
+        }
         stage('Unittest Function Lifecycle Manager') {
           steps {
             sh './pipeline/unittest/functionlifecyclemanager_unittest.sh'
-          }
-        }
-        stage('Unittest sonmanobase') {
-          steps {
-            sh './pipeline/unittest/sonmanobase_unittest.sh'
           }
         }
         stage('Unittest Placement Executive') {
@@ -94,6 +89,11 @@ pipeline {
             sh './pipeline/unittest/placementplugin_unittest.sh'
           }
         }
+      }
+    }
+    stage('Unittest sonmanobase') {
+      steps {
+        sh './pipeline/unittest/sonmanobase_unittest.sh'
       }
     }
     stage('Checkstyle') {
