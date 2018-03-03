@@ -5,9 +5,9 @@ set -x
 
 echo "Clean dependencies"
 
-#TODO: rename the test ssms and fsms van Hadi
+docker ps -a
 
-docker rm -fv $(docker ps -a -q -f "name=test.mano.")
+docker rm -fv $(docker ps -a -q -f "network=son-mano-unittests")
 
 docker network rm son-mano-unittests
 
