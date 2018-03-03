@@ -11,3 +11,5 @@ docker rm -fv $(docker ps -a -q -f "network=son-mano-unittests")
 
 docker network rm son-mano-unittests
 
+docker ps -a
+docker network ls

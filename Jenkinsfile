@@ -96,11 +96,96 @@ pipeline {
         }
       }
     }
+    stage('Checkstyle') {
+      parallel {
+        stage('Service Lifecycle Manager') {
+          steps {
+            sh './pipeline/checkstyle/servicelifecyclemanager_stylecheck.sh || true'
+          }
+        }
+        stage('Function Lifecycle Manager') {
+          steps {
+            sh './pipeline/checkstyle/functionlifecyclemanager_stylecheck.sh || true'
+          }
+        }
+        stage('Plugin Manager') {
+          steps {
+            sh './pipeline/checkstyle/pluginmanager_stylecheck.sh || true'
+          }
+        }
+        stage('sonmanobase') {
+          steps {
+            sh './pipeline/checkstyle/sonmanobase_stylecheck.sh || true'
+          }
+        }
+        stage('Specifc Manager Registry') {
+          steps {
+            sh './pipeline/checkstyle/specificmanagerregistry_stylecheck.sh || true'
+          }
+        }
+        stage('Placement Executive') {
+          steps {
+            sh './pipeline/checkstyle/placementexecutive_stylecheck.sh || true'
+          }
+        }
+        stage('Placement Plugin') {
+          steps {
+            sh './pipeline/checkstyle/placementplugin_stylecheck.sh || true'
+          }
+        }
+      }
+    }
+    stage('Publish') {
+      parallel {
+        stage('Service Lifecycle Manager') {
+          steps {
+            echo 'Building Service Lifecycle Manager container'
+            sh './pipeline/publish/servicelifecyclemanagement.sh'
+          }
+        }
+        stage('Function Lifecycle Manager') {
+          steps {
+            echo 'Building Function Lifecycle Manager container'
+            sh './pipeline/publish/functionlifecyclemanagement.sh'
+          }
+        }
+        stage('Plugin Manager') {
+          steps {
+            echo 'Building Plugin Manager container'
+            sh './pipeline/publish/pluginmanager.sh'
+          }
+        }
+        stage('sonmanobase') {
+          steps {
+            echo 'Building sonmanobase container'
+            sh './pipeline/publish/sonmanobase.sh'
+          }
+        }
+        stage('Specifc Manager Registry') {
+          steps {
+            echo 'Building Specific Manager Registry container'
+            sh './pipeline/publish/specificmanagerregistry.sh'
+          }
+        }
+        stage('Placement Executive') {
+          steps {
+            echo 'Building Placement Executive container'
+            sh './pipeline/publish/placementexecutive.sh'
+          }
+        }
+        stage('Placement Plugin') {
+          steps {
+            echo 'Building Placement Plugin container'
+            sh './pipeline/publish/placementplugin.sh'
+          }
+        }
+      }
+    }
   }
   post {
     always {
       echo 'Clean Up'
-      sh './pipeline/unittest/clean_environment.sh'
+      sh './pipeline/cleanup/clean_environment.sh'
     }
     success {
         emailext (
