@@ -84,7 +84,7 @@ class ManoBasePlugin(object):
                 self.manoconn = messaging.ManoBrokerRequestResponseConnection(self.name)
                 break
             except:
-                time.sleep(5)
+                time.sleep(1)
         # register subscriptions
         LOG.info("Plugin connected to broker.")
 
@@ -99,6 +99,7 @@ class ManoBasePlugin(object):
         self._auto_heartbeat(auto_heartbeat_rate)
         # jump to run
         if start_running:
+            LOG.info("Plugin running...")
             self.run()
 
     def __del__(self):
