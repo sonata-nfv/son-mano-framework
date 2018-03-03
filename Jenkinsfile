@@ -100,37 +100,37 @@ pipeline {
       parallel {
         stage('Service Lifecycle Manager') {
           steps {
-            sh './pipeline/checkstyle/servicelifecyclemanager_stylecheck.sh'
+            sh './pipeline/checkstyle/servicelifecyclemanager_stylecheck.sh || true'
           }
         }
         stage('Function Lifecycle Manager') {
           steps {
-            sh './pipeline/checkstyle/functionlifecyclemanager_stylecheck.sh'
+            sh './pipeline/checkstyle/functionlifecyclemanager_stylecheck.sh || true'
           }
         }
         stage('Plugin Manager') {
           steps {
-            sh './pipeline/checkstyle/pluginmanager_stylecheck.sh'
+            sh './pipeline/checkstyle/pluginmanager_stylecheck.sh || true'
           }
         }
         stage('sonmanobase') {
           steps {
-            sh './pipeline/checkstyle/sonmanobase_stylecheck.sh'
+            sh './pipeline/checkstyle/sonmanobase_stylecheck.sh || true'
           }
         }
         stage('Specifc Manager Registry') {
           steps {
-            sh './pipeline/checkstyle/specificmanagerregistry_stylecheck.sh'
+            sh './pipeline/checkstyle/specificmanagerregistry_stylecheck.sh || true'
           }
         }
         stage('Placement Executive') {
           steps {
-            sh './pipeline/checkstyle/placementexecutive_stylecheck.sh'
+            sh './pipeline/checkstyle/placementexecutive_stylecheck.sh || true'
           }
         }
         stage('Placement Plugin') {
           steps {
-            sh './pipeline/checkstyle/placementplugin_stylecheck.sh'
+            sh './pipeline/checkstyle/placementplugin_stylecheck.sh || true'
           }
         }
       }
