@@ -1042,6 +1042,8 @@ class FunctionLifecycleManager(ManoBasePlugin):
         # Add keys
         self.functions[func_id]['public_key'] = payload['public_key']
         self.functions[func_id]['private_key'] = payload['private_key']
+        
+        LOG.info(str(payload['public_key']))
 
         return func_id
 
