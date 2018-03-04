@@ -2286,6 +2286,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Add user data to ledger
         self.services[serv_id]['user_data'] = payload['user_data']
 
+        LOG.info("User data: " + str(payload['user_data']))
+        
         # Add keys to ledger
         try:
             keys = payload['user_data']['customer']['keys']
