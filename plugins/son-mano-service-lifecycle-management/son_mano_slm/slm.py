@@ -2296,6 +2296,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
             LOG.info("Service " + serv_id + msg)
             self.services[serv_id]['public_key'] = None
             self.services[serv_id]['private_key'] = None
+            
+        LOG.info("Public key: " + str(self.services[serv_id]['public_key']))
 
         return serv_id
 
