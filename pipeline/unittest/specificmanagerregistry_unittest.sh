@@ -3,6 +3,10 @@
 set -e
 set -x
 
+echo "Active containers"
+
+docker ps -a
+
 echo "Run unittests Specific Manager Registry"
 
 # spin up smr container and run py.test

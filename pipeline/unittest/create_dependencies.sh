@@ -3,6 +3,10 @@
 set -e
 set -x
 
+echo "Clean up leftovers from SONATA jobs"
+
+docker rm -fv $(docker ps -a -f "network=test.sonata-plugins") || true
+
 echo "Create docker network MANO unittests"
 
 # spin up a docker network
