@@ -28,7 +28,9 @@ ENV PLUGIN_BASE son-mano-placement
 ENV broker_host amqp://guest:guest@broker:5672/%2F
 ENV broker_exchange son-kernel
 
-RUN apt-get update && apt-get install -y glpk-utils
+RUN apt-get update && apt-get install -y glpk-utils && apt-get install -y python3-pip
+
+RUN pip3 install pulp
 
 # add generic project files
 ADD son-mano-base /son-mano-base

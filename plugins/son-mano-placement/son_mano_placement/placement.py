@@ -152,15 +152,17 @@ class PlacementPlugin(ManoBasePlugin):
         vnfs = content['functions']
         op_pol = content['operator_policies']
         cu_pol = content['customer_policies']
+        ingress = content['nap']['ingresses']
+        egress = content['nap']['egresses']
 
         vnf_single_pop = False
         if "vnf_single_pop" in content.keys():
             vnf_single_pop = content["vnf_single_pop"]
 
-        placement = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, vnf_single_pop=vnf_single_pop)
+        placement = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, vnf_single_pop=vnf_single_pop)
         LOG.info("Placement calculated:" + str(placement))
 
-        response = {'mapping': placement}
+        response = {'mapping': placement[0], 'error': placement[1]}
         topic = 'mano.service.place'
 
         self.manoconn.notify(topic,
@@ -169,7 +171,7 @@ class PlacementPlugin(ManoBasePlugin):
 
         LOG.info("Placement response sent for service: " + content['serv_id'])
 
-    def placement(self, serv_id, nsd, vnfs, top, op_policy, cu_policy, operator_weight=1.0, developer_weight=0.0, customer_weight=0.0, vnf_single_pop=False):
+    def placement(self, serv_id, nsd, vnfs, top, op_policy, cu_policy, ingress, egress, operator_weight=0.0, developer_weight=1.0, customer_weight=0.0, vnf_single_pop=False):
         """
         This is the default placement algorithm that is used if the SLM
         is responsible to perform the placement
@@ -183,36 +185,25 @@ class PlacementPlugin(ManoBasePlugin):
 
         if not isinstance(op_policy, dict):
             LOG.info(str(serv_id) + ": operator_policies is not a dict")
-            return None
+            return "Operator policies are not a dictionary", "ERROR"
         if not isinstance(cu_policy, dict):
             LOG.info(str(serv_id) + ": customer_policies is not a dict")
-            return None
+            return "Customer policies are not a dictionary", "ERROR"
 
         # Make a list of the images (VNF can have multiple VDU) that require
         # mapping.
-
-        images_to_map = []
-        for vnf in vnfs:
-            vnfd = vnf['vnfd']
-            for vdu in vnfd['virtual_deployment_units']:
-                new_dict = {}
-                req = vdu['resource_requirements']
-                new_dict['cpu'] = req['cpu']['vcpus']
-                new_dict['ram'] = req['memory']['size']
-                new_dict['storage'] = req['storage']['size']
-                new_dict['function_id'] = vnf['id']
-                new_dict['id'] = str(vnf['id']) + '_' + vdu['id']
-                images_to_map.append(new_dict)
-
+        images_to_map = tools.get_image_list(vnfs)
         LOG.info(str(serv_id) + ": List of images: " + str(images_to_map))
 
-        # Create list of decision variables. Per image to map, we have n decision
-        # variables if n is the number of PoPs that can be mapped on.
+        # Create list of decision variables. Per image to map, we have n
+        #  decisionvariables if n is the number of PoPs that can be mapped on.
         LOG.info(str(serv_id) + ": Creating decision variables")
-        decision_vars = [(x, y) for x in range(len(images_to_map)) for y in range(len(top))]
+        range_images = range(len(images_to_map))
+        range_top = range(len(top))
+        decision_vars = [(x, y) for x in range_images for y in range_top]
 
         # The decision variables are 1 if VNF x is mapped on PoP y, 0 if not.
-        # So decision variables are binary.
+        # Decision variables are thus binary.
         LOG.info(str(serv_id) + ": Creating ILP problem")
         variables = pulp.LpVariable.dicts('variables',
                                           decision_vars,
@@ -225,78 +216,49 @@ class PlacementPlugin(ManoBasePlugin):
 
         # Create objective based on customer policies
         # TODO: At this point, we don't have soft customer objectives
+        customer_objective = 0
 
         # Create objective based on developer policies
-        if 'soft_constraints' in nsd.keys():
-            
+        source_ip = None
+        dest_ip = None
+        if ingress:
+            source_ip = ingress[0]['nap']
+        if egress:
+            dest_ip = egress[0]['nap']
+        developr_objective = tools.calculate_developer_objective(nsd,
+                                                                 vnfs,
+                                                                 source_ip,
+                                                                 dest_ip,
+                                                                 images_to_map,
+                                                                 top,
+                                                                 variables,
+                                                                 decision_vars,
+                                                                 LOG,
+                                                                 serv_id)
 
         # Create objective based on operator policies
-        LOG.info(str(serv_id) + ": Operator Policy: " + str(op_policy))
-        operator_factor = 0
-        if op_policy['policy'] == 'load balanced':
-            operator_factor = 1
-        if op_policy['policy'] == 'fill first':
-            operator_factor = -1
+        operator_objective = tools.calculate_operator_objective(variables,
+                                                                images_to_map,
+                                                                top,
+                                                                decision_vars,
+                                                                op_policy,
+                                                                LOG,
+                                                                serv_id,
+                                                                )
 
-        if operator_factor != 0:
-            soft_constraints_to_add = {}
-            list_of_new_floats1 = []
-            list_of_new_floats2 = []
-            list_of_new_bins = []
-            for x in range(len(top)):
-                for y in range(len(top)):
-                    if x < y:
-                        # create expression of which absolute value should be minimized
-                        expression = tools.absolute_load_difference(variables, y, x, images_to_map, top, decision_vars)
-                        # add new decision variables to problem to bypass absolute value issue
-                        nameFloat1 = "extraFloat1_" + str(x) + "_" + str(y)
-                        nameFloat2 = "extraFloat2_" + str(x) + "_" + str(y)
-                        nameBin = "extraBin_" + str(x) + "_" + str(y)
-                        list_of_new_floats1.append(nameFloat1)
-                        list_of_new_floats2.append(nameFloat2)
-                        list_of_new_bins.append(nameBin)
-                        # we need to store the new constraints to be added after object
-                        # object function is defined
-                        soft_constraints_to_add[nameFloat1] = expression
+        LOG.info(len(developr_objective[0]))
+        lpProblem += operator_weight * operator_objective[0] + developer_weight * developr_objective[0] + customer_objective * customer_weight
 
-            new_floats1 = pulp.LpVariable.dicts('extra_Float1', list_of_new_floats1, lowBound=0, upBound=1)
-            new_floats2 = pulp.LpVariable.dicts('extra_Float2', list_of_new_floats2, lowBound=0, upBound=1)
-            new_bins = pulp.LpVariable.dicts('extra_bin', list_of_new_bins, lowBound=0, upBound=1, cat=pulp.LpInteger)
+        # Add additional constraints created by developer policy model
+        # translation
+        for constraint in developr_objective[1]:
+            lpProblem += constraint
 
-            # Combine all objectives in object function
-            lpProblem += operator_weight * operator_factor * sum(new_floats1[x] + new_floats2[y] for x in list_of_new_floats1 for y in list_of_new_floats2)
+        # Add additional constraints created by operator policy model
+        # translation
+        for constraint in operator_objective[1]:
+            lpProblem += constraint
 
-            # Add the constraints related to the new variables
-            for index in range(len(list_of_new_floats1)):
-                bn = new_bins[list_of_new_bins[index]]
-                ft1 = new_floats1[list_of_new_floats1[index]]
-                ft2 = new_floats2[list_of_new_floats2[index]]
-                lpProblem += ft1 - ft2 == soft_constraints_to_add[list_of_new_floats1[index]]
-                lpProblem += ft1 <= bn
-                lpProblem += ft2 <= 1 - bn
-
-        elif op_policy['policy'] == 'priority':
-            number_of_vnfs = []
-            priority_log = []
-            priorityList = op_policy['list']
-            LOG.info(str(serv_id) + ": Priority list: " + str(priorityList))
-
-            for index in range(len(top)):
-                vim_name = top[index]['vim_name']
-
-                if vim_name in priorityList:
-                    priority = len(top) - priorityList.index(vim_name)
-                else:
-                    LOG.info(str(serv_id) + ": PoP not in priority list: " + str(vim_name))
-                    priority = 1
-
-                number_of_vnfs.append(tools.number_of_vnfs_mapped_to_pop(variables, index, decision_vars, LOG))
-                priority_log.append(priority)
-
-            lpProblem += (-1) * operator_weight * sum(number_of_vnfs[x] * priority_log[x] for x in range(len(priority_log)))
-
-        else:
-            LOG.info(str(serv_id) + "No supported operator policy set.")
         # Set hard constraints
         # PoP resources can not be violated
         for vim in range(len(top)):
@@ -321,20 +283,15 @@ class PlacementPlugin(ManoBasePlugin):
 
         # set constraints for single PoP VNFs
         if vnf_single_pop:
-            list_with_products = []
-            for vnf in vnfs:
-                new_sum = 0
-                for pop_index in range(len(top)):
-                    new_product = 1
-                    for vdu_index in range(len(images_to_map)):
-                        if images_to_map[vdu_index]['function_id'] == vnf['id']:
-                            new_product = new_product * variables[(vdu_index, pop_index)]
-                    new_sum = new_sum + new_product
-
-                lpProblem += new_sum == 1
+            for vdu_index_1 in range(len(images_to_map)):
+                for vdu_index_2 in range(len(images_to_map)):
+                    if vdu_index_1 < vdu_index_2:
+                        if images_to_map[vdu_index_1]['function_id'] == images_to_map[vdu_index_2]['function_id']:
+                            for pop_index in range(len(top)):
+                                lpProblem += variables[(vdu_index_1, pop_index)] == variables[(vdu_index_2, pop_index)]
 
         # Solve the problem
-        lpProblem.solve()
+        lpProblem.solve() 
 
         # Check the feasibility of the result
         LOG.info(str(serv_id) + ": Result: " + str(pulp.LpStatus[lpProblem.status]))
@@ -356,7 +313,16 @@ class PlacementPlugin(ManoBasePlugin):
                     mapping[images_to_map[combo[0]]['id']] = top[combo[1]]['vim_uuid']
 
         LOG.info(str(serv_id) + ": Resulting message: " + str(mapping))
-        return mapping
+
+        for var in developr_objective[3]:
+            LOG.info(str(var))
+            LOG.info(str(developr_objective[2][var].value()))
+
+        LOG.info(lpProblem.objective)
+#        LOG.info(value(lpProblem.objective))
+        for constraint in lpProblem.constraints:
+            LOG.info(constraint)
+        return mapping, None
 
 
 def main():
