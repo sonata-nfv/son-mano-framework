@@ -61,7 +61,7 @@ setup(
     license='Apache 2.0',
 
     packages=find_packages(),
-    install_requires=['amqpstorm', 'pytest'],
+    install_requires=['amqpstorm', 'pytest', 'pulp'],
     setup_requires=['pytest-runner'],
 
     # To provide executable scripts, use entry points in preference to the
