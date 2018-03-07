@@ -2224,6 +2224,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
         msg = ": NSD uuid is " + str(payload['NSD']['uuid'])
         LOG.info("Service " + serv_id + msg)
 
+        msg = ": NSD name is " + str(payload['NSD']['name'])
+        LOG.info("Service " + serv_id + msg)
+
         self.services[serv_id]['function'] = []
         for key in payload.keys():
             if key[:4] == 'VNFD':
