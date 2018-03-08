@@ -24,22 +24,26 @@ partner consortium (www.sonata-nfv.eu).a
 import pulp
 
 
-def absolute_load_difference(variables, x, y, vnfs, pop, possible_combinations, resource_type='cpu'):
+def absolute_load_difference(variables, x, y, vnfs, pop, possible_combinations, resource_types=['cpu', 'ram']):
 
-    if resource_type == 'cpu':
-        type_used = 'core_used'
-        type_tot = 'core_total'
-    if resource_type == 'ram':
-        type_used = 'memory_used'
-        type_tot = 'memory_total'
+    load_x = 0.0
+    load_y = 0.0
 
-    used_x = pop[x][type_used] + sum(vnfs[k[0]][resource_type] * variables[k] for k in possible_combinations if k[1] == x)
-    load_x = 1.0 * used_x / pop[x][type_tot]
+    for resource_type in resource_types:
+        if resource_type == 'cpu':
+            type_used = 'core_used'
+            type_tot = 'core_total'
+        if resource_type == 'ram':
+            type_used = 'memory_used'
+            type_tot = 'memory_total'
 
-    used_y = pop[y][type_used] + sum(vnfs[k[0]][resource_type] * variables[k] for k in possible_combinations if k[1] == y)
-    load_y = 1.0 * used_y / pop[y][type_tot]
+        used_x = pop[x][type_used] + sum(vnfs[k[0]][resource_type] * variables[k] for k in possible_combinations if k[1] == x)
+        load_x = load_x + used_x / pop[x][type_tot]
 
-    return load_x - load_y
+        used_y = pop[y][type_used] + sum(vnfs[k[0]][resource_type] * variables[k] for k in possible_combinations if k[1] == y)
+        load_y = load_y + used_y / pop[y][type_tot]
+
+    return load_x / len(resource_types) - load_y / len(resource_types)
 
 
 def number_of_vnfs_mapped_to_pop(variables, x, possible_combinations, log):
@@ -190,7 +194,6 @@ def calculate_developer_objective(nsd, vnfs, source_ip, dest_ip, images_to_map, 
                 for index_2 in indexes_second_vnf:
                     for pop_1 in range(len(top)):
                         for pop_2 in range(len(top)):
-                            LOG.info("GOT HEREEE")
                             new_name = "extraDeveloperBin_" + str(index_1) + "_" + str(index_2) + "_" + str(pop_1) + "_" + str(pop_2)
                             new_bins.append(new_name)
                             matrix_equivalent.append(distance_matrix[pop_1][pop_2])
@@ -204,7 +207,6 @@ def calculate_developer_objective(nsd, vnfs, source_ip, dest_ip, images_to_map, 
             developer_objective += sum((-1) * new_bins_lp[new_bins[x]] * matrix_equivalent[x] / 4 for x in range(len(new_bins)))
 
             for new_constraint in range(len(new_bins)):
-                LOG.info("New constraint")
                 additional_constraints.append(new_bins_lp[new_bins[new_constraint]] <= (old_var_1[new_constraint] + old_var_2[new_constraint])/2.0)
 
         else:
@@ -223,7 +225,6 @@ def calculate_developer_objective(nsd, vnfs, source_ip, dest_ip, images_to_map, 
 
             for index in indexes_vnf:
                 for pop in range(len(top)):
-                    LOG.info("GOT HERE")
                     developer_objective += (-1) * variables[(index, pop)] * distance_matrix[pop][index_endpoint]
 
     return developer_objective, additional_constraints, new_bins_lp, new_bins
@@ -277,14 +278,10 @@ def calculate_distances(source, destination, pop, LOG, weightfactor=1):
                 ip_y = pop[index_y]['vim_endpoint']
             matrix[index_x].append((find_number_of_common_segments(ip_x, ip_y, LOG)) ** weightfactor)
 
-    LOG.info(str(matrix))
     return matrix
 
 
 def find_number_of_common_segments(first_ip, second_ip, LOG):
-
-    LOG.info(str(first_ip))
-    LOG.info(str(second_ip))
 
     if not first_ip:
         return 0

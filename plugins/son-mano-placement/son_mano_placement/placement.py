@@ -159,7 +159,31 @@ class PlacementPlugin(ManoBasePlugin):
         if "vnf_single_pop" in content.keys():
             vnf_single_pop = content["vnf_single_pop"]
 
-        placement = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, vnf_single_pop=vnf_single_pop)
+        # Convert memory information on topology to GB, from MB.
+        for pop in top:
+            pop['memory_used'] = pop['memory_used'] / 1024.0
+            pop['memory_total'] = pop['memory_total'] / 1024.0
+
+        # Extract weights
+        operator_weight = 1.0
+        developer_weight = 0.0
+        if 'weights' in op_pol.keys():
+            operator_weight = op_pol['weights']['operator']
+            developer_weight = op_pol['weights']['developer']
+
+        # Solve first for only operator or developer influence, to calibrate
+        operator_optimal_value = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=1.0, developer_weight=0.0, vnf_single_pop=vnf_single_pop)[2]
+        LOG.info(operator_optimal_value)
+        developer_optimal_value = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=0.0, developer_weight=1.0, vnf_single_pop=vnf_single_pop)[2]
+        LOG.info(developer_optimal_value)
+
+        operator_weight = abs(operator_weight / operator_optimal_value)
+        developer_weight = abs(developer_weight / developer_optimal_value)
+
+        LOG.info(operator_weight)
+        LOG.info(developer_weight)
+
+        placement = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=operator_weight, developer_weight=developer_weight, vnf_single_pop=vnf_single_pop)
         LOG.info("Placement calculated:" + str(placement))
 
         response = {'mapping': placement[0], 'error': placement[1]}
@@ -171,7 +195,7 @@ class PlacementPlugin(ManoBasePlugin):
 
         LOG.info("Placement response sent for service: " + content['serv_id'])
 
-    def placement(self, serv_id, nsd, vnfs, top, op_policy, cu_policy, ingress, egress, operator_weight=0.0, developer_weight=1.0, customer_weight=0.0, vnf_single_pop=False):
+    def placement(self, serv_id, nsd, vnfs, top, op_policy, cu_policy, ingress, egress, operator_weight=1.0, developer_weight=0.0, customer_weight=0.0, vnf_single_pop=False):
         """
         This is the default placement algorithm that is used if the SLM
         is responsible to perform the placement
@@ -314,15 +338,14 @@ class PlacementPlugin(ManoBasePlugin):
 
         LOG.info(str(serv_id) + ": Resulting message: " + str(mapping))
 
-        for var in developr_objective[3]:
-            LOG.info(str(var))
-            LOG.info(str(developr_objective[2][var].value()))
+        # for var in developr_objective[3]:
+        #     LOG.info(str(var))
+        #     LOG.info(str(developr_objective[2][var].value()))
 
         LOG.info(lpProblem.objective)
-#        LOG.info(value(lpProblem.objective))
-        for constraint in lpProblem.constraints:
-            LOG.info(constraint)
-        return mapping, None
+        LOG.info(lpProblem.objective.value())
+        optimal_value = lpProblem.objective.value()
+        return mapping, None, optimal_value
 
 
 def main():
