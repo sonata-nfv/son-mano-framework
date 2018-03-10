@@ -544,6 +544,36 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         return self.services[serv_id]['schedule']
 
+    def rechain_workflow(self, serv_id, payload):
+        """
+        This method triggers a reconfiguration workflow.
+        """
+
+        # Check if the ledger has an entry for this instance
+        if serv_id not in self.services.keys():
+            # Based on the received payload, the ledger entry is recreated.
+            LOG.info("Recreating ledger.")
+            self.recreate_ledger(corr_id, serv_id)
+
+        self.services[serv_id]['service']['nsd'] = payload['old_nsd']
+        self.services[serv_id]['service']['new_nsd'] = payload['new_nsd']
+
+        LOG.info('Service ' + str(serv_id) + ': rechain workflow request')
+        self.services[serv_id]["current_workflow"] = 'rechain'
+
+        add_schedule = []
+        add_schedule.append("vnf_unchain")
+        add_schedule.append("change_nsd")
+        add_schedule.append("vnf_chain")
+
+        self.services[serv_id]['schedule'].extend(add_schedule)
+
+        LOG.info('Service ' + str(serv_id) + ': rechain workflow started')
+        # Start the chain of tasks
+        self.start_next_task(serv_id)
+
+        return self.services[serv_id]['schedule']
+
     def terminate_workflow(self, serv_id, corr_id=None, topic=None, orig=None):
         """
         This function handles the actual termination
@@ -590,14 +620,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         return self.services[serv_id]['schedule']
 
-    def service_instance_custom(self, serv_id, schedule):
+    def service_instance_custom(self, serv_id, schedule, payload=None):
         """
         This method creates a customized workflow. It is not called by
         the user through the GK, but from an SSM. The SSM has created
         the task schedule
         """
 
-        # TODO: validate whether the proposed schedule by the SSM makes sense
         LOG.info("Custom workflow requested for service " + str(serv_id))
 
         if serv_id not in self.services.keys():
@@ -607,6 +636,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         self.services[serv_id]["current_workflow"] = 'custom'
         self.services[serv_id]['schedule'] = schedule
+
+        if payload:
+            for key in payload.keys():
+                if key == 'nsd':
+                    LOG.info('Service ' + str(serv_id) + ': nsd overwritten')
+                    self.services[serv_id]['service']['nsd'] = payload['nsd']
 
         LOG.info("Custom workflow started for service " + str(serv_id))
         # Start the chain of tasks
@@ -676,11 +711,16 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 pass
             if content['workflow'] == 'reconfigure':
                 self.reconfigure_workflow(serv_id)
+            if content['workflow'] == 'rechain':
+                self.rechain_workflow(serv_id, content['data'])
             # TODO: add additional workflows
         if 'schedule' in content.keys():
             schedule = content['schedule']
+            data  = None
+            if 'data' in content.keys():
+                data = content['data']
             LOG.info("schedule found: " + str(schedule))
-            self.service_instance_custom(serv_id, schedule)
+            self.service_instance_custom(serv_id, schedule, data)
 
         return
 
@@ -1590,6 +1630,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         return
 
+    def change_nsd(self, serv_id):
+
+        LOG.info("Service " + serv_id + ": Updating NSD.")
+
+        new_nsd = self.services[serv_id]['service']['new_nsd']
+        self.services[serv_id]['service']['nsd'] = new_nsd
+
     def vnf_chain(self, serv_id):
         """
         This method instructs the IA how to chain the functions together.
@@ -2093,6 +2140,16 @@ class ServiceLifecycleManager(ManoBasePlugin):
                              'id': vnf['id'],
                              'vnfr': vnf['vnfr']})
             message['vnfs'] = vnfs
+
+            if 'ingress' in self.services[serv_id].keys():
+                message['ingress'] = self.services[serv_id]['ingress']
+            else:
+                message['ingress'] = None
+            if 'egress' in self.services[serv_id].keys():
+                message['egress'] = self.services[serv_id]['egress']
+            else:
+                message['egress'] = None
+
             message['ssm_type'] = 'monitor'
             topic = 'generic.ssm.' + serv_id
 

@@ -666,7 +666,8 @@ class FunctionLifecycleManager(ManoBasePlugin):
         corr_id = str(uuid.uuid4())
         self.functions[func_id]['act_corr_id'] = corr_id
 
-        LOG.info("IA contacted for function deployment.")
+        msg = ": IA contacted for function deployment."
+        LOG.info("Function " + func_id + msg)
         LOG.debug("Payload of request: " + payload)
         # Contact the IA
         self.manoconn.call_async(self.IA_deploy_response,
@@ -683,12 +684,14 @@ class FunctionLifecycleManager(ManoBasePlugin):
         vnf deploy request.
         """
 
-        LOG.info("Response from IA on vnf deploy call received.")
         LOG.info("Payload of request: " + str(payload))
 
         inc_message = yaml.load(payload)
 
         func_id = tools.funcid_from_corrid(self.functions, prop.correlation_id)
+
+        msg = "Response from IA on vnf deploy call received."
+        LOG.info("Function " + func_id + msg)
 
         self.functions[func_id]['status'] = inc_message['request_status']
 
@@ -811,7 +814,8 @@ class FunctionLifecycleManager(ManoBasePlugin):
         In this method, the SLM is contacted to inform on the vnf
         deployment.
         """
-        LOG.info("Informing the SLM of the status of the vnf deployment")
+        msg = "Informing the SLM of the status of the vnf deployment"
+        LOG.info("Function " + func_id + msg)
 
         function = self.functions[func_id]
 
