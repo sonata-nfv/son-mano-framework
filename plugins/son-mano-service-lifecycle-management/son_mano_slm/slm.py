@@ -2271,6 +2271,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
         msg = ": NSD uuid is " + str(payload['NSD']['uuid'])
         LOG.info("Service " + serv_id + msg)
 
+        msg = ": NSD name is " + str(payload['NSD']['name'])
+        LOG.info("Service " + serv_id + msg)
+
         self.services[serv_id]['function'] = []
         for key in payload.keys():
             if key[:4] == 'VNFD':
@@ -2333,6 +2336,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Add user data to ledger
         self.services[serv_id]['user_data'] = payload['user_data']
 
+        LOG.info("User data: " + str(payload['user_data']))
+        
         # Add keys to ledger
         try:
             keys = payload['user_data']['customer']['keys']
@@ -2343,6 +2348,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
             LOG.info("Service " + serv_id + msg)
             self.services[serv_id]['public_key'] = None
             self.services[serv_id]['private_key'] = None
+            
+        LOG.info("Public key: " + str(self.services[serv_id]['public_key']))
 
         return serv_id
 
