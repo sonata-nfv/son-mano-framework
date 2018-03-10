@@ -562,7 +562,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]["current_workflow"] = 'rechain'
 
         add_schedule = []
-        add_schedule.append("vnf_unchain")
+#        add_schedule.append("vnf_unchain")
         add_schedule.append("change_nsd")
         add_schedule.append("vnf_chain")
 
