@@ -1677,7 +1677,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         if nap_empty:
             chain.pop('nap')
 
-        LOG.info(str(yaml.dump(chain)))
+        LOG.info(str(yaml.dump(chain, default_flow_style=False)))
         self.manoconn.call_async(self.IA_chain_response,
                                  t.IA_CONF_CHAIN,
                                  yaml.dump(chain),
