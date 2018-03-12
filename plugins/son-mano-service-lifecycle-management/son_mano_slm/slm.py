@@ -655,8 +655,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
     def monitoring_feedback(self, ch, method, prop, payload):
 
-        LOG.info("Monitoring message received")
-        LOG.info(payload)
+#        LOG.info("Monitoring message received")
+#        LOG.info(payload)
 
         try:
             content = json.loads(str(payload))
