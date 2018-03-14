@@ -127,7 +127,7 @@ def calculate_operator_objective(variables, images_to_map, top, decision_vars, o
     elif op_policy['policy'] == 'priority':
         number_of_vnfs = []
         priority_log = []
-        priorityList = op_policy['list']
+        priorityList = op_policy['policy_list']
         LOG.info(str(serv_id) + ": Priority list: " + str(priorityList))
 
         for index in range(len(top)):
@@ -145,12 +145,16 @@ def calculate_operator_objective(variables, images_to_map, top, decision_vars, o
         operator_objective += (-1) * sum(number_of_vnfs[x] * priority_log[x] for x in range(len(priority_log)))
 
     else:
-        LOG.info(str(serv_id) + "No supported operator policy set.")
+        LOG.info(str(serv_id) + ": No supported operator policy set.")
 
     return operator_objective, additional_constraints
 
 
 def calculate_developer_objective(nsd, vnfs, source_ip, dest_ip, images_to_map, top, variables, decision_vars, LOG, serv_id):
+
+    # If no soft constraints have been defined, there is no objective
+    if 'soft_constraints' not in nsd.keys():
+        return 0, {}, {}, {}
 
     developer_objective = 0
     additional_constraints = []
@@ -226,9 +230,9 @@ def calculate_developer_objective(nsd, vnfs, source_ip, dest_ip, images_to_map, 
             for index in indexes_vnf:
                 for pop in range(len(top)):
                     developer_objective += (-1) * variables[(index, pop)] * distance_matrix[pop][index_endpoint]
+            LOG.info(developer_objective)
 
-    return developer_objective, additional_constraints, new_bins_lp, new_bins
-
+    return developer_objective, additional_constraints
 
 def find_images_vnf_indexes(nsd, vnfs, images_to_map, vnf_id):
 

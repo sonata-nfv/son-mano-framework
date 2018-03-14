@@ -1,0 +1,94 @@
+author: Thomas Soenen
+connection_points:
+- id: mgmt
+  interface: ipv4
+  type: management
+- id: input
+  interface: ipv4
+  type: external
+- id: output
+  interface: ipv4
+  type: external
+description: vFoward for 2 VNFs on 2 PoPs.
+descriptor_version: '1.0'
+forwarding_graphs:
+- constituent_vnfs:
+  - vforward_vnf_1_2
+  - vforward_vnf_2_2
+  fg_id: ns:fg01
+  network_forwarding_paths:
+  - connection_points:
+    - connection_point_ref: input
+      position: 1
+    - connection_point_ref: vforward_vnf_1_2:input
+      position: 2
+    - connection_point_ref: vforward_vnf_1_2:output
+      position: 3
+    - connection_point_ref: vforward_vnf_2_2:input
+      position: 4
+    - connection_point_ref: vforward_vnf_2_2:output
+      position: 5
+    - connection_point_ref: output
+      position: 6
+    fp_id: ns:fg01:fp01
+    policy: none
+  number_of_endpoints: 2
+  number_of_virtual_links: 3
+name: vfoward-2-2
+network_functions:
+- vnf_id: vforward_vnf_1_2
+  vnf_name: vforward-vnf-1-2
+  vnf_vendor: everything-must-go
+  vnf_version: 0.1.2
+- vnf_id: vforward_vnf_2_2
+  vnf_name: vforward-vnf-2-2
+  vnf_vendor: everything-must-go
+  vnf_version: 0.2.2
+service_specific_managers:
+- description: placement SSM.
+  id: sonssmvforwardplacement1
+  image: tsoenen/vforward-placement
+  options:
+  - key: type
+    value: placement
+vendor: eu.sonata-nfv
+soft_constraints:
+  - objective: "affinity"
+    involved_actors:
+      - "vforward_vnf_2_2"
+      - "vforward_vnf_1_2"
+  # - objective: "proximity"
+  #   involved_actors:
+  #     - "destination"
+  #     - "vforward_vnf_1_2"
+  # - objective: "proximity"
+  #   involved_actors:
+  #     - "destination"
+  #     - "vforward_vnf_2_2"
+  # - objective: "affinity"
+  #   involved_actors:
+  #     - "vforward_vnf_2_2"
+  #     - "vforward_vnf_1_2"
+version: 0.2.2
+virtual_links:
+- connection_points_reference:
+  - mgmt
+  - vforward_vnf_1_2:mgmt
+  - vforward_vnf_2_2:mgmt
+  connectivity_type: E-LAN
+  id: mgmt
+- connection_points_reference:
+  - input
+  - vforward_vnf_1_2:input
+  connectivity_type: E-Line
+  id: link_1
+- connection_points_reference:
+  - vforward_vnf_1_2:output
+  - vforward_vnf_2_2:input
+  connectivity_type: E-Line
+  id: link_2
+- connection_points_reference:
+  - vforward_vnf_2_2:output
+  - output
+  connectivity_type: E-Line
+  id: link_3

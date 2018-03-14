@@ -1,0 +1,55 @@
+author: Thomas Soenen
+connection_points:
+- id: mgmt
+  interface: ipv4
+  type: management
+- id: input
+  interface: ipv4
+  type: external
+- id: output
+  interface: ipv4
+  type: external
+description: vFoward for 1 VNFs on 1 PoPs.
+descriptor_version: '1.0'
+forwarding_graphs:
+- constituent_vnfs:
+  - vforward_vnf_1_1
+  fg_id: ns:fg01
+  network_forwarding_paths:
+  - connection_points:
+    - connection_point_ref: input
+      position: 1
+    - connection_point_ref: vforward_vnf_1_1:input
+      position: 2
+    - connection_point_ref: vforward_vnf_1_1:output
+      position: 3
+    - connection_point_ref: output
+      position: 4
+    fp_id: ns:fg01:fp01
+    policy: none
+  number_of_endpoints: 2
+  number_of_virtual_links: 2
+name: vfoward-1-1
+network_functions:
+- vnf_id: vforward_vnf_1_1
+  vnf_name: vforward-vnf-1-1
+  vnf_vendor: everything-must-go
+  vnf_version: 0.1.1
+vendor: eu.sonata-nfv
+version: 0.1.1
+virtual_links:
+- connection_points_reference:
+  - mgmt
+  - vforward_vnf_1_1:mgmt
+  connectivity_type: E-LAN
+  id: mgmt
+- connection_points_reference:
+  - input
+  - vforward_vnf_1_1:input
+  connectivity_type: E-Line
+  id: link_1
+- connection_points_reference:
+  - vforward_vnf_1_1:output
+  - output
+  connectivity_type: E-Line
+  id: link_2

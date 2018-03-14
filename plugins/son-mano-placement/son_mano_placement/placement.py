@@ -160,9 +160,9 @@ class PlacementPlugin(ManoBasePlugin):
             vnf_single_pop = content["vnf_single_pop"]
 
         # Convert memory information on topology to GB, from MB.
-        for pop in top:
-            pop['memory_used'] = pop['memory_used'] / 1024.0
-            pop['memory_total'] = pop['memory_total'] / 1024.0
+        for pop in top.keys():
+            top[pop]['memory_used'] = top[pop]['memory_used'] / 1024.0
+            top[pop]['memory_total'] = top[pop]['memory_total'] / 1024.0
 
         # Extract weights
         operator_weight = 1.0
@@ -173,15 +173,10 @@ class PlacementPlugin(ManoBasePlugin):
 
         # Solve first for only operator or developer influence, to calibrate
         operator_optimal_value = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=1.0, developer_weight=0.0, vnf_single_pop=vnf_single_pop)[2]
-        LOG.info(operator_optimal_value)
         developer_optimal_value = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=0.0, developer_weight=1.0, vnf_single_pop=vnf_single_pop)[2]
-        LOG.info(developer_optimal_value)
 
         operator_weight = abs(operator_weight / operator_optimal_value)
         developer_weight = abs(developer_weight / developer_optimal_value)
-
-        LOG.info(operator_weight)
-        LOG.info(developer_weight)
 
         placement = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=operator_weight, developer_weight=developer_weight, vnf_single_pop=vnf_single_pop)
         LOG.info("Placement calculated:" + str(placement))
@@ -270,7 +265,6 @@ class PlacementPlugin(ManoBasePlugin):
                                                                 serv_id,
                                                                 )
 
-        LOG.info(len(developr_objective[0]))
         lpProblem += operator_weight * operator_objective[0] + developer_weight * developr_objective[0] + customer_objective * customer_weight
 
         # Add additional constraints created by developer policy model
@@ -337,10 +331,6 @@ class PlacementPlugin(ManoBasePlugin):
                     mapping[images_to_map[combo[0]]['id']] = top[combo[1]]['vim_uuid']
 
         LOG.info(str(serv_id) + ": Resulting message: " + str(mapping))
-
-        # for var in developr_objective[3]:
-        #     LOG.info(str(var))
-        #     LOG.info(str(developr_objective[2][var].value()))
 
         LOG.info(lpProblem.objective)
         LOG.info(lpProblem.objective.value())
