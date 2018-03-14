@@ -470,6 +470,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             add_schedule.append('trigger_task_ssm')
 
         add_schedule.append('request_topology')
+        add_schedule.append('request_policies')
 
         # Perform the placement
         if 'placement' in self.services[serv_id]['service']['ssm'].keys():
@@ -699,6 +700,25 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Add topology to ledger
         self.services[serv_id]['infrastructure']['topology'] = message
+
+        # Continue with the scheduled tasks
+        self.start_next_task(serv_id)
+
+    def resp_policies(self, ch, method, prop, payload):
+        """
+        This function handles responses to topology requests made to the
+        infrastructure adaptor.
+        """
+        message = yaml.load(payload)
+
+        # Retrieve the service uuid
+        serv_id = tools.servid_from_corrid(self.services, prop.correlation_id)
+
+        LOG.info("Service " + serv_id + ": Operator Policies received.")
+        LOG.debug("Operator Policies: " + str(message))
+
+        # Add topology to ledger
+        self.services[serv_id]['operator_policies'] = message
 
         # Continue with the scheduled tasks
         self.start_next_task(serv_id)
@@ -997,6 +1017,28 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['pause_chain'] = True
 
         LOG.info("Service " + serv_id + ": Topology requested from IA.")
+
+    def request_policies(self, serv_id):
+        """
+        This method is used to request the operator policies
+        in therm of placement.
+
+        :param serv_id: The instance uuid of the service
+        """
+
+        # Generate correlation_id for the call, for future reference
+        corr_id = str(uuid.uuid4())
+        self.services[serv_id]['act_corr_id'] = corr_id
+
+        self.manoconn.call_async(self.resp_policies,
+                                 t.OPERATOR_POLICY,
+                                 None,
+                                 correlation_id=corr_id)
+
+        # Pause the chain of tasks to wait for response
+        self.services[serv_id]['pause_chain'] = True
+
+        LOG.info("Service " + serv_id + ": Operator policies requested.")
 
     def ia_prepare(self, serv_id):
         """
@@ -2297,6 +2339,14 @@ class ServiceLifecycleManager(ManoBasePlugin):
             self.services[serv_id]['public_key'] = None
             self.services[serv_id]['private_key'] = None
 
+        # Add customer constraints to ledger
+
+        if 'policies' in payload['user_data']['customer'].keys():
+            policies = payload['user_data']['customer']['policies']
+            self.services[serv_id]['customer_policies'] = policies
+        else:
+            self.services[serv_id]['customer_policies'] = {}
+
         return serv_id
 
     def recreate_ledger(self, corr_id, serv_id):
@@ -2507,11 +2557,16 @@ class ServiceLifecycleManager(ManoBasePlugin):
         topology = self.services[serv_id]['infrastructure']['topology']
         NSD = self.services[serv_id]['service']['nsd']
         functions = self.services[serv_id]['function']
+        operator_policies = self.services[serv_id]['operator_policies']
+        customer_policies = self.services[serv_id]['customer_policies']
 
         content = {'nsd': NSD,
                    'functions': functions,
                    'topology': topology,
-                   'serv_id': serv_id}
+                   'serv_id': serv_id,
+                   'operator_policies': operator_policies,
+                   'customer_policies': customer_policies,
+                   'vnf_single_pop': True}
 
         content['nap'] = {}
 

@@ -1,0 +1,66 @@
+author: Thomas Soenen
+connection_points:
+- id: mgmt
+  interface: ipv4
+  type: management
+- id: input
+  interface: ipv4
+  type: external
+- id: output
+  interface: ipv4
+  type: external
+description: foobar
+descriptor_version: vnfd-schema-02
+function_specific_managers:
+- description: FSM to do a first FSM test
+  id: sonfsmgenericservicevforwardcss1
+  image: tsoenen/genericservice-vforward-fsm-css
+  options:
+  - key: type
+    value: start
+name: vforward-vnf-1-1
+vendor: everything-must-go
+version: 0.1.1
+virtual_deployment_units:
+- connection_points:
+  - id: eth0
+    interface: ipv4
+    type: management
+  - id: input
+    interface: ipv4
+    type: internal
+  - id: output
+    interface: ipv4
+    type: internal
+  id: vdu01
+  resource_requirements:
+    cpu:
+      vcpus: 1
+    memory:
+      size: 1
+      size_unit: GB
+    storage:
+      size: 10
+      size_unit: GB
+  vm_image: http://files.sonata-nfv.eu/son-vcdn-pilot/vtc-vnf/sonata-vtc.qcow2
+  vm_image_format: qcow2
+  vm_image_md5: 82899f91e80f1a068896631d5a33c933
+virtual_links:
+- connection_points_reference:
+  - vdu01:eth0
+  - mgmt
+  connectivity_type: E-LAN
+  dhcp: true
+  id: mgmt
+- connection_points_reference:
+  - vdu01:input
+  - input
+  connectivity_type: E-Line
+  dhcp: true
+  id: input
+- connection_points_reference:
+  - vdu01:output
+  - output
+  connectivity_type: E-Line
+  dhcp: true
+  id: output

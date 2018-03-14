@@ -74,6 +74,8 @@ SRM_UPDATE = 'specific.manager.registry.ssm.update'
 SSM_TERM = 'specific.manager.registry.ssm.terminate'
 FSM_TERM = 'specific.manager.registry.fsm.terminate'
 
+OPERATOR_POLICY = 'operator.policy'
+
 # With Executive
 EXEC_PLACE = 'placement.executive.request'
 

@@ -29,12 +29,18 @@ import requests
 import copy
 import uuid
 import json
+import pulp
 import threading
 import sys
 import concurrent.futures as pool
 # import psutil
 
 from sonmanobase.plugin import ManoBasePlugin
+
+try:
+    from son_mano_placement import placement_helpers as tools
+except:
+    import placement_helpers as tools
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("plugin:placement")
@@ -139,14 +145,43 @@ class PlacementPlugin(ManoBasePlugin):
 
         content = yaml.load(payload)
         LOG.info("Placement request for service: " + content['serv_id'])
-        topology = content['topology']
-        nsd = content['nsd']
-        functions = content['functions']
 
-        placement = self.placement(nsd, functions, topology)
+        serv_id = content['serv_id']
+        top = content['topology']
+        nsd = content['nsd']
+        vnfs = content['functions']
+        op_pol = content['operator_policies']
+        cu_pol = content['customer_policies']
+        ingress = content['nap']['ingresses']
+        egress = content['nap']['egresses']
+
+        vnf_single_pop = False
+        if "vnf_single_pop" in content.keys():
+            vnf_single_pop = content["vnf_single_pop"]
+
+        # Convert memory information on topology to GB, from MB.
+        for pop in top.keys():
+            top[pop]['memory_used'] = top[pop]['memory_used'] / 1024.0
+            top[pop]['memory_total'] = top[pop]['memory_total'] / 1024.0
+
+        # Extract weights
+        operator_weight = 1.0
+        developer_weight = 0.0
+        if 'weights' in op_pol.keys():
+            operator_weight = op_pol['weights']['operator']
+            developer_weight = op_pol['weights']['developer']
+
+        # Solve first for only operator or developer influence, to calibrate
+        operator_optimal_value = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=1.0, developer_weight=0.0, vnf_single_pop=vnf_single_pop)[2]
+        developer_optimal_value = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=0.0, developer_weight=1.0, vnf_single_pop=vnf_single_pop)[2]
+
+        operator_weight = abs(operator_weight / operator_optimal_value)
+        developer_weight = abs(developer_weight / developer_optimal_value)
+
+        placement = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=operator_weight, developer_weight=developer_weight, vnf_single_pop=vnf_single_pop)
         LOG.info("Placement calculated:" + str(placement))
 
-        response = {'mapping': placement}
+        response = {'mapping': placement[0], 'error': placement[1]}
         topic = 'mano.service.place'
 
         self.manoconn.notify(topic,
@@ -155,39 +190,152 @@ class PlacementPlugin(ManoBasePlugin):
 
         LOG.info("Placement response sent for service: " + content['serv_id'])
 
-    def placement(self, nsd, functions, topology):
+    def placement(self, serv_id, nsd, vnfs, top, op_policy, cu_policy, ingress, egress, operator_weight=1.0, developer_weight=0.0, customer_weight=0.0, vnf_single_pop=False):
         """
         This is the default placement algorithm that is used if the SLM
         is responsible to perform the placement
         """
-        LOG.info("Embedding started on following topology: " + str(topology))
+        LOG.info(str(serv_id) + ": Embedding started for service")
+        LOG.info(str(serv_id) + ": Topology: " + str(top))
+        LOG.info(str(serv_id) + ": Customer Policies: " + str(cu_policy))
+        LOG.info(str(serv_id) + ": Operator Policies: " + str(op_policy))
+        if vnf_single_pop:
+            LOG.info(str(serv_id) + ": VNF single PoP activated.")
 
-        mapping = {}
+        if not isinstance(op_policy, dict):
+            LOG.info(str(serv_id) + ": operator_policies is not a dict")
+            return "Operator policies are not a dictionary", "ERROR"
+        if not isinstance(cu_policy, dict):
+            LOG.info(str(serv_id) + ": customer_policies is not a dict")
+            return "Customer policies are not a dictionary", "ERROR"
 
-        for function in functions:
-            vnfd = function['vnfd']
-            vdu = vnfd['virtual_deployment_units']
-            needed_cpu = vdu[0]['resource_requirements']['cpu']['vcpus']
-            needed_mem = vdu[0]['resource_requirements']['memory']['size']
-            needed_sto = vdu[0]['resource_requirements']['storage']['size']
+        # Make a list of the images (VNF can have multiple VDU) that require
+        # mapping.
+        images_to_map = tools.get_image_list(vnfs)
+        LOG.info(str(serv_id) + ": List of images: " + str(images_to_map))
 
-            for vim in topology:
-                cpu_req = needed_cpu <= (vim['core_total'] - vim['core_used'])
-                mem_req = needed_mem <= (vim['memory_total'] - vim['memory_used'])
+        # Create list of decision variables. Per image to map, we have n
+        #  decisionvariables if n is the number of PoPs that can be mapped on.
+        LOG.info(str(serv_id) + ": Creating decision variables")
+        range_images = range(len(images_to_map))
+        range_top = range(len(top))
+        decision_vars = [(x, y) for x in range_images for y in range_top]
 
-                if cpu_req and mem_req:
-                    mapping[function['id']] = {}
-                    mapping[function['id']]['vim'] = vim['vim_uuid']
-                    vim['core_used'] = vim['core_used'] + needed_cpu
-                    vim['memory_used'] = vim['memory_used'] + needed_mem
-                    break
+        # The decision variables are 1 if VNF x is mapped on PoP y, 0 if not.
+        # Decision variables are thus binary.
+        LOG.info(str(serv_id) + ": Creating ILP problem")
+        variables = pulp.LpVariable.dicts('variables',
+                                          decision_vars,
+                                          lowBound=0,
+                                          upBound=1,
+                                          cat=pulp.LpInteger)
 
-        # Check if all VNFs have been mapped
-        if len(mapping.keys()) == len(functions):
-            return mapping
+        # We solve the problem as a minimization problem.
+        lpProblem = pulp.LpProblem("Placement", pulp.LpMinimize)
+
+        # Create objective based on customer policies
+        # TODO: At this point, we don't have soft customer objectives
+        customer_objective = 0
+
+        # Create objective based on developer policies
+        source_ip = None
+        dest_ip = None
+        if ingress:
+            source_ip = ingress[0]['nap']
+        if egress:
+            dest_ip = egress[0]['nap']
+        developr_objective = tools.calculate_developer_objective(nsd,
+                                                                 vnfs,
+                                                                 source_ip,
+                                                                 dest_ip,
+                                                                 images_to_map,
+                                                                 top,
+                                                                 variables,
+                                                                 decision_vars,
+                                                                 LOG,
+                                                                 serv_id)
+
+        # Create objective based on operator policies
+        operator_objective = tools.calculate_operator_objective(variables,
+                                                                images_to_map,
+                                                                top,
+                                                                decision_vars,
+                                                                op_policy,
+                                                                LOG,
+                                                                serv_id,
+                                                                )
+
+        lpProblem += operator_weight * operator_objective[0] + developer_weight * developr_objective[0] + customer_objective * customer_weight
+
+        # Add additional constraints created by developer policy model
+        # translation
+        for constraint in developr_objective[1]:
+            lpProblem += constraint
+
+        # Add additional constraints created by operator policy model
+        # translation
+        for constraint in operator_objective[1]:
+            lpProblem += constraint
+
+        # Set hard constraints
+        # PoP resources can not be violated
+        for vim in range(len(top)):
+            lpProblem += top[vim]['core_used'] + sum(images_to_map[x[0]]['cpu'] * variables[x] for x in decision_vars if x[1] == vim) <= top[vim]['core_total']
+            lpProblem += top[vim]['memory_used'] + sum(images_to_map[x[0]]['ram'] * variables[x] for x in decision_vars if x[1] == vim) <= top[vim]['memory_total']
+
+        # Every VNF should be assigned to one PoP
+        for vnf in range(len(images_to_map)):
+            lpProblem += sum(variables[x] for x in decision_vars if x[0] == vnf) == 1
+
+        # Add blacklist from customers. If PoP is on blacklist, no VNFs can be on it.
+        if 'blacklist' in cu_policy.keys():
+            blacklist = cu_policy['blacklist']
+            LOG.info(str(serv_id) + ": Customer blacklist: " + str(blacklist))
         else:
-            LOG.info("Placement was not possible")
+            LOG.info(str(serv_id) + ": No customer blacklist provided.")
+            blacklist = []
+
+        for index in range(len(top)):
+            if top[index]['vim_name'] in blacklist:
+                lpProblem+= sum(variables[x] for x in decision_vars if x[1] == index) == 0
+
+        # set constraints for single PoP VNFs
+        if vnf_single_pop:
+            for vdu_index_1 in range(len(images_to_map)):
+                for vdu_index_2 in range(len(images_to_map)):
+                    if vdu_index_1 < vdu_index_2:
+                        if images_to_map[vdu_index_1]['function_id'] == images_to_map[vdu_index_2]['function_id']:
+                            for pop_index in range(len(top)):
+                                lpProblem += variables[(vdu_index_1, pop_index)] == variables[(vdu_index_2, pop_index)]
+
+        # Solve the problem
+        lpProblem.solve() 
+
+        # Check the feasibility of the result
+        LOG.info(str(serv_id) + ": Result: " + str(pulp.LpStatus[lpProblem.status]))
+        if str(pulp.LpStatus[lpProblem.status]) != "Optimal":
+            LOG.info(str(serv_id) + ": Placement was not possible")
             return None
+
+        # Interprete the results and build the repsonse
+        mapping = {}
+        for combo in decision_vars:
+            if (variables[combo].value()) == 1:
+                LOG.info('VNF' + str(images_to_map[combo[0]]['id']) + ' is mapped on PoP' + str(top[combo[1]]['vim_uuid']))
+
+                if vnf_single_pop:
+                    if images_to_map[combo[0]]['function_id'] not in mapping.keys():
+                        function_id = images_to_map[combo[0]]['function_id']
+                        mapping[function_id] = top[combo[1]]['vim_uuid']
+                else:
+                    mapping[images_to_map[combo[0]]['id']] = top[combo[1]]['vim_uuid']
+
+        LOG.info(str(serv_id) + ": Resulting message: " + str(mapping))
+
+        LOG.info(lpProblem.objective)
+        LOG.info(lpProblem.objective.value())
+        optimal_value = lpProblem.objective.value()
+        return mapping, None, optimal_value
 
 
 def main():
