@@ -186,6 +186,19 @@ pipeline {
         not{
           branch 'master'
         }        
+      }      
+      steps {
+        sh 'rm -rf tng-devops || true'
+        sh 'git clone https://github.com/sonata-nfv/tng-devops.git'
+        dir(path: 'tng-devops') {
+          sh 'ansible-playbook roles/sp.yml -i environments -e "target=pre-int-sp"'
+        }
+      }
+    }
+    stage('Publishing to :int') {
+      when{
+        branch 'master'
+      }      
       parallel {
         stage('Service Lifecycle Manager') {
           steps {
@@ -210,7 +223,7 @@ pipeline {
             echo 'Publishing sonmanobase container'
             sh './pipeline/publish/sonmanobase.sh int'
           }
-        }
+        }s
         stage('Specifc Manager Registry') {
           steps {
             echo 'Publishing Specific Manager Registry container'
@@ -228,17 +241,6 @@ pipeline {
             echo 'Publishing Placement Plugin container'
             sh './pipeline/publish/placementplugin.sh int'
           }
-        }
-      }
-    }
-    stage('Publishing to :int') {
-      when{
-        branch 'master'
-      }      
-      steps {
-        sh './pipeline/publish/retah.sh'
-        dir(path: 'tng-devops') {
-          sh 'ansible-playbook roles/sp.yml -i environments -e "target=int-sp"'
         }
       }
     }
