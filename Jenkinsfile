@@ -223,7 +223,7 @@ pipeline {
             echo 'Publishing sonmanobase container'
             sh './pipeline/publish/sonmanobase.sh int'
           }
-        }s
+        }
         stage('Specifc Manager Registry') {
           steps {
             echo 'Publishing Specific Manager Registry container'
