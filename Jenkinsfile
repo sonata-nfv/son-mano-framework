@@ -181,7 +181,7 @@ pipeline {
         }
       }
     }
-    stage('Deploying in pre-integration') {
+    stage('Deploying in pre-integration ') {
       steps {
         sh 'rm -rf tng-devops || true'
         sh 'git clone https://github.com/sonata-nfv/tng-devops.git'
