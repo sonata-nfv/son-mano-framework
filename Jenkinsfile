@@ -57,7 +57,7 @@ pipeline {
         sh './pipeline/unittest/pluginmanager_unittest.sh'
       }
     }
-    stage('Uniittest next dependencies') {
+    stage('Uniittest next dependencies ') {
       steps {
         sh './pipeline/unittest/create_pm_dependency.sh'
       }
