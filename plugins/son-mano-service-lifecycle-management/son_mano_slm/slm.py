@@ -2488,6 +2488,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         self.services[serv_id]['service']['ssm'] = ssm_dict
 
+        self.services[serv_id]['public_key'] = None
+        self.services[serv_id]['private_key'] = None
+
         LOG.info("Service " + serv_id + ": ssm_dict: " + str(ssm_dict))
 
         # Retrieve the deployed FSMs based on the VNFD
