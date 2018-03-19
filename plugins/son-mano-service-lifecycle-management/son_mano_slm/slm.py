@@ -574,6 +574,36 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         return self.services[serv_id]['schedule']
 
+    def migrate_workflow(self, serv_id, payload):
+        """
+        This method triggers a reconfiguration workflow.
+        """
+
+        # Check if the ledger has an entry for this instance
+        if serv_id not in self.services.keys():
+            # Based on the received payload, the ledger entry is recreated.
+            LOG.info("Recreating ledger.")
+            self.recreate_ledger(corr_id, serv_id)
+
+        for function in self.services[serv_id]['function']:
+            function['vim_uuid'] = payload['vim_uuid']
+
+        LOG.info('Service ' + str(serv_id) + ': migrate workflow request')
+        self.services[serv_id]["current_workflow"] = 'migrate'
+
+        add_schedule = []
+        add_schedule.append("vnf_deploy")
+        add_schedule.append("vnf_start")
+        add_schedule.append("vnf_chain")
+
+        self.services[serv_id]['schedule'].extend(add_schedule)
+
+        LOG.info('Service ' + str(serv_id) + ': migrate workflow started')
+        # Start the chain of tasks
+        self.start_next_task(serv_id)
+
+        return self.services[serv_id]['schedule']
+
     def terminate_workflow(self, serv_id, corr_id=None, topic=None, orig=None):
         """
         This function handles the actual termination
@@ -713,6 +743,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 self.reconfigure_workflow(serv_id)
             if content['workflow'] == 'rechain':
                 self.rechain_workflow(serv_id, content['data'])
+            if content['workflow'] == 'migrate':
+                self.migrate_workflow(serv_id, content['data'])
             # TODO: add additional workflows
         if 'schedule' in content.keys():
             schedule = content['schedule']
@@ -1717,7 +1749,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['act_corr_id'] = corr_id
 
         payload = json.dumps({'service_instance_id': serv_id})
-        self.manoconn.call_async(self.IA_termination_response,
+        self.manoconn.call_async(self.IA_unchain_response,
                                  t.IA_DECONF_CHAIN,
                                  payload,
                                  correlation_id=corr_id)
@@ -2476,6 +2508,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['vnfs_to_resp'] = 0
         self.services[serv_id]['pause_chain'] = False
         self.services[serv_id]['error'] = None
+
+        self.services[serv_id]['ingress'] = None
+        self.services[serv_id]['egress'] = None
 
         return True
 
