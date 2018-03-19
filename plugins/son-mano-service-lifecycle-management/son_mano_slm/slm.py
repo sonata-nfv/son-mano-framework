@@ -562,7 +562,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]["current_workflow"] = 'rechain'
 
         add_schedule = []
-        add_schedule.append("vnf_unchain")
+#        add_schedule.append("vnf_unchain")
         add_schedule.append("change_nsd")
         add_schedule.append("vnf_chain")
 
@@ -685,8 +685,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
     def monitoring_feedback(self, ch, method, prop, payload):
 
-        LOG.info("Monitoring message received")
-        LOG.info(payload)
+#        LOG.info("Monitoring message received")
+#        LOG.info(payload)
 
         try:
             content = json.loads(str(payload))
@@ -1709,7 +1709,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         if nap_empty:
             chain.pop('nap')
 
-        LOG.info(str(yaml.dump(chain)))
+        LOG.info(str(yaml.dump(chain, default_flow_style=False)))
         self.manoconn.call_async(self.IA_chain_response,
                                  t.IA_CONF_CHAIN,
                                  yaml.dump(chain),

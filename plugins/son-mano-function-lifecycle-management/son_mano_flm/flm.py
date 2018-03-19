@@ -732,25 +732,26 @@ class FunctionLifecycleManager(ManoBasePlugin):
 #            try:
         url = t.VNFR_REPOSITORY_URL + 'vnf-instances'
         header = {'Content-Type': 'application/json'}
-        vnfr_response = requests.post(url,
-                                      data=json.dumps(vnfr),
-                                      headers=header,
-                                      timeout=1.0)
-        LOG.info("Storing VNFR on " + url)
-        LOG.debug("VNFR: " + str(vnfr))
-
-        if (vnfr_response.status_code == 200):
-            LOG.info("VNFR storage accepted.")
-        # If storage fails, add error code and message to rply to gk
-        else:
-            error = {'http_code': vnfr_response.status_code,
-                     'message': vnfr_response.json()}
+        try:
+            vnfr_response = requests.post(url,
+                                          data=json.dumps(vnfr),
+                                          headers=header,
+                                          timeout=10.0)
+            LOG.info("Storing VNFR on " + url)
+            LOG.debug("VNFR: " + str(vnfr))
+            if (vnfr_response.status_code == 200):
+                LOG.info("VNFR storage accepted.")
+            # If storage fails, add error code and message to rply to gk
+            else:
+                error = {'http_code': vnfr_response.status_code,
+                         'message': vnfr_response.json()}
+                self.functions[func_id]['error'] = error
+                LOG.info('vnfr to repo failed: ' + str(error))
+        except:
+            error = {'http_code': '0',
+                     'message': 'Timeout contacting VNFR server'}
             self.functions[func_id]['error'] = error
-            LOG.info('vnfr to repo failed: ' + str(error))
-        # except:
-        #     error = {'http_code': '0',
-        #              'message': 'Timeout contacting VNFR server'}
-        #     LOG.info('time-out on vnfr to repo')
+            LOG.info('time-out on vnfr to repo')
 
         return
 
