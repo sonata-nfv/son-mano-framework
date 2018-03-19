@@ -587,6 +587,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         for function in self.services[serv_id]['function']:
             function['vim_uuid'] = payload['vim_uuid']
+            function['id'] = payload['function_id']
+            
+        self.services[serv_id]['ingress'] = payload['ingress']
+        self.services[serv_id]['egress'] = payload['egress']
 
         LOG.info('Service ' + str(serv_id) + ': migrate workflow request')
         self.services[serv_id]["current_workflow"] = 'migrate'
