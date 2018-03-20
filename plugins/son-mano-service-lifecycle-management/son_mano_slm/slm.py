@@ -749,7 +749,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
             if content['workflow'] == 'rechain':
                 self.rechain_workflow(serv_id, content['data'])
             if content['workflow'] == 'migrate':
-                self.migrate_workflow(serv_id, content['data'])
+                new_serv_id = str(uuid.uuid4())
+                self.services[new_serv_id] = {}
+                self.services[new_serv_id] = self.services[serv_id]
+                self.services[new_serv_id]['old_serv_id'] = serv_id
+                self.migrate_workflow(new_serv_id, content['data'])
             # TODO: add additional workflows
         if 'schedule' in content.keys():
             schedule = content['schedule']
