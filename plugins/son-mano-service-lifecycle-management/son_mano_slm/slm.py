@@ -2522,6 +2522,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['vnfs_to_resp'] = 0
         self.services[serv_id]['pause_chain'] = False
         self.services[serv_id]['error'] = None
+        self.services[serv_id]['ip_mapping'] = []
 
         self.services[serv_id]['ingress'] = None
         self.services[serv_id]['egress'] = None
