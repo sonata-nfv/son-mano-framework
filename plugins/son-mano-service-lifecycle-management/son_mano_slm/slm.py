@@ -596,6 +596,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]["current_workflow"] = 'migrate'
 
         add_schedule = []
+        add_schedule.append('ia_prepare')
         add_schedule.append("vnf_deploy")
         add_schedule.append("vnf_start")
         add_schedule.append("vnf_chain")
