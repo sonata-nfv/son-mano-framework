@@ -598,7 +598,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         add_schedule = []
         add_schedule.append('ia_prepare')
         add_schedule.append("vnf_deploy")
-        add_schedule.append("vnf_start")
+        add_schedule.append("vnfs_start")
         add_schedule.append("vnf_chain")
 
         self.services[serv_id]['schedule'].extend(add_schedule)
