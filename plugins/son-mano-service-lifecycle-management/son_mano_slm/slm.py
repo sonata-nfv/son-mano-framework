@@ -2447,6 +2447,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             return None
 
         self.services[serv_id]['service']['nsd'] = request['content']['nsd']
+        self.services[serv_id]['service']['nsd']['uuid'] = nsd_uuid
         LOG.info("Service " + serv_id + ": Recreating ledger: NSD retrieved.")
 
         # Retrieve the function records based on the service record
@@ -2482,6 +2483,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 return None
 
             vnf['vnfd'] = req['content']['vnfd']
+            vnf['vnfd']['uuid'] = vnfd_id
             LOG.info("Service " + serv_id + ": Recreate: VNFD retrieved.")
 
         LOG.info("Serice " +
