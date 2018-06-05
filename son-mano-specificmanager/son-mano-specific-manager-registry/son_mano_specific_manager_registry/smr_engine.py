@@ -91,8 +91,8 @@ class SMREngine(object):
         # cf.: http://docker-py.readthedocs.io/en/stable/machine/
         dc = docker.from_env(assert_hostname=False)
         # do a call to ensure that we are connected
-        dc.info()
-        LOG.info("Connected to Docker host: {0}".format(dc.base_url))
+#        dc.info()
+#        LOG.info("Connected to Docker host: {0}".format(dc.base_url))
         return dc
 
     def pull(self, image):#, ssm_name):
