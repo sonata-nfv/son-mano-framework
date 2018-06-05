@@ -117,7 +117,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.ssm_user = 'specific-management'
         self.ssm_pass = 'sonata'
         base = 'amqp://' + self.ssm_user + ':' + self.ssm_pass
-        self.ssm_url_base = base + '@son-broker:5672/'
+        broker = os.environ.get("broker_host").split("@")[-1].split("/")[0]
+        LOG.info(broker)
+        self.ssm_url_base = base + '@' + broker + '/'
 
         # The following can be removed once transition is done
         self.service_requests_being_handled = {}
@@ -338,7 +340,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             # share state with other SLMs
             self.slm_share('DONE', self.services[serv_id])
 
-            del self.services[serv_id]
+#            del self.services[serv_id]
 
 ####################
 # SLM input - output
@@ -609,6 +611,52 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         return self.services[serv_id]['schedule']
 
+    def add_vnf_workflow(self, serv_id, payload):
+
+        LOG.info("Starting add vnf workflow")
+        # Check if the ledger has an entry for this instance
+        if serv_id not in self.services.keys():
+            # Based on the received payload, the ledger entry is recreated.
+            LOG.info("Recreating ledger.")
+            self.recreate_ledger(corr_id, serv_id)
+
+        for vnf in self.services[serv_id]['function']:
+            vnf['start']['trigger'] = False
+            vnf['deployed'] = True
+
+        vnfd_to_add = payload['vnfd']
+        vnf_id = str(uuid.uuid4())
+        vnf_base_dict = {'start': {'trigger': True, 'payload': {}},
+                         'stop': {'trigger': True, 'payload': {}},
+                         'configure': {'trigger': True, 'payload': {}},
+                         'scale': {'trigger': True, 'payload': {}},
+                         'vnfd': vnfd_to_add,
+                         'id': vnf_id,
+                         'vim_uuid': payload['vim_uuid']}
+
+        self.services[serv_id]['function'].append(vnf_base_dict)
+        self.services[serv_id]["current_workflow"] = 'scaling'
+
+        add_schedule = []
+        add_schedule.append('vnf_deploy')
+        add_schedule.append('vnfs_start')
+        add_schedule.append('update_nsr')
+        add_schedule.append("configure_ssm")
+        add_schedule.append("vnfs_config")
+#        add_schedule.append("update_monitoring")
+
+        self.services[serv_id]['schedule'].extend(add_schedule)
+
+        LOG.info('Service ' + str(serv_id) + ': add vnf workflow started')
+        # Start the chain of tasks
+        self.start_next_task(serv_id)
+
+        return self.services[serv_id]['schedule']
+
+    def del_vnf_workflow(self, serv_id, payload):
+
+        pass
+
     def terminate_workflow(self, serv_id, corr_id=None, topic=None, orig=None):
         """
         This function handles the actual termination
@@ -718,11 +766,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
         LOG.info("monitoring SSM responded: " + str(content))
 
         serv_id = content['service_instance_id']
-        ledger_recreation = self.recreate_ledger(None, serv_id)
 
-        if ledger_recreation is None:
-            LOG.info("Recreation of ledger failed, aborting monitoring event")
-            return
+        if serv_id not in self.services.keys():
+            ledger_recreation = self.recreate_ledger(None, serv_id)
+
+            if ledger_recreation is None:
+                LOG.info("Recreation of ledger failed, aborting monitoring event")
+                return
 
         # Extract additional content provided by the SSM
         if 'vnf' in content.keys():
@@ -754,7 +804,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 self.services[new_serv_id] = self.services[serv_id].copy()
                 self.services[new_serv_id]['old_serv_id'] = serv_id
                 self.migrate_workflow(new_serv_id, content['data'])
-            # TODO: add additional workflows
+            if content['workflow'] == 'scale_ns':
+                self.add_vnf_workflow(serv_id, content['data'])
+
         if 'schedule' in content.keys():
             schedule = content['schedule']
             data  = None
@@ -837,6 +889,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Setup broker connection with the SSMs of this service.
         url = self.ssm_url_base + 'ssm-' + serv_id
+        LOG.info("Service " + serv_id + ':' + url)
         ssm_conn = messaging.ManoBrokerRequestResponseConnection(self.name,
                                                                  url=url)
 
@@ -964,6 +1017,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             for function in self.services[serv_id]['function']:
                 if function['id'] == message['vnfr']['id']:
                     function['vnfr'] = message['vnfr']
+                    function['deployed'] = True
                     LOG.info("Added vnfr for inst: " + message['vnfr']['id'])
 
                     ip_mapping = message['ip_mapping']
@@ -1143,31 +1197,39 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method triggeres the deployment of all the vnfs.
         """
 
+        msg = ": Deploying VNFs"
+        LOG.info("Service " + serv_id + msg)
+
         functions = self.services[serv_id]['function']
-        self.services[serv_id]['vnfs_to_resp'] = len(functions)
+        self.services[serv_id]['vnfs_to_resp'] = 0
 
         self.services[serv_id]['act_corr_id'] = []
 
+        LOG.info("Service " + serv_id + ": " + yaml.dump(functions, default_flow_style=False))
+
         for function in functions:
 
-            corr_id = str(uuid.uuid4())
-            self.services[serv_id]['act_corr_id'].append(corr_id)
+            if 'deployed' not in function.keys():
+                vnf_to_dep = self.services[serv_id]['vnfs_to_resp']
+                self.services[serv_id]['vnfs_to_resp'] = vnf_to_dep + 1
+                corr_id = str(uuid.uuid4())
+                self.services[serv_id]['act_corr_id'].append(corr_id)
 
-            message = {}
-            message['vnfd'] = function['vnfd']
-            message['id'] = function['id']
-            message['vim_uuid'] = function['vim_uuid']
-            message['serv_id'] = serv_id
-            message['public_key'] = self.services[serv_id]['public_key']
-            message['private_key'] = self.services[serv_id]['private_key']
+                message = {}
+                message['vnfd'] = function['vnfd']
+                message['id'] = function['id']
+                message['vim_uuid'] = function['vim_uuid']
+                message['serv_id'] = serv_id
+                message['public_key'] = self.services[serv_id]['public_key']
+                message['private_key'] = self.services[serv_id]['private_key']
 
-            msg = ": Requesting the deployment of vnf " + function['id']
-            LOG.info("Service " + serv_id + msg)
-            LOG.debug("Payload of request: " + str(message))
-            self.manoconn.call_async(self.resp_vnf_depl,
-                                     t.MANO_DEPLOY,
-                                     yaml.dump(message),
-                                     correlation_id=corr_id)
+                msg = ": Requesting the deployment of vnf " + function['id']
+                LOG.info("Service " + serv_id + msg)
+                LOG.debug("Payload of request: " + str(message))
+                self.manoconn.call_async(self.resp_vnf_depl,
+                                         t.MANO_DEPLOY,
+                                         yaml.dump(message),
+                                         correlation_id=corr_id)
 
         self.services[serv_id]['pause_chain'] = True
 
@@ -1595,6 +1657,50 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.manoconn.notify(t.MANO_DEPLOY,
                              yaml.dump(outg_message),
                              correlation_id=corr_id)
+
+    def update_nsr(self, serv_id):
+
+        self.services[serv_id]['service']['nsr']['network_functions'] = []
+        nsr = self.services[serv_id]['service']['nsr']
+        for vnf in self.services[serv_id]['function']:
+            function = {}
+            function['vnfr_id'] = vnf['id']
+            nsr['network_functions'].append(function)
+
+        LOG.info(str(yaml.dump(nsr, default_flow_style=False)))
+
+        # del nsr["uuid"]
+        # del nsr["updated_at"]
+        # del nsr["created_at"]
+
+        error = None
+
+        nsr_id = serv_id
+        url = t.NSR_REPOSITORY_URL + 'ns-instances/' + nsr_id
+        header = {'Content-Type': 'application/json'}
+
+        nsr_resp = requests.put(url,
+                                data=json.dumps(nsr),
+                                headers=header,
+                                timeout=1.0)
+        nsr_resp_json = str(nsr_resp.json())
+
+        if (nsr_resp.status_code == 200):
+            msg = ": NSR update accepted"
+            LOG.info("Service " + serv_id + msg)
+        else:
+            msg = ": NSR update not accepted: " + nsr_resp_json
+            LOG.info("Service " + serv_id + msg)
+            error = {'http_code': nsr_resp.status_code,
+                     'message': nsr_resp_json}
+        # except:
+        #     error = {'http_code': '0',
+        #              'message': 'Timeout when contacting NSR repo'}
+
+        # if error is not None:
+        #     self.error_handling(serv_id, t.GK_CREATE, error)
+
+        return
 
     def store_nsr(self, serv_id):
 
@@ -2207,37 +2313,37 @@ class ServiceLifecycleManager(ManoBasePlugin):
         functions = self.services[serv_id]['function']
         userdata = self.services[serv_id]['user_data']
 
-        mon_mess = tools.build_monitoring_message(service, functions, userdata)
+#        mon_mess = tools.build_monitoring_message(service, functions, userdata)
 
-        LOG.debug("Monitoring message created: " + yaml.dump(mon_mess))
+#        LOG.debug("Monitoring message created: " + yaml.dump(mon_mess))
 
-        error = None
-        try:
-            header = {'Content-Type': 'application/json'}
-            mon_resp = requests.post(t.MONITORING_URL + 'service/new',
-                                     data=json.dumps(mon_mess),
-                                     headers=header,
-                                     timeout=10.0)
-            monitoring_json = mon_resp.json()
+        # error = None
+        # try:
+        #     header = {'Content-Type': 'application/json'}
+        #     mon_resp = requests.post(t.MONITORING_URL + 'service/new',
+        #                              data=json.dumps(mon_mess),
+        #                              headers=header,
+        #                              timeout=10.0)
+        #     monitoring_json = mon_resp.json()
 
-            if (mon_resp.status_code == 200):
-                LOG.info("Service " + serv_id + ": Monitoring started")
+        #     if (mon_resp.status_code == 200):
+        #         LOG.info("Service " + serv_id + ": Monitoring started")
 
-            else:
-                LOG.info("Service " + serv_id + ": Monitoring msg not acceptd")
-                msg = ": Monitoring response: " + str(monitoring_json)
-                LOG.info("Service " + serv_id + msg)
-                error = {'http_code': mon_resp.status_code,
-                         'message': mon_resp.json()}
+        #     else:
+        #         LOG.info("Service " + serv_id + ": Monitoring msg not acceptd")
+        #         msg = ": Monitoring response: " + str(monitoring_json)
+        #         LOG.info("Service " + serv_id + msg)
+        #         error = {'http_code': mon_resp.status_code,
+        #                  'message': mon_resp.json()}
 
-        except:
-            LOG.info("Service " + serv_id + ": timeout on monitoring server.")
-            error = {'http_code': '0',
-                     'message': 'Timeout when contacting server'}
+        # except:
+        #     LOG.info("Service " + serv_id + ": timeout on monitoring server.")
+        #     error = {'http_code': '0',
+        #              'message': 'Timeout when contacting server'}
 
-        # If an error occured, the workflow is aborted and the GK is informed
-        if error is not None:
-            self.error_handling(serv_id, t.GK_CREATE, error)
+        # # If an error occured, the workflow is aborted and the GK is informed
+        # if error is not None:
+        #     self.error_handling(serv_id, t.GK_CREATE, error)
 
         return
 
