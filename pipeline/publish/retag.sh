@@ -6,4 +6,4 @@ docker tag registry.sonata-nfv.eu:5000/placementplugin:latest registry.sonata-nf
 docker tag registry.sonata-nfv.eu:5000/pluginmanager:latest registry.sonata-nfv.eu:5000/pluginmanager:int
 docker tag registry.sonata-nfv.eu:5000/servicelifecyclemanagement:latest registry.sonata-nfv.eu:5000/servicelifecyclemanagement:int
 docker tag registry.sonata-nfv.eu:5000/sonmanobase:latest registry.sonata-nfv.eu:5000/sonmanobase:int
-docker tat registry.sonata-nfv.eu:5000/specificmanagerregistry:latest registry.sonata-nfv.eu:5000/specificmanagerregistry:int
+docker tag registry.sonata-nfv.eu:5000/specificmanagerregistry:latest registry.sonata-nfv.eu:5000/specificmanagerregistry:int
