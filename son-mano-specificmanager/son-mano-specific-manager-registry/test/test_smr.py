@@ -334,90 +334,90 @@ class test_SMR_functionalities(unittest.TestCase):
     #     updating_proc.terminate()
     #     del updating_proc
 
-    def test_4_SMR_terminate(self):
+    # def test_4_SMR_terminate(self):
 
-        self.event1 = False
-        self.event2 = False
+    #     self.event1 = False
+    #     self.event2 = False
 
-        def on_ssm_termination_result(ch, method, properties, message):
+    #     def on_ssm_termination_result(ch, method, properties, message):
 
-            if properties.app_id == 'son-plugin.SpecificManagerRegistry':
-                result = yaml.load(message)
-                self.assertTrue(list(result.keys()) == ['sonssmservice1dumb1','sonssmservice1placement1'] or
-                                ['sonssmservice1placement1','sonssmservice1dumb1'],
-                                msg='not all SSMs results received')
+    #         if properties.app_id == 'son-plugin.SpecificManagerRegistry':
+    #             result = yaml.load(message)
+    #             self.assertTrue(list(result.keys()) == ['sonssmservice1dumb1','sonssmservice1placement1'] or
+    #                             ['sonssmservice1placement1','sonssmservice1dumb1'],
+    #                             msg='not all SSMs results received')
 
-                self.assertTrue(result['sonssmservice1dumb1']['status'] == 'Terminated',
-                                msg='error in termination status field sonssmservice1dumb1')
+    #             self.assertTrue(result['sonssmservice1dumb1']['status'] == 'Terminated',
+    #                             msg='error in termination status field sonssmservice1dumb1')
 
-                self.assertTrue(result['sonssmservice1dumb1']['error'] == 'None',
-                                msg='error in termination error field sonssmservice1dumb1')
+    #             self.assertTrue(result['sonssmservice1dumb1']['error'] == 'None',
+    #                             msg='error in termination error field sonssmservice1dumb1')
 
-                self.assertTrue(result['sonssmservice1placement1']['status'] == 'Terminated',
-                                msg='error in termination status field sonssmservice1placement1')
+    #             self.assertTrue(result['sonssmservice1placement1']['status'] == 'Terminated',
+    #                             msg='error in termination status field sonssmservice1placement1')
 
-                self.assertTrue(result['sonssmservice1placement1']['error'] == 'None',
-                            msg='error in termination error field sonssmservice1placement1')
+    #             self.assertTrue(result['sonssmservice1placement1']['error'] == 'None',
+    #                         msg='error in termination error field sonssmservice1placement1')
 
-                self.ssm_eventFinished()
+    #             self.ssm_eventFinished()
 
-        def on_fsm_termination_result(ch, method, properties, message):
+    #     def on_fsm_termination_result(ch, method, properties, message):
 
-            if properties.app_id == 'son-plugin.SpecificManagerRegistry':
+    #         if properties.app_id == 'son-plugin.SpecificManagerRegistry':
 
-                result = yaml.load(message)
+    #             result = yaml.load(message)
 
-                if list(result.keys()) == ['sonfsmservice1function1dumb1']:
+    #             if list(result.keys()) == ['sonfsmservice1function1dumb1']:
 
-                    self.assertTrue(result['sonfsmservice1function1dumb1']['status'] == 'Terminated',
-                                    msg='error in termination status field sonfsmservice1function1dumb1')
+    #                 self.assertTrue(result['sonfsmservice1function1dumb1']['status'] == 'Terminated',
+    #                                 msg='error in termination status field sonfsmservice1function1dumb1')
 
-                    self.assertTrue(result['sonfsmservice1function1dumb1']['error'] == 'None',
-                                msg='error in termination error field sonfsmservice1function1dumb1')
+    #                 self.assertTrue(result['sonfsmservice1function1dumb1']['error'] == 'None',
+    #                             msg='error in termination error field sonfsmservice1function1dumb1')
 
-                    self.event1 = True
+    #                 self.event1 = True
 
-                else:
-                    self.assertTrue(list(result.keys()) ==
-                                    ['sonfsmservice1function1monitoring1', 'sonfsmservice1function1updateddumb1'] or
-                                    list(result.keys()) ==
-                                    ['sonfsmservice1function1updateddumb1', 'sonfsmservice1function1monitoring1']
-                                    , msg='not all FSMs Termination results in vnfdt2 received')
+    #             else:
+    #                 self.assertTrue(list(result.keys()) ==
+    #                                 ['sonfsmservice1function1monitoring1', 'sonfsmservice1function1updateddumb1'] or
+    #                                 list(result.keys()) ==
+    #                                 ['sonfsmservice1function1updateddumb1', 'sonfsmservice1function1monitoring1']
+    #                                 , msg='not all FSMs Termination results in vnfdt2 received')
 
-                    self.assertTrue(result['sonfsmservice1function1monitoring1']['status'] == 'Terminated',
-                                    msg='error in termination status field sonfsmservice1function1monitoring1')
+    #                 self.assertTrue(result['sonfsmservice1function1monitoring1']['status'] == 'Terminated',
+    #                                 msg='error in termination status field sonfsmservice1function1monitoring1')
 
-                    self.assertTrue(result['sonfsmservice1function1monitoring1']['error'] == 'None',
-                                msg='error in termination error field sonfsmservice1function1monitoring1')
+    #                 self.assertTrue(result['sonfsmservice1function1monitoring1']['error'] == 'None',
+    #                             msg='error in termination error field sonfsmservice1function1monitoring1')
 
-                    self.assertTrue(result['sonfsmservice1function1updateddumb1']['status'] == 'Terminated',
-                                    msg='error in termination status field sonfsmservice1function1updateddumb1')
+    #                 self.assertTrue(result['sonfsmservice1function1updateddumb1']['status'] == 'Terminated',
+    #                                 msg='error in termination status field sonfsmservice1function1updateddumb1')
 
-                    self.assertTrue(result['sonfsmservice1function1updateddumb1']['error'] == 'None',
-                                msg='error in termination error field sonfsmservice1function1updateddumb1')
+    #                 self.assertTrue(result['sonfsmservice1function1updateddumb1']['error'] == 'None',
+    #                             msg='error in termination error field sonfsmservice1function1updateddumb1')
 
-                    self.event2 = True
+    #                 self.event2 = True
 
-                self.fsm_eventFinished()
+    #             self.fsm_eventFinished()
 
-            if self.event1 and self.event2:
-                self.fsm_eventFinished()
+    #         if self.event1 and self.event2:
+    #             self.fsm_eventFinished()
 
-        self.manoconn.subscribe(on_ssm_termination_result, 'specific.manager.registry.ssm.terminate')
-        self.manoconn.subscribe(on_fsm_termination_result, 'specific.manager.registry.fsm.terminate')
+    #     self.manoconn.subscribe(on_ssm_termination_result, 'specific.manager.registry.ssm.terminate')
+    #     self.manoconn.subscribe(on_fsm_termination_result, 'specific.manager.registry.fsm.terminate')
 
-        termination_proc = Process(target=fakeslm_termination)
-        termination_proc.daemon = True
-        termination_proc.start()
+    #     termination_proc = Process(target=fakeslm_termination)
+    #     termination_proc.daemon = True
+    #     termination_proc.start()
 
-        self.waitForSSMEvent(timeout=70, msg='SSM termination request not received.')
-        self.waitForFSMEvent(timeout=70, msg='FSM termination request not received.')
+    #     self.waitForSSMEvent(timeout=70, msg='SSM termination request not received.')
+    #     self.waitForFSMEvent(timeout=70, msg='FSM termination request not received.')
 
-        self.wait_for_fsm_event.clear()
-        self.wait_for_ssm_event.clear()
+    #     self.wait_for_fsm_event.clear()
+    #     self.wait_for_ssm_event.clear()
 
-        termination_proc.terminate()
-        del termination_proc
+    #     termination_proc.terminate()
+    #     del termination_proc
 
 if __name__ == "__main__":
     unittest.main()
