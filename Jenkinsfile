@@ -249,7 +249,7 @@ pipeline {
         branch 'master'
       }      
       steps {
-        sh './pipeline/publish/retah.sh'
+        sh './pipeline/publish/retag.sh'
         dir(path: 'tng-devops') {
           sh 'ansible-playbook roles/sp.yml -i environments -e "target=int-sp"'
         }
