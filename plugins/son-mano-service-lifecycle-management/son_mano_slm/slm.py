@@ -117,7 +117,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.ssm_user = 'specific-management'
         self.ssm_pass = 'sonata'
         base = 'amqp://' + self.ssm_user + ':' + self.ssm_pass
-        self.ssm_url_base = base + '@son-broker:5672/'
+        broker = os.environ.get("broker_host").split("@")[-1].split("/")[0]
+        self.ssm_url_base = base + '@' + broker + '/'
 
         # The following can be removed once transition is done
         self.service_requests_being_handled = {}
