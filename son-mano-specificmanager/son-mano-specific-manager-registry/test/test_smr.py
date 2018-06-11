@@ -283,56 +283,56 @@ class test_SMR_functionalities(unittest.TestCase):
         instantiation_proc.terminate()
         del instantiation_proc
 
+        
+    # def test_3_SMR_update(self):
 
-    def test_3_SMR_update(self):
+    #     def on_ssm_updating_result(ch, method, properties, message):
 
-        def on_ssm_updating_result(ch, method, properties, message):
+    #         if properties.app_id == 'son-plugin.SpecificManagerRegistry':
+    #             result = yaml.load(message)
+    #             self.assertTrue(list(result.keys()) == ['sonssmservice1dumb1'],
+    #                             msg='not all SSMs results received')
 
-            if properties.app_id == 'son-plugin.SpecificManagerRegistry':
-                result = yaml.load(message)
-                self.assertTrue(list(result.keys()) == ['sonssmservice1dumb1'],
-                                msg='not all SSMs results received')
+    #             self.assertTrue(result['sonssmservice1dumb1']['status'] == 'Updated',
+    #                             msg='error in updating status filed sonssmservice1dumb1')
 
-                self.assertTrue(result['sonssmservice1dumb1']['status'] == 'Updated',
-                                msg='error in updating status filed sonssmservice1dumb1')
+    #             self.assertTrue(result['sonssmservice1dumb1']['error'] == 'None',
+    #                             msg='error in updating error filed sonssmservice1dumb1')
 
-                self.assertTrue(result['sonssmservice1dumb1']['error'] == 'None',
-                                msg='error in updating error filed sonssmservice1dumb1')
+    #             self.ssm_eventFinished()
 
-                self.ssm_eventFinished()
+    #     def on_fsm_updating_result(ch, method, properties, message):
 
-        def on_fsm_updating_result(ch, method, properties, message):
+    #         if properties.app_id == 'son-plugin.SpecificManagerRegistry':
 
-            if properties.app_id == 'son-plugin.SpecificManagerRegistry':
+    #             result = yaml.load(message)
+    #             self.assertTrue(list(result.keys()) ==
+    #                             ['sonfsmservice1function1updateddumb1']
+    #                             , msg='not all FSMs updating results in VNFD2 received')
 
-                result = yaml.load(message)
-                self.assertTrue(list(result.keys()) ==
-                                ['sonfsmservice1function1updateddumb1']
-                                , msg='not all FSMs updating results in VNFD2 received')
+    #             self.assertTrue(result['sonfsmservice1function1updateddumb1']['status'] == 'Updated',
+    #                             msg='error in updating sonfsmservice1function1monitoring1')
 
-                self.assertTrue(result['sonfsmservice1function1updateddumb1']['status'] == 'Updated',
-                                msg='error in updating sonfsmservice1function1monitoring1')
+    #             self.assertTrue(result['sonfsmservice1function1updateddumb1']['error'] == 'None',
+    #                             msg='error in updating sonfsmservice1function1monitoring1')
 
-                self.assertTrue(result['sonfsmservice1function1updateddumb1']['error'] == 'None',
-                                msg='error in updating sonfsmservice1function1monitoring1')
+    #             self.fsm_eventFinished()
 
-                self.fsm_eventFinished()
+    #     self.manoconn.subscribe(on_ssm_updating_result, 'specific.manager.registry.ssm.update')
+    #     self.manoconn.subscribe(on_fsm_updating_result, 'specific.manager.registry.fsm.update')
 
-        self.manoconn.subscribe(on_ssm_updating_result, 'specific.manager.registry.ssm.update')
-        self.manoconn.subscribe(on_fsm_updating_result, 'specific.manager.registry.fsm.update')
+    #     updating_proc = Process(target=fakeslm_updating)
+    #     updating_proc.daemon = True
+    #     updating_proc.start()
 
-        updating_proc = Process(target=fakeslm_updating)
-        updating_proc.daemon = True
-        updating_proc.start()
+    #     self.waitForSSMEvent(timeout=70, msg='SSM updating request not received.')
+    #     self.waitForFSMEvent(timeout=70, msg='FSM updating request not received.')
 
-        self.waitForSSMEvent(timeout=70, msg='SSM updating request not received.')
-        self.waitForFSMEvent(timeout=70, msg='FSM updating request not received.')
+    #     self.wait_for_fsm_event.clear()
+    #     self.wait_for_ssm_event.clear()
 
-        self.wait_for_fsm_event.clear()
-        self.wait_for_ssm_event.clear()
-
-        updating_proc.terminate()
-        del updating_proc
+    #     updating_proc.terminate()
+    #     del updating_proc
 
     def test_4_SMR_terminate(self):
 
