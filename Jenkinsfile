@@ -57,7 +57,7 @@ pipeline {
         sh './pipeline/unittest/pluginmanager_unittest.sh'
       }
     }
-    stage('Uniittest next dependencies ') {
+    stage('Uniittest next dependencies') {
       steps {
         sh './pipeline/unittest/create_pm_dependency.sh'
       }
@@ -249,6 +249,7 @@ pipeline {
         branch 'master'
       }      
       steps {
+        sh './pipeline/publish/retag.sh'
         dir(path: 'tng-devops') {
           sh 'ansible-playbook roles/sp.yml -i environments -e "target=int-sp"'
         }

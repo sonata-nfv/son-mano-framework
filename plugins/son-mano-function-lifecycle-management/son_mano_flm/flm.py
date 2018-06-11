@@ -83,7 +83,8 @@ class FunctionLifecycleManager(ManoBasePlugin):
         self.fsm_user = 'specific-management'
         self.fsm_pass = 'sonata'
         base = 'amqp://' + self.fsm_user + ':' + self.fsm_pass
-        self.fsm_url_base = base + '@son-broker:5672/'
+        broker = os.environ.get("broker_host").split("@")[-1].split("/")[0]
+        self.fsm_url_base = base + '@' + broker + '/'
 
         # call super class (will automatically connect to
         # broker and register the FLM to the plugin manger)

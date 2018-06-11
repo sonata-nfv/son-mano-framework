@@ -50,7 +50,11 @@ class PlacementExecutive(ManoBasePlugin):
         if 'sm_broker_host' in os.environ:
             self.sm_broker_host = os.environ['sm_broker_host']
         else:
-            self.sm_broker_host = 'amqp://specific-management:sonata@son-broker:5672'
+            self.ssm_user = 'specific-management'
+            self.ssm_pass = 'sonata'
+            base = 'amqp://' + self.ssm_user + ':' + self.ssm_pass
+            broker = os.environ.get("broker_host").split("@")[-1].split("/")[0]
+            self.sm_broker_host = base + '@' + broker + '/'
 
         # register placement executive in the plugin manager
         super(self.__class__, self).__init__(version=self.version, description= self.description)

@@ -160,9 +160,9 @@ class PlacementPlugin(ManoBasePlugin):
             vnf_single_pop = content["vnf_single_pop"]
 
         # Convert memory information on topology to GB, from MB.
-        for pop in top.keys():
-            top[pop]['memory_used'] = top[pop]['memory_used'] / 1024.0
-            top[pop]['memory_total'] = top[pop]['memory_total'] / 1024.0
+        for pop in top:
+            pop['memory_used'] = pop['memory_used'] / 1024.0
+            pop['memory_total'] = pop['memory_total'] / 1024.0
 
         # Extract weights
         operator_weight = 1.0
@@ -309,7 +309,7 @@ class PlacementPlugin(ManoBasePlugin):
                                 lpProblem += variables[(vdu_index_1, pop_index)] == variables[(vdu_index_2, pop_index)]
 
         # Solve the problem
-        lpProblem.solve() 
+        lpProblem.solve()
 
         # Check the feasibility of the result
         LOG.info(str(serv_id) + ": Result: " + str(pulp.LpStatus[lpProblem.status]))
