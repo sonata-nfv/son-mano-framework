@@ -334,7 +334,10 @@ class PlacementPlugin(ManoBasePlugin):
 
         LOG.info(lpProblem.objective)
         LOG.info(lpProblem.objective.value())
-        optimal_value = lpProblem.objective.value()
+        if lpProblem.objective.value() is not None:
+            optimal_value = lpProblem.objective.value()
+        else:
+            optimal_value = 1.0
         return mapping, None, optimal_value
 
 
