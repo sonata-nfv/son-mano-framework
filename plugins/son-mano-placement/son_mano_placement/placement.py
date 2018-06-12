@@ -185,7 +185,7 @@ class PlacementPlugin(ManoBasePlugin):
         response['mapping'] = {}
         for vnf_id in placement[0]:
             response['mapping'][vnf_id] = {'vim':placement[0][vnf_id]}
-        rseponse['error'] = placement[1]
+        response['error'] = placement[1]
 
         LOG.info(str(response))
         topic = 'mano.service.place'
