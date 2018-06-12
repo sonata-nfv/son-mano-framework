@@ -165,6 +165,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # The topic on which SLMs share state with eachother
         self.manoconn.subscribe(self.inter_slm, t.MANO_STATE)
 
+        # Fake policy manager for now
+        self.manoconn.subscribe(self.policy_faker, 'policy.operator')
+
         # The topic on which update requests are posted.
         self.manoconn.subscribe(self.service_update, t.GK_UPDATE)
 
@@ -704,6 +707,22 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Continue with the scheduled tasks
         self.start_next_task(serv_id)
+
+    def policy_faker(self, ch, method, prop, payload):
+
+        message = yaml.load(payload)
+        if 'policy' in message.keys():
+            return
+
+        LOG.info("Policy request received")
+
+        response = {}
+        response['policy'] = 'load balanced'
+#        response['list'] = ['Athens', 'Ghent']
+        topic = 'policy.operator'
+        self.manoconn.notify(topic,
+                             yaml.dump(response),
+                             correlation_id=prop.correlation_id)
 
     def resp_policies(self, ch, method, prop, payload):
         """
