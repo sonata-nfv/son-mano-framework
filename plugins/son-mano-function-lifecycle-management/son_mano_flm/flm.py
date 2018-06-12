@@ -144,6 +144,11 @@ class FunctionLifecycleManager(ManoBasePlugin):
         super(self.__class__, self).on_lifecycle_start(ch, mthd, prop, msg)
         LOG.info("FLM started and operational.")
 
+        LOG.info("configured vnfd path: " + str(t.vnfd_path))
+        LOG.info("configured vnfr path: " + str(t.vnfr_path))
+        LOG.info("configured monitoring path: " + str(t.monitoring_path))
+
+
     def deregister(self):
         """
         Send a deregister request to the plugin manager.
@@ -728,7 +733,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         # Store the record
 #            try:
-        url = t.VNFR_REPOSITORY_URL + 'vnf-instances'
+        url = t.vnfr_path
         header = {'Content-Type': 'application/json'}
         vnfr_response = requests.post(url,
                                       data=json.dumps(vnfr),
@@ -778,7 +783,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
         del vnfr["created_at"]
 
         # Put it
-        url = t.VNFR_REPOSITORY_URL + 'vnf-instances/' + vnfr_id
+        url = t.vnfr_path + '/' + vnfr_id
         header = {'Content-Type': 'application/json'}
 
         LOG.info("Service " + serv_id + ": VNFR update: " + url)

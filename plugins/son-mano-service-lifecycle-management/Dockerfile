@@ -22,18 +22,27 @@
 FROM python:3.4-slim
 MAINTAINER SONATA
 
+RUN apt-get update && apt-get install -y gcc
+
 # define plugin name once
 ENV PLUGIN_BASE son-mano-service-lifecycle-management
+
 # Configuration
 ENV broker_host amqp://guest:guest@broker:5672/%2F
 ENV broker_exchange son-kernel
 
-ENV url_gk_api http://son-gtkapi:5000/api/v2/
-ENV url_nsr_repository http://son-catalogue-repos:4011/records/nsr/
-ENV url_vnfr_repository http://son-catalogue-repos:4011/records/vnfr/
-ENV url_monitoring_server http://son-monitor-manager:8000/api/v1/
+# Catalogue information
+ENV cat_path http://localhost:4011/api/catalogues/v2
+ENV nsd_collection network-services
+ENV vnfd_collection vnfs
 
-RUN apt-get update && apt-get install -y gcc
+# Repository information
+ENV repo_path http://son-catalogue-repos:4011/records
+ENV nsr_collection nsr/ns-instances
+ENV vnfr_collection vnfr/vnf-instances
+
+# Monitoring information
+ENV monitoring_path http://son-monitor-manager:8000/api/v1
 
 # add generic project files
 ADD son-mano-base /son-mano-base

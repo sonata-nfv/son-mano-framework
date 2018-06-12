@@ -45,29 +45,17 @@ SRM_ONBOARD = 'specific.manager.registry.fsm.on-board'
 SRM_INSTANT = 'specific.manager.registry.fsm.instantiate'
 SRM_UPDATE = 'specific.manager.registry.fsm.update'
 
-# REST APIs
-temp = os.environ.get("url_gk_api")
-if temp is None:
-    temp = "http://son-gtkapi:5000/api/v2/"
-p = urlparse(temp)
-GK_PORT = p.port
-BASE_URL = p.scheme + "://" + p.hostname + ":" + str(GK_PORT)
+# Catalogue urls
+cat_path = os.environ.get("cat_path").strip("/")
+vnfd_ext = os.environ.get("vnfd_collection").strip("/")
 
-# REST API with GK
-GK_SERVICES_URL = BASE_URL + '/api/v2/services/'
-GK_FUNCTIONS_URL = BASE_URL + '/api/v2/functions/'
+vnfd_path = cat_path + '/' + vnfd_ext
 
-# With Repositories
-temp = os.environ.get("url_vnfr_repository")
-if temp is None:
-    temp = "http://son-catalogue-repos:4011/records/vnfr/"
-c = urlparse(temp)
-CAT_PORT = c.port
-CAT_BASE_URL = c.scheme + "://" + c.hostname + ":" + str(CAT_PORT)
+# Repository urls
+repo_path = os.environ.get("repo_path").strip("/")
+vnfr_ext = os.environ.get("vnfr_collection").strip("/")
 
-NSR_REPOSITORY_URL = CAT_BASE_URL + "/records/nsr/"
-VNFR_REPOSITORY_URL = CAT_BASE_URL + "/records/vnfr/"
+vnfr_path = repo_path + '/' + vnfr_ext
 
-# With Monitoring Manager
-# TODO: Secure this get against failure
-MONITORING_URL = os.environ.get("url_monitoring_server")
+# Monitoring urls
+monitoring_path = os.environ.get("monitoring_path").strip("/")

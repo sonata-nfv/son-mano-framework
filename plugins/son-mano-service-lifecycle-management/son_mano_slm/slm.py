@@ -174,9 +174,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # The topic on which plugin status info is shared
         self.manoconn.subscribe(self.plugin_status, t.PL_STATUS)
 
-#        # The topic on which the FLM receives deploy request from SLM
-#        self.manoconn.subscribe(self.flm_deploy, t.MANO_DEPLOY)
-
         # The topic on which monitoring information is received
         self.manoconn.subscribe(self.monitoring_feedback, t.MON_RECEIVE)
 
@@ -195,7 +192,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
         super(self.__class__, self).on_lifecycle_start(ch, mthd, prop, msg)
         LOG.info("SLM started and operational. Registering with the GK...")
 
-        self.register_slm_with_gk()
+        LOG.info("configured nsd path: " + str(t.nsd_path))
+        LOG.info("configured vnfd path: " + str(t.vnfd_path))
+        LOG.info("configured nsr path: " + str(t.nsr_path))
+        LOG.info("configured vnfr path: " + str(t.vnfr_path))
+        LOG.info("configured monitoring path: " + str(t.monitoring_path))
+
+#        self.register_slm_with_gk()
 
     def register_slm_with_gk(self):
         """
@@ -303,7 +306,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
             if (self.services[serv_id]["current_workflow"] == 'instantiation'):
                 # If the current workflow is an instantiation workflow, we need
-                # to delete the stack, the SSMs/FSMs and the generated records, if
+                # to delete the stack, the SSMs/FSMs and the generated records
                 # they already exist
                 self.roll_back_instantiation(serv_id)
 
@@ -1484,99 +1487,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         payload = yaml.dump(message)
         self.manoconn.notify('mano.inter.slm', payload)
 
-    def flm_deploy(self, ch, method, prop, payload):
-        """
-        This methods fakes the FLM by handling requests from the SLM to dpeloy
-        a specific function
-        """
-
-        message = yaml.load(payload)
-
-        if 'vnfd' in message.keys():
-
-            outg_message = {}
-            outg_message['vnfd'] = message['vnfd']
-            outg_message['vnfd']['instance_uuid'] = message['id']
-            outg_message['vim_uuid'] = message['vim_uuid']
-            outg_message['service_instance_id'] = message['serv_id']
-
-            payload = yaml.dump(outg_message)
-
-            corr_id = str(uuid.uuid4())
-            # adding the vnfd to the flm ledger
-            self.flm_ledger[corr_id] = {}
-            self.flm_ledger[corr_id]['vnfd'] = message['vnfd']
-            self.flm_ledger[corr_id]['orig_corr_id'] = prop.correlation_id
-
-            LOG.info("VNF deployment request from fake FLM to IA.")
-            LOG.debug("Payload of request: " + payload)
-            # Contact the IA
-            self.manoconn.call_async(self.IA_deploy_response,
-                                     t.IA_DEPLOY,
-                                     payload,
-                                     correlation_id=corr_id)
-
-    def IA_deploy_response(self, ch, method, prop, payload):
-        """
-        This method fakes the FLMs reaction to a IA response.
-        """
-
-        # When the IA responses, the FLM builds the record and then
-        # forwards this to the SLM.
-        LOG.info("IA reply to fake FLM on VNF deploy call")
-        LOG.debug("Payload of request: " + str(payload))
-
-        inc_message = yaml.load(payload)
-
-        # Build the message for the SLM
-        outg_message = {}
-        outg_message['status'] = inc_message['request_status']
-
-        # Getting vnfd from the FLM ledger
-        vnfd = self.flm_ledger[prop.correlation_id]['vnfd']
-
-        error = None
-        if inc_message['message'] != '':
-            error = inc_message['message']
-
-        if inc_message['request_status'] == "COMPLETED":
-
-            # Build the record
-            vnfr = tools.build_vnfr(inc_message['vnfr'], vnfd)
-            outg_message['vnfr'] = vnfr
-
-            # Store the record
-#            try:
-            url = t.VNFR_REPOSITORY_URL + 'vnf-instances'
-            header = {'Content-Type': 'application/json'}
-            vnfr_response = requests.post(url,
-                                          data=json.dumps(vnfr),
-                                          headers=header,
-                                          timeout=1.0)
-            LOG.info("Storing VNFR on " + url)
-            LOG.debug("VNFR: " + str(vnfr))
-
-            if (vnfr_response.status_code == 200):
-                LOG.info("VNFR storage accepted.")
-                outg_message['vnfr'] = vnfr
-            # If storage fails, add error code and message to rply to gk
-            else:
-                error = {'http_code': vnfr_response.status_code,
-                         'message': vnfr_response.json()}
-                LOG.info('vnfr to repo failed: ' + str(error))
-            # except:
-            #     error = {'http_code': '0',
-            #              'message': 'Timeout contacting VNFR server'}
-            #     LOG.info('time-out on vnfr to repo')
-
-        outg_message['error'] = error
-        outg_message['inst_id'] = vnfd['instance_uuid']
-
-        corr_id = self.flm_ledger[prop.correlation_id]['orig_corr_id']
-        self.manoconn.notify(t.MANO_DEPLOY,
-                             yaml.dump(outg_message),
-                             correlation_id=corr_id)
-
     def store_nsr(self, serv_id):
 
         # TODO: get request_status from response from IA on chain
@@ -1588,7 +1498,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 function['vnfr']['status'] = "normal operation"
                 function['vnfr']['version'] = '2'
 
-                url = t.VNFR_REPOSITORY_URL + 'vnf-instances/' + function['id']
+                url = t.vnfr_path + '/' + function['id']
                 LOG.info("Service " + serv_id + ": URL VNFR update: " + url)
 
                 error = None
@@ -1628,7 +1538,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         try:
             header = {'Content-Type': 'application/json'}
-            nsr_resp = requests.post(t.NSR_REPOSITORY_URL + 'ns-instances',
+            nsr_resp = requests.post(t.nsr_path,
                                      data=json.dumps(nsr),
                                      headers=header,
                                      timeout=1.0)
@@ -1933,7 +1843,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         del nsr["created_at"]
 
         # Put it
-        url = t.NSR_REPOSITORY_URL + 'ns-instances/' + nsr_id
+        url = t.nsr_path + '/' + nsr_id
         header = {'Content-Type': 'application/json'}
 
         LOG.info("Service " + serv_id + ": NSR update: " + url)
@@ -1974,7 +1884,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             del vnfr["created_at"]
 
             # Put it
-            url = t.VNFR_REPOSITORY_URL + 'vnf-instances/' + vnfr_id
+            url = t.vnfr_path + '/' + vnfr_id
             header = {'Content-Type': 'application/json'}
 
             LOG.info("Service " + serv_id + ": VNFR update: " + url)
@@ -2103,7 +2013,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method stops the monitoring of a service.
         """
 
-        url = t.MONITORING_URL + "services/" + serv_id
+        url = t.monitoring_path + "/services/" + serv_id
         msg = ": Stopping Monitoring by sending on " + url
         LOG.info("Service " + serv_id + msg)
 
@@ -2188,7 +2098,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         error = None
         try:
             header = {'Content-Type': 'application/json'}
-            mon_resp = requests.post(t.MONITORING_URL + 'service/new',
+            mon_resp = requests.post(t.monitoring_path + '/service/new',
                                      data=json.dumps(mon_mess),
                                      headers=header,
                                      timeout=10.0)
@@ -2385,19 +2295,19 @@ class ServiceLifecycleManager(ManoBasePlugin):
             # TODO: get out of this
 
         # Update the token of the SLM
-        if self.token is None:
-            LOG.info("Retrying authentication of SLM")
-            self.register_slm_with_gk()
+#        if self.token is None:
+#            LOG.info("Retrying authentication of SLM")
+#            self.register_slm_with_gk()
 
-        token = tools.client_login(t.GK_LOGIN, self.clientId, self.password)
-        self.token = token
-        LOG.info("Service " + serv_id + ": new token: " + str(self.token))
+#        token = tools.client_login(t.GK_LOGIN, self.clientId, self.password)
+#        self.token = token
+#        LOG.info("Service " + serv_id + ": new token: " + str(self.token))
 
-        if self.token is None:
-            LOG.info("SLM authentication failed")
-            LOG.info("url: " + str(t.GK_LOGIN))
-            LOG.info("ClientID: " + str(self.clientId))
-            LOG.info("password: " + str(self.password))
+#        if self.token is None:
+#            LOG.info("SLM authentication failed")
+#            LOG.info("url: " + str(t.GK_LOGIN))
+#            LOG.info("ClientID: " + str(self.clientId))
+#            LOG.info("password: " + str(self.password))
 
         # base of the ledger
         self.services[serv_id] = {}
@@ -2405,7 +2315,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['service'] = {}
 
         # Retrieve the service record based on the service instance id
-        base = t.NSR_REPOSITORY_URL + "ns-instances/"
+        base = t.nsr_path + "/"
         request = tools.getRestData(base, serv_id)
 
         if request['error'] is not None:
@@ -2419,7 +2329,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         nsr = self.services[serv_id]['service']['nsr']
         nsd_uuid = nsr['descriptor_reference']
 
-        request = tools.getRestData(t.GK_SERVICES, nsd_uuid, token=self.token)
+        head = {'content-type': 'application/x-yaml'}
+        request = tools.getRestData(t.nsd_path + '/', nsd_uuid, header=head)
 
         if request['error'] is not None:
             request_returned_with_error(request)
@@ -2432,7 +2343,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['function'] = []
         nsr = self.services[serv_id]['service']['nsr']
         for vnf in nsr['network_functions']:
-            base = t.VNFR_REPOSITORY_URL + "vnf-instances/"
+            base = t.vnfr_path + "/"
             request = tools.getRestData(base, vnf['vnfr_id'])
 
             if request['error'] is not None:
@@ -2454,7 +2365,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         for vnf in self.services[serv_id]['function']:
             vnfd_id = vnf['vnfr']['descriptor_reference']
 
-            req = tools.getRestData(t.GK_FUNCTIONS, vnfd_id, token=self.token)
+            req = tools.getRestData(t.vnfd_path + '/', vnfd_id, header=head)
 
             if req['error'] is not None:
                 request_returned_with_error(req)
