@@ -181,7 +181,7 @@ class PlacementPlugin(ManoBasePlugin):
         placement = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=operator_weight, developer_weight=developer_weight, vnf_single_pop=vnf_single_pop)
         LOG.info("Placement calculated:" + str(placement))
 
-        reponse = {}
+        response = {}
         response['mapping'] = {}
         for vnf_id in placement[0]:
             response['mapping'][vnf_id] = {'vim':placement[0][vnf_id]}
