@@ -182,6 +182,11 @@ pipeline {
       }
     }
     stage('Deploying in pre-integration ') {
+      when{
+        not{
+          branch 'master'
+        }        
+      }      
       steps {
         sh 'rm -rf tng-devops || true'
         sh 'git clone https://github.com/sonata-nfv/tng-devops.git'
@@ -236,6 +241,19 @@ pipeline {
             echo 'Publishing Placement Plugin container'
             sh './pipeline/publish/placementplugin.sh int'
           }
+        }
+      }
+    }
+    stage('Deploying in integration') {
+      when{
+        branch 'master'
+      }      
+      steps {
+        sh './pipeline/publish/retag.sh'
+        sh 'rm -rf tng-devops || true'
+        sh 'git clone https://github.com/sonata-nfv/tng-devops.git'
+        dir(path: 'tng-devops') {
+          sh 'ansible-playbook roles/sp.yml -i environments -e "target=int-sp"'
         }
       }
     }
