@@ -86,40 +86,21 @@ PL_STATUS = "platform.management.plugin.status"
 MON_RECEIVE = "son.monitoring"
 FROM_MON_SSM = "monitor.ssm."
 
-# REST APIs
-temp = os.environ.get("url_gk_api")
-if temp is None:
-    temp = "http://son-gtkapi:5000/api/v2/"
-p = urlparse(temp)
-GK_PORT = p.port
-BASE_URL = p.scheme + "://" + p.hostname + ":" + str(GK_PORT)
-API_VER = '/api/v2'
-PUPLIC_KEY_PATH = '/public-key'
-REG_PATH = '/micro-services'
-LOGIN_PATH = '/micro-services'
-SERVICES = '/services/'
-FUNCTIONS = '/functions/'
+# Catalogue urls
+cat_path = os.environ.get("cat_path").strip("/")
+nsd_ext = os.environ.get("nsd_collection").strip("/")
+vnfd_ext = os.environ.get("vnfd_collection").strip("/")
 
-GK_REGISTER = BASE_URL + API_VER + REG_PATH
-GK_LOGIN = BASE_URL + API_VER + LOGIN_PATH
-GK_SERVICES = BASE_URL + API_VER + SERVICES
-GK_FUNCTIONS = BASE_URL + API_VER + FUNCTIONS
+nsd_path = cat_path + '/' + nsd_ext
+vnfd_path = cat_path + '/' + vnfd_ext
 
-# REST API with GK
-GK_SERVICES_URL = BASE_URL + '/api/v2/services/'
-GK_FUNCTIONS_URL = BASE_URL + '/api/v2/functions/'
+# Repository urls
+repo_path = os.environ.get("repo_path").strip("/")
+nsr_ext = os.environ.get("nsr_collection").strip("/")
+vnfr_ext = os.environ.get("vnfr_collection").strip("/")
 
-# With Repositories
-temp = os.environ.get("url_nsr_repository")
-if temp is None:
-    temp = "http://son-catalogue-repos:4011/api/v2/"
-c = urlparse(temp)
-CAT_PORT = c.port
-CAT_BASE_URL = c.scheme + "://" + c.hostname + ":" + str(CAT_PORT)
+nsr_path = repo_path + '/' + nsr_ext
+vnfr_path = repo_path + '/' + vnfr_ext
 
-NSR_REPOSITORY_URL = CAT_BASE_URL + "/records/nsr/"
-VNFR_REPOSITORY_URL = CAT_BASE_URL + "/records/vnfr/"
-
-# With Monitoring Manager
-# TODO: Secure this get against failure
-MONITORING_URL = os.environ.get("url_monitoring_server")
+# Monitoring urls
+monitoring_path = os.environ.get("monitoring_path").strip("/")

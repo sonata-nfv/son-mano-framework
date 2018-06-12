@@ -331,15 +331,15 @@ def get_ordered_vim_list(payload, which_graph=0):
     return vim_list
 
 
-def getRestData(base, path, expected_code=200, token=None):
+def getRestData(base, path, expected_code=200, header=None, token=None):
     """
     This method can be used to retrieve data through a rest api.
     """
 
     url = base + path
-    header = None
+    header = header
     if token is not None:
-        header = {"Authorization": "Bearer %s" % token}
+        header["Authorization"] = "Bearer %s" % token
 
     try:
         get_response = requests.get(url,
