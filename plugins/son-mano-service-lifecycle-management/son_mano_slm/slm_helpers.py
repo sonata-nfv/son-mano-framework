@@ -341,21 +341,30 @@ def getRestData(base, path, expected_code=200, header=None, token=None):
     if token is not None:
         header["Authorization"] = "Bearer %s" % token
 
-    try:
-        get_response = requests.get(url,
-                                    headers=header,
-                                    timeout=5.0)
+    counter = 0
+    while True:
+        try:
+            get_response = requests.get(url,
+                                        headers=header,
+                                        timeout=20.0)
 
-        content = get_response.json()
-        code = get_response.status_code
+            content = get_response.json()
+            code = get_response.status_code
 
-        if (code == expected_code):
-            return {'error': None, "content": content}
-        else:
-            return{'error': code, "content": content}
-    except:
-        print("GET request timed out")
-        return{'error': '400', 'content': 'request timed out'}
+            if (code == expected_code):
+                response = {'error': None, "content": content}
+                break
+            else:
+                response = {'error': code, "content": content}
+                break
+        except:
+            counter = counter + 1
+            print("GET request timed out")
+            if counter == 3:
+                response = {'error': '400', 'content': 'request timed out'}
+                break
+              
+    return response
 
 
 def build_vnfr(ia_vnfr, vnfd):
