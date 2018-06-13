@@ -348,7 +348,7 @@ def getRestData(base, path, expected_code=200, header=None, token=None):
                                         headers=header,
                                         timeout=20.0)
 
-            content = get_response.json()
+            content = yaml.load(get_response.content)
             code = get_response.status_code
 
             if (code == expected_code):

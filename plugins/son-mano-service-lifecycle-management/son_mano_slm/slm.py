@@ -2515,6 +2515,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Retrieve the service record based on the service instance id
         base = t.nsr_path + "/"
+        LOG.info("Requesting NSR for: " + str(base) + str(serv_id))
         request = tools.getRestData(base, serv_id)
 
         if request['error'] is not None:
@@ -2529,6 +2530,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         nsd_uuid = nsr['descriptor_reference']
 
         head = {'content-type': 'application/x-yaml'}
+        LOG.info("Request NSD for: " + str(t.nsd_path + '/') + str(nsd_uuid))
         request = tools.getRestData(t.nsd_path + '/', nsd_uuid, header=head)
 
         if request['error'] is not None:
