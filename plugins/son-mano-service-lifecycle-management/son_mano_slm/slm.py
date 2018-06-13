@@ -345,7 +345,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             # share state with other SLMs
             self.slm_share('DONE', self.services[serv_id])
 
-#            del self.services[serv_id]
+            del self.services[serv_id]
 
 ####################
 # SLM input - output
