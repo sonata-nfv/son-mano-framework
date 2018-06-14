@@ -90,7 +90,7 @@ def replace_old_corr_id_by_new(dictionary, old_correlation_id):
     return new_correlation_id, dictionary
 
 
-def build_nsr(request_status, nsd, vnfr_ids, service_instance_id):
+def build_nsr(request_status, nsd, vnfr_ids, serv_id, sid=None, pid=None):
     """
     This method builds the whole NSR from the payload (stripped nsr and vnfrs)
     returned by the Infrastructure Adaptor (IA).
@@ -99,7 +99,7 @@ def build_nsr(request_status, nsd, vnfr_ids, service_instance_id):
     nsr = {}
     # nsr mandatory fields
     nsr['descriptor_version'] = 'nsr-schema-01'
-    nsr['id'] = service_instance_id
+    nsr['id'] = serv_id
     nsr['status'] = request_status
     # Building the nsr makes it the first version of this nsr
     nsr['version'] = '1'
@@ -171,6 +171,12 @@ def build_nsr(request_status, nsd, vnfr_ids, service_instance_id):
         nsr['auto_scale_policy'] = []
         for asp in nsd['auto_scale_policy']:
             nsr['monitoring_parameters'].append(asp)
+
+    # sla and policy
+    if sid is not None:
+        nsr['sla_id'] = sid
+    if pid is not None:
+        nsr['policy_id'] = pid
 
     return nsr
 

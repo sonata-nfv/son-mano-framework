@@ -596,7 +596,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         for function in self.services[serv_id]['function']:
             function['vim_uuid'] = payload['vim_uuid']
             function['id'] = payload['function_id']
-            
+
         self.services[serv_id]['ingress'] = payload['ingress']
         self.services[serv_id]['egress'] = payload['egress']
 
@@ -744,8 +744,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
     def monitoring_feedback(self, ch, method, prop, payload):
 
-#        LOG.info("Monitoring message received")
-#        LOG.info(payload)
+       # LOG.info("Monitoring message received")
+       # LOG.info(payload)
 
         try:
             content = json.loads(str(payload))
@@ -777,7 +777,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             ledger_recreation = self.recreate_ledger(None, serv_id)
 
             if ledger_recreation is None:
-                LOG.info("Recreation of ledger failed, aborting monitoring event")
+                LOG.info("Recreation of ledger failed, aborting mon event")
                 return
 
         # Extract additional content provided by the SSM
@@ -815,7 +815,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         if 'schedule' in content.keys():
             schedule = content['schedule']
-            data  = None
+            data = None
             if 'data' in content.keys():
                 data = content['data']
             LOG.info("schedule found: " + str(schedule))
@@ -1268,7 +1268,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         self.services[serv_id]['act_corr_id'] = []
 
-        LOG.info("Service " + serv_id + ": " + yaml.dump(functions, default_flow_style=False))
+        msg = ": " + yaml.dump(functions, default_flow_style=False)
+        LOG.info("Service " + serv_id + msg)
 
         for function in functions:
 
@@ -1716,7 +1717,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
         for function in self.services[serv_id]['function']:
             vnfr_ids.append(function['id'])
 
-        nsr = tools.build_nsr(request_status, nsd, vnfr_ids, serv_id)
+        sid = self.services[serv_id]['sla_id']
+        pid = self.services[serv_id]['policy_id']
+        nsr = tools.build_nsr(request_status, nsd, vnfr_ids, serv_id, sid, pid)
         LOG.debug("NSR to be stored: " + yaml.dump(nsr))
 
         error = None
@@ -2328,6 +2331,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         message['status'] = 'READY'
         message['error'] = None
         message['timestamp'] = time.time()
+        message['sla_id'] = self.services[serv_id]['sla_id']
+        message['policy_id'] = self.services[serv_id]['policy_id']
         message['nsr'] = self.services[serv_id]['service']['nsr']
         message['vnfrs'] = []
 
@@ -2454,7 +2459,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['user_data'] = payload['user_data']
 
         LOG.info("User data: " + str(payload['user_data']))
-        
+
         # Add keys to ledger
         try:
             keys = payload['user_data']['customer']['keys']
@@ -2465,7 +2470,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             LOG.info("Service " + serv_id + msg)
             self.services[serv_id]['public_key'] = None
             self.services[serv_id]['private_key'] = None
-            
+
         LOG.info("Public key: " + str(self.services[serv_id]['public_key']))
 
         # Add customer constraints to ledger
@@ -2475,6 +2480,17 @@ class ServiceLifecycleManager(ManoBasePlugin):
             self.services[serv_id]['customer_policies'] = policies
         else:
             self.services[serv_id]['customer_policies'] = {}
+
+        # Add policy and sla id
+        if 'sla_id' in payload.keys():
+            self.services[serv_id]['sla_id'] = payload['sla_id']
+        else:
+            self.services[serv_id]['sla_id'] = None
+
+        if 'policy_id' in payload.keys():
+            self.services[serv_id]['policy_id'] = payload['policy_id']
+        else:
+            self.services[serv_id]['Policy_id'] = None
 
         return serv_id
 
