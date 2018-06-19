@@ -2490,7 +2490,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         if 'policy_id' in payload.keys():
             self.services[serv_id]['policy_id'] = payload['policy_id']
         else:
-            self.services[serv_id]['Policy_id'] = None
+            self.services[serv_id]['policy_id'] = None
 
         return serv_id
 
