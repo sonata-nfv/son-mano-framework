@@ -2726,11 +2726,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
                    'vnf_single_pop': True}
 
         content['nap'] = {}
-
-        if self.services[serv_id]['ingress'] is not None:
-            content['nap']['ingresses'] = self.services[serv_id]['ingress']
-        if self.services[serv_id]['egress'] is not None:
-            content['nap']['egresses'] = self.services[serv_id]['egress']
+        content['nap']['ingresses'] = self.services[serv_id]['ingress']
+        content['nap']['egresses'] = self.services[serv_id]['egress']
 
         self.manoconn.call_async(self.resp_mapping,
                                  t.MANO_PLACE,
