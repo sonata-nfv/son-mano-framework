@@ -484,7 +484,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         add_schedule.append('vnfs_start')
         add_schedule.append('vnf_chain')
         add_schedule.append('store_nsr')
-        add_schedule.append('wan_configure')
+#         add_schedule.append('wan_configure')
         add_schedule.append('start_monitoring')
         add_schedule.append('inform_gk_instantiation')
 
