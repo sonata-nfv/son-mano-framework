@@ -155,37 +155,43 @@ class PlacementPlugin(ManoBasePlugin):
         ingress = content['nap']['ingresses']
         egress = content['nap']['egresses']
 
-        vnf_single_pop = False
-        if "vnf_single_pop" in content.keys():
-            vnf_single_pop = content["vnf_single_pop"]
+        #Check if topology is not empty
+        if len(top) == 0:
+            response = {}
+            response['mapping'] = None
+            response['error'] = 'Empty topology list'
+        else:            
+            vnf_single_pop = False
+            if "vnf_single_pop" in content.keys():
+                vnf_single_pop = content["vnf_single_pop"]
 
-        # Convert memory information on topology to GB, from MB.
-        for pop in top:
-            pop['memory_used'] = pop['memory_used'] / 1024.0
-            pop['memory_total'] = pop['memory_total'] / 1024.0
+            # Convert memory information on topology to GB, from MB.
+            for pop in top:
+                pop['memory_used'] = pop['memory_used'] / 1024.0
+                pop['memory_total'] = pop['memory_total'] / 1024.0
 
-        # Extract weights
-        operator_weight = 1.0
-        developer_weight = 0.0
-        if 'weights' in op_pol.keys():
-            operator_weight = op_pol['weights']['operator']
-            developer_weight = op_pol['weights']['developer']
+            # Extract weights
+            operator_weight = 1.0
+            developer_weight = 0.0
+            if 'weights' in op_pol.keys():
+                operator_weight = op_pol['weights']['operator']
+                developer_weight = op_pol['weights']['developer']
 
-        # Solve first for only operator or developer influence, to calibrate
-        operator_optimal_value = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=1.0, developer_weight=0.0, vnf_single_pop=vnf_single_pop)[2]
-        developer_optimal_value = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=0.0, developer_weight=1.0, vnf_single_pop=vnf_single_pop)[2]
+            # Solve first for only operator or developer influence, to calibrate
+            operator_optimal_value = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=1.0, developer_weight=0.0, vnf_single_pop=vnf_single_pop)[2]
+            developer_optimal_value = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=0.0, developer_weight=1.0, vnf_single_pop=vnf_single_pop)[2]
 
-        operator_weight = abs(operator_weight / operator_optimal_value)
-        developer_weight = abs(developer_weight / developer_optimal_value)
+            operator_weight = abs(operator_weight / operator_optimal_value)
+            developer_weight = abs(developer_weight / developer_optimal_value)
 
-        placement = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=operator_weight, developer_weight=developer_weight, vnf_single_pop=vnf_single_pop)
-        LOG.info("Placement calculated:" + str(placement))
+            placement = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=operator_weight, developer_weight=developer_weight, vnf_single_pop=vnf_single_pop)
+            LOG.info("Placement calculated:" + str(placement))
 
-        response = {}
-        response['mapping'] = {}
-        for vnf_id in placement[0]:
-            response['mapping'][vnf_id] = {'vim':placement[0][vnf_id]}
-        response['error'] = placement[1]
+            response = {}
+            response['mapping'] = {}
+            for vnf_id in placement[0]:
+                response['mapping'][vnf_id] = {'vim':placement[0][vnf_id]}
+            response['error'] = placement[1]
 
         LOG.info(str(response))
         topic = 'mano.service.place'
