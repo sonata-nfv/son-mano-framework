@@ -1352,6 +1352,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 vnfs_to_resp = vnfs_to_resp + 1
         self.services[serv_id]['vnfs_to_resp'] = vnfs_to_resp
 
+        # stack
+        stack = []
+
         # Actually triggering the FLM
         for vnf in functions:
             if vnf[csss_type]['trigger']:
@@ -1395,12 +1398,18 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 msg = " " + csss_type + " event requested for vnf " + vnf['id']
                 LOG.info("Service " + serv_id + msg)
 
-                self.manoconn.call_async(self.resp_vnfs_csss,
-                                         topic,
-                                         yaml.dump(payload),
-                                         correlation_id=corr_id)
+                add_stack = {}
+                add_stack['topic'] = topic
+                add_stack['payload'] = payload
+                add_stack['corr_id'] = corr_id
+                stack.append(add_stack)
 
-                self.services[serv_id]['pause_chain'] = True
+        for vnf in stack:
+            self.services[serv_id]['pause_chain'] = True
+            self.manoconn.call_async(self.resp_vnfs_csss,
+                                     vnf['topic'],
+                                     yaml.dump(vnf['payload']),
+                                     correlation_id=vnf['corr_id'])
 
     def onboard_ssms(self, serv_id):
         """
