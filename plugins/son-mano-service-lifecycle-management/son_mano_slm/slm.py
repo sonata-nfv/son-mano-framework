@@ -2506,31 +2506,29 @@ class ServiceLifecycleManager(ManoBasePlugin):
         :param serv_id: the service instance id
         """
 
-        def request_returned_with_error(request):
+        def request_returned_with_error(request, file_type):
             code = str(request['error'])
-            mess = str(request['content'])
-            LOG.info("Retrieving of NSR failed: " + code + " " + mess)
-            # TODO: get out of this
-
-        # Update the token of the SLM
-#        if self.token is None:
-#            LOG.info("Retrying authentication of SLM")
-#            self.register_slm_with_gk()
-
-#        token = tools.client_login(t.GK_LOGIN, self.clientId, self.password)
-#        self.token = token
-#        LOG.info("Service " + serv_id + ": new token: " + str(self.token))
-
-#        if self.token is None:
-#            LOG.info("SLM authentication failed")
-#            LOG.info("url: " + str(t.GK_LOGIN))
-#            LOG.info("ClientID: " + str(self.clientId))
-#            LOG.info("password: " + str(self.password))
+            err = str(request['content'])
+            msg = "Retrieving of " + file_type + ": " + code + " " + err
+            LOG.info("Service " + serv_id + ': ' + msg)
+            self.services[serv_id]['error'] = msg
 
         # base of the ledger
         self.services[serv_id] = {}
         self.services[serv_id]['original_corr_id'] = corr_id
         self.services[serv_id]['service'] = {}
+        self.services[serv_id]['schedule'] = []
+        self.services[serv_id]['kill_chain'] = False
+        self.services[serv_id]['infrastructure'] = {}
+        self.services[serv_id]['task_log'] = []
+        self.services[serv_id]['vnfs_to_resp'] = 0
+        self.services[serv_id]['pause_chain'] = False
+        self.services[serv_id]['error'] = None
+        self.services[serv_id]['ip_mapping'] = []
+        self.services[serv_id]['ingress'] = None
+        self.services[serv_id]['egress'] = None
+        self.services[serv_id]['public_key'] = None
+        self.services[serv_id]['private_key'] = None
 
         # Retrieve the service record based on the service instance id
         base = t.nsr_path + "/"
@@ -2538,7 +2536,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         request = tools.getRestData(base, serv_id)
 
         if request['error'] is not None:
-            request_returned_with_error(request)
+            request_returned_with_error(request, 'NSR')
             return None
 
         self.services[serv_id]['service']['nsr'] = request['content']
@@ -2553,7 +2551,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         request = tools.getRestData(t.nsd_path + '/', nsd_uuid, header=head)
 
         if request['error'] is not None:
-            request_returned_with_error(request)
+            request_returned_with_error(request, 'NSD')
             return None
 
         self.services[serv_id]['service']['nsd'] = request['content']['nsd']
@@ -2568,7 +2566,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             request = tools.getRestData(base, vnf['vnfr_id'])
 
             if request['error'] is not None:
-                request_returned_with_error(request)
+                request_returned_with_error(request, 'VNFR')
                 return None
 
             new_function = {'id': vnf['vnfr_id'],
@@ -2589,7 +2587,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             req = tools.getRestData(t.vnfd_path + '/', vnfd_id, header=head)
 
             if req['error'] is not None:
-                request_returned_with_error(req)
+                request_returned_with_error(req, 'VNFD')
                 return None
 
             vnf['vnfd'] = req['content']['vnfd']
@@ -2605,33 +2603,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         self.services[serv_id]['service']['ssm'] = ssm_dict
 
-        self.services[serv_id]['public_key'] = None
-        self.services[serv_id]['private_key'] = None
-
-        LOG.info("Service " + serv_id + ": ssm_dict: " + str(ssm_dict))
-
         # Retrieve the deployed FSMs based on the VNFD
         for vnf in self.services[serv_id]['function']:
             vnfd = vnf['vnfd']
             fsm_dict = tools.get_sm_from_descriptor(vnfd)
             vnf['fsm'] = fsm_dict
-            LOG.info(str(vnfd))
-            LOG.info(str(fsm_dict))
-
-        # Create the service schedule
-        self.services[serv_id]['schedule'] = []
-
-        # Create some necessary fields for the ledger
-        self.services[serv_id]['kill_chain'] = False
-        self.services[serv_id]['infrastructure'] = {}
-        self.services[serv_id]['task_log'] = []
-        self.services[serv_id]['vnfs_to_resp'] = 0
-        self.services[serv_id]['pause_chain'] = False
-        self.services[serv_id]['error'] = None
-        self.services[serv_id]['ip_mapping'] = []
-
-        self.services[serv_id]['ingress'] = None
-        self.services[serv_id]['egress'] = None
 
         return True
 
