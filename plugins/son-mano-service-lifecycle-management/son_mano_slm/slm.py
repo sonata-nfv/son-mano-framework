@@ -2235,7 +2235,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         if (mon_resp.status_code == 204):
             LOG.info("Service " + serv_id + ": Monitoring DEL msg accepted")
-
+        elif (mon_resp.status_code == 404):
+            LOG.info("Service " + serv_id + ": No such service in monitoring")
         else:
             monitoring_json = mon_resp.json()
             LOG.info("Service " + serv_id + ": Monitoring DEL msg not acceptd")
