@@ -669,6 +669,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
 
         # Check if the ledger has an entry for this instance
+        rec_success = True
         if serv_id not in self.services.keys():
             # Based on the received payload, the ledger entry is recreated.
             LOG.info("Service " + str(serv_id) + ": Recreating ledger")
@@ -1921,7 +1922,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         self.start_next_task(serv_id)
 
-    def terminate_ssms(self, serv_id, require_resp=True):
+    def terminate_ssms(self, serv_id, require_resp=False):
         """
         This method contacts the SMR to terminate the running ssms.
         """
