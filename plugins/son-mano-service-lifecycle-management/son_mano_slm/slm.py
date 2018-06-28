@@ -671,33 +671,36 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Check if the ledger has an entry for this instance
         if serv_id not in self.services.keys():
             # Based on the received payload, the ledger entry is recreated.
-            LOG.info("Recreating ledger.")
-            self.recreate_ledger(corr_id, serv_id)
+            LOG.info("Service " + str(serv_id) + ": Recreating ledger")
+            rec_success = self.recreate_ledger(corr_id, serv_id)
+            msg = ": Recreation result: " + str(rec_success)
+            LOG.info("Service " + str(serv_id) + msg)
 
-        # Add workflow to ledger
+        # Specify workflow in ledger
         self.services[serv_id]['topic'] = topic
         self.services[serv_id]['status'] = 'TERMINATING'
         self.services[serv_id]["current_workflow"] = 'termination'
         # Schedule the tasks that the SLM should do for this request.
         add_schedule = []
 
-        if orig == 'GK':
-            add_schedule.append('contact_gk')
-        add_schedule.append("stop_monitoring")
-        add_schedule.append("wan_deconfigure")
-        add_schedule.append("vnf_unchain")
-        add_schedule.append("vnfs_stop")
-        add_schedule.append("terminate_service")
+        if rec_success:
+            if orig == 'GK':
+                add_schedule.append('contact_gk')
+            add_schedule.append("stop_monitoring")
+            add_schedule.append("wan_deconfigure")
+            add_schedule.append("vnf_unchain")
+            add_schedule.append("vnfs_stop")
+            add_schedule.append("terminate_service")
 
-        if self.services[serv_id]['service']['ssm']:
-            add_schedule.append("terminate_ssms")
+            if self.services[serv_id]['service']['ssm']:
+                add_schedule.append("terminate_ssms")
 
-        for vnf in self.services[serv_id]['function']:
-            if vnf['fsm'] is not None:
-                add_schedule.append("terminate_fsms")
-                break
+            for vnf in self.services[serv_id]['function']:
+                if vnf['fsm']:
+                    add_schedule.append("terminate_fsms")
+                    break
 
-        add_schedule.append("update_records_to_terminated")
+            add_schedule.append("update_records_to_terminated")
         if orig == 'GK':
             add_schedule.append("inform_gk")
 
