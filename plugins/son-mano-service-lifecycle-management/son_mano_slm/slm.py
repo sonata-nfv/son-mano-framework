@@ -2496,13 +2496,14 @@ class ServiceLifecycleManager(ManoBasePlugin):
             self.services[serv_id]['customer_policies'] = {}
 
         # Add policy and sla id
-        if 'sla_id' in payload.keys():
-            self.services[serv_id]['sla_id'] = payload['sla_id']
+        customer = payload['user_data']['customer']
+        if 'sla_id' in customer.keys():
+            self.services[serv_id]['sla_id'] = customer['sla_id']
         else:
             self.services[serv_id]['sla_id'] = None
 
-        if 'policy_id' in payload.keys():
-            self.services[serv_id]['policy_id'] = payload['policy_id']
+        if 'policy_id' in customer.keys():
+            self.services[serv_id]['policy_id'] = customer['policy_id']
         else:
             self.services[serv_id]['policy_id'] = None
 
