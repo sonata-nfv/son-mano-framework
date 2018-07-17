@@ -546,6 +546,11 @@ def build_monitoring_message(service, functions, userdata):
         # we should create one function per virtual deployment unit
         for vdu in vnfr['virtual_deployment_units']:
 
+            for vdu_d in vnfd['virtual_deployment_units']:
+                if vdu_d['id'] == vdu['id']:
+                    vdu_descriptor = vdu_d
+                    break
+
             for vnfc in vdu['vnfc_instance']:
                 vdu_hostid.append({vdu['id']: vnfc['vc_id']})
 
@@ -556,6 +561,7 @@ def build_monitoring_message(service, functions, userdata):
                 function['pop_id'] = vnf['vim_uuid']
                 function['host_id'] = vnfc['vc_id']
                 function['metrics'] = []
+                function['snmp'] = {}
 
                 if 'monitoring_parameters' in vdu:
 
@@ -584,6 +590,17 @@ def build_monitoring_message(service, functions, userdata):
                                 metric['description'] = ""
 
                             function['metrics'].append(metric)
+
+                if 'snmp_parameters' in vdu_descriptor:
+                    function['snmp'] = vdu_descriptor['snmp_parameters']
+                    function['snmp']['password'] = "supercalifrajilistico"
+                    function['snmp']['entity_id'] = vnfc['id']
+
+                    mgmt_ip = ''
+                    for cp in vnfc['connection_points']:
+                        if cp['id'] == 'mgmt':
+                            mgmt_ip = cp['interface']['address']
+                    function['snmp']['ip'] = mgmt_ip
 
                 message['functions'].append(function)
 
