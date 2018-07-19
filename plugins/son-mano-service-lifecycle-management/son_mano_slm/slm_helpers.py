@@ -561,7 +561,6 @@ def build_monitoring_message(service, functions, userdata):
                 function['pop_id'] = vnf['vim_uuid']
                 function['host_id'] = vnfc['vc_id']
                 function['metrics'] = []
-                function['snmp'] = {}
 
                 if 'monitoring_parameters' in vdu:
 
@@ -592,9 +591,10 @@ def build_monitoring_message(service, functions, userdata):
                             function['metrics'].append(metric)
 
                 if 'snmp_parameters' in vdu_descriptor:
+                    function['snmp'] = {}
                     function['snmp'] = vdu_descriptor['snmp_parameters']
                     function['snmp']['password'] = "supercalifrajilistico"
-                    function['snmp']['entity_id'] = vnfc['id']
+                    function['snmp']['entity_id'] = vnfc['vc_id']
 
                     mgmt_ip = ''
                     for cp in vnfc['connection_points']:
