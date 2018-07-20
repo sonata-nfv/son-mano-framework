@@ -189,9 +189,10 @@ class PlacementPlugin(ManoBasePlugin):
 
             response = {}
             response['mapping'] = {}
-            for vnf_id in placement[0]:
-                response['mapping'][vnf_id] = {'vim':placement[0][vnf_id]}
             response['error'] = placement[1]
+            if placement[1] is None:
+                for vnf_id in placement[0]:
+                    response['mapping'][vnf_id] = {'vim':placement[0][vnf_id]}
 
         LOG.info(str(response))
         topic = 'mano.service.place'
@@ -327,7 +328,7 @@ class PlacementPlugin(ManoBasePlugin):
         LOG.info(str(serv_id) + ": Result: " + str(pulp.LpStatus[lpProblem.status]))
         if str(pulp.LpStatus[lpProblem.status]) != "Optimal":
             LOG.info(str(serv_id) + ": Placement was not possible")
-            return None
+            return {}, "Placement was not possible. Result: " + str(pulp.LpStatus[lpProblem.status]), 1.0
 
         # Interprete the results and build the repsonse
         mapping = {}
