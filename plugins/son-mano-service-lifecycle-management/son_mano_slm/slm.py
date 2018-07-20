@@ -2384,7 +2384,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         mon_mess = tools.build_monitoring_message(service, functions, userdata)
 
-        LOG.info("Monitoring message created: " + str(yaml.dump(mon_mess)))
+        LOG.info("Monitoring message created: " + str(mon_mess))
 
         error = None
         try:
