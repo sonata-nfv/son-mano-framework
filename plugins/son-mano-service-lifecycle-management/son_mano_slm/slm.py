@@ -2384,31 +2384,31 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         mon_mess = tools.build_monitoring_message(service, functions, userdata)
 
-        LOG.debug("Monitoring message created: " + yaml.dump(mon_mess))
+        LOG.info("Monitoring message created: " + str(yaml.dump(mon_mess)))
 
         error = None
-#        try:
-        header = {'Content-Type': 'application/json'}
-        mon_resp = requests.post(t.monitoring_path + '/service/new',
-                                 data=json.dumps(mon_mess),
-                                 headers=header,
-                                 timeout=10.0)
-        monitoring_json = mon_resp.json()
+        try:
+            header = {'Content-Type': 'application/json'}
+            mon_resp = requests.post(t.monitoring_path + '/service/new',
+                                     data=json.dumps(mon_mess),
+                                     headers=header,
+                                     timeout=10.0)
+            monitoring_json = mon_resp.json()
 
-        if (mon_resp.status_code == 200):
-            LOG.info("Service " + serv_id + ": Monitoring started")
+            if (mon_resp.status_code == 200):
+                LOG.info("Service " + serv_id + ": Monitoring started")
 
-        else:
-            LOG.info("Service " + serv_id + ": Monitoring msg not acceptd")
-            msg = ": Monitoring response: " + str(monitoring_json)
-            LOG.info("Service " + serv_id + msg)
-            error = {'http_code': mon_resp.status_code,
-                     'message': mon_resp.json()}
+            else:
+                LOG.info("Service " + serv_id + ": Monitoring msg not acceptd")
+                msg = ": Monitoring response: " + str(monitoring_json)
+                LOG.info("Service " + serv_id + msg)
+                error = {'http_code': mon_resp.status_code,
+                         'message': mon_resp.json()}
 
-        # except:
-        #     LOG.info("Service " + serv_id + ": timeout on monitoring server.")
-        #     error = {'http_code': '0',
-        #              'message': 'Timeout when contacting server'}
+        except:
+            LOG.info("Service " + serv_id + ": timeout on monitoring server.")
+            error = {'http_code': '0',
+                     'message': 'Timeout when contacting server'}
 
         # If an error occured, the workflow is aborted and the GK is informed
         if error is not None:
