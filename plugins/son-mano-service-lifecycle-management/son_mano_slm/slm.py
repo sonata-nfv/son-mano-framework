@@ -162,9 +162,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # The topic on which termination requests are posted.
         self.manoconn.subscribe(self.service_instance_kill, t.GK_KILL)
 
-        # The topic on which SLMs share state with eachother
-        self.manoconn.subscribe(self.inter_slm, t.MANO_STATE)
-
         # Fake policy manager for now
         self.manoconn.subscribe(self.policy_faker, 'policy.operator')
 
@@ -176,6 +173,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # The topic on which monitoring information is received
         self.manoconn.subscribe(self.monitoring_feedback, t.MON_RECEIVE)
+
+        # The topic on which the the SLM receives life cycle scale events
+        self.manoconn.subscribe(self.service_instance_scale, t.MANO_SCALE)
 
     def on_lifecycle_start(self, ch, mthd, prop, msg):
         """
@@ -393,24 +393,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         self.slm_config['tasks_other_slm'] = {}
 
-    def inter_slm(self, ch, method, properties, payload):
-        """
-        This method handles messages that are shared between different SLMs.
-        """
-        # TODO: needs unit testing
-
-        msg = yaml.load(payload)
-
-        if msg['slm_id'] != str(self.uuid):
-            tasks_other_slm = self.slm_config['tasks_other_slm']
-
-            if msg['status'] == 'DONE':
-                if (str(msg['corr_id'])) in tasks_other_slm.keys():
-                    del tasks_other_slm[str(msg['corr_id'])]
-
-            if msg['status'] == 'IN PROGRESS':
-                tasks_other_slm[str(msg['corr_id'])] = msg['state']
-
     def service_instance_create(self, ch, method, properties, payload):
         """
         This function handles a received message on the *.instance.create
@@ -617,15 +599,102 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         return self.services[serv_id]['schedule']
 
+    def service_instance_scale(self, ch, method, prop, payload):
+
+        def send_response(error, scaling_type=None):
+            response = {}
+            response['error'] = error
+            response['scaling_type'] = scaling_type
+
+            if error is None:
+                response['status'] = 'SCALING'
+            else:
+                response['status'] = 'ERROR'
+
+            msg = ' Response on scaling request: ' + str(response)
+            LOG.info('Service ' + str(serv_id) + msg)
+            self.manoconn.notify(t.MANO_SCALE,
+                                 yaml.dump(response),
+                                 correlation_id=corr_id)
+
+            return
+
+        message = yaml.load(payload)
+
+        # Check if payload is ok
+        error = None
+
+        corr_id = prop.correlation_id
+        if corr_id is None:
+            error = 'No correlation id provided in header of request'
+            send_response(error)
+
+        if 'service_instance_id' in message.keys():
+            serv_id = message['service_instance_id']
+            LOG.info('Service ' + str(serv_id) + ": Received scaling request")
+            LOG.info('Service ' + str(serv_id) + ": " + str(payload))
+        else:
+            error = 'Missing \'service_instance_id\' in request'
+            send_response(error)
+
+        if 'scaling_type' in message.keys():
+            scaling_type = message['scaling_type']
+        else:
+            error = "Missing \'scaling_type\' in request."
+            send_response(error)
+
+        if scaling_type not in ['addvnf', 'removevnf']:
+            error = "scaling type \'" + scaling_type + "\' not supported."
+            send_response(error, scaling_type)
+
+        # Handle the request
+        if scaling_type == 'addvnf':
+            # Check if vnfd id is provided
+            if 'vnfd_id' not in message.keys():
+                error = '\'vnfd_id\' missing from request'
+                send_response(error, scaling_type)
+
+            # Request vnfd
+            head = {'content-type': 'application/x-yaml'}
+            req = tools.getRestData(t.vnfd_path + '/',
+                                    message['vnfd_id'],
+                                    header=head)
+
+            if req['error'] is not None:
+                send_response(req['error'], scaling_type)
+
+            vnfd = req['content']['vnfd']
+
+            # build content for scaling workflow
+            content = {}
+            content['vnfd'] = vnfd
+            content['vim_uuid'] = None
+            content['corr_id'] = corr_id
+
+            if 'constraints' in message.keys():
+                if 'vim_id' in message['constraints'].keys():
+                    content['vim_uuid'] = message['constraints']['vim_id']
+
+            # sending response to requesting party
+            send_response(error, scaling_type)
+
+            # starting scaling workflow
+            self.add_vnf_workflow(serv_id, content)
+
+        if scaling_type == 'removevnf':
+            error = 'Removing VNF from stack not supported yet'
+            send_response(error, scaling_type)
+
     def add_vnf_workflow(self, serv_id, payload):
 
-        LOG.info("Starting add vnf workflow")
+        LOG.info('Service ' + str(serv_id) + ": Starting add vnf workflow")
         # Check if the ledger has an entry for this instance
         if serv_id not in self.services.keys():
             # Based on the received payload, the ledger entry is recreated.
             LOG.info("Recreating ledger.")
-            self.recreate_ledger(corr_id, serv_id)
+            self.recreate_ledger(payload['corr_id'], serv_id)
 
+        self.services[serv_id]['start_time'] = time.time()
         for vnf in self.services[serv_id]['function']:
             vnf['start']['trigger'] = False
             vnf['deployed'] = True
@@ -640,20 +709,33 @@ class ServiceLifecycleManager(ManoBasePlugin):
                          'id': vnf_id,
                          'vim_uuid': payload['vim_uuid']}
 
+        # If no VIM is provided, find the VIM of the same VNF
+        if payload['vim_uuid'] is None:
+            for vnf in self.services[serv_id]['function']:
+                if vnf['vnfd']['name'] == vnfd_to_add['name']:
+                    vdu = vnf['vnfr']['virtual_deployment_units'][0]
+                    vim_id = vdu['vnfc_instance'][0]['vim_id']
+                    vnf_base_dict['vim_uuid'] = vim_id
+
+        msg = ": VIM for new VNF: " + vnf_base_dict['vim_uuid']
+        LOG.info('Service ' + str(serv_id) + msg)
         self.services[serv_id]['function'].append(vnf_base_dict)
-        self.services[serv_id]["current_workflow"] = 'scaling'
+        self.services[serv_id]["current_workflow"] = 'addvnf'
 
         add_schedule = []
         add_schedule.append('vnf_deploy')
         add_schedule.append('vnfs_start')
         add_schedule.append('update_nsr')
-        add_schedule.append("configure_ssm")
-        add_schedule.append("vnfs_config")
-#        add_schedule.append("update_monitoring")
+        if 'scale' in self.services[serv_id]['service']['ssm'].keys():
+            add_schedule.append("configure_ssm")
+            add_schedule.append("vnfs_config")
+        add_schedule.append('start_monitoring')
+        add_schedule.append("inform_gk")
 
         self.services[serv_id]['schedule'].extend(add_schedule)
 
         LOG.info('Service ' + str(serv_id) + ': add vnf workflow started')
+        LOG.info('Service ' + str(serv_id) + ': ' + str(add_schedule))
         # Start the chain of tasks
         self.start_next_task(serv_id)
 
@@ -2366,13 +2448,23 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         topic = self.services[serv_id]['topic']
 
-        LOG.info("Service " + serv_id + ": Reporting result to GK on " + topic)
+        LOG.info("Service " + serv_id + ": Reporting result on " + topic)
 
         message = {}
 
         message['status'] = 'READY'
+        message['workflow'] = self.services[serv_id]['current_workflow']
         message['error'] = None
         message['timestamp'] = time.time()
+        message['nsr'] = self.services[serv_id]['service']['nsr']
+        message['vnfrs'] = []
+
+        for function in self.services[serv_id]['function']:
+            message['vnfrs'].append(function['vnfr'])
+
+        if 'start_time' in self.services[serv_id]:
+            start_time = self.services[serv_id]['start_time']
+            message['duration'] = time.time() - start_time
 
         LOG.debug("Payload of message " + str(message))
 
