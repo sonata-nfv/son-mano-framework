@@ -617,8 +617,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
                                  yaml.dump(response),
                                  correlation_id=corr_id)
 
-            return
-
         message = yaml.load(payload)
 
         # Check if payload is ok
@@ -628,6 +626,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         if corr_id is None:
             error = 'No correlation id provided in header of request'
             send_response(error, None)
+            return
 
         if 'service_instance_id' in message.keys():
             serv_id = message['service_instance_id']
@@ -636,16 +635,19 @@ class ServiceLifecycleManager(ManoBasePlugin):
         else:
             error = 'Missing \'service_instance_id\' in request'
             send_response(error, None)
+            return
 
         if 'scaling_type' in message.keys():
             scaling_type = message['scaling_type']
         else:
             error = "Missing \'scaling_type\' in request."
             send_response(error, serv_id)
+            return
 
         if scaling_type not in ['addvnf', 'removevnf']:
             error = "scaling type \'" + scaling_type + "\' not supported."
             send_response(error, serv_id, scaling_type)
+            return
 
         # Handle the request
         if scaling_type == 'addvnf':
@@ -653,6 +655,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             if 'vnfd_id' not in message.keys():
                 error = '\'vnfd_id\' missing from request'
                 send_response(error, serv_id, scaling_type)
+                return
 
             # Request vnfd
             head = {'content-type': 'application/x-yaml'}
@@ -662,6 +665,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
             if req['error'] is not None:
                 send_response(req['error'], serv_id, scaling_type)
+                return
 
             vnfd = req['content']['vnfd']
             vnfd['uuid'] = message['vnfd_id']
@@ -685,6 +689,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         if scaling_type == 'removevnf':
             error = 'Removing VNF from stack not supported yet'
             send_response(error, serv_id, scaling_type)
+            return
 
     def add_vnf_workflow(self, serv_id, payload):
 
@@ -1355,8 +1360,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         self.services[serv_id]['act_corr_id'] = []
 
-        msg = ": " + yaml.dump(functions, default_flow_style=False)
-        LOG.info("Service " + serv_id + msg)
+        # msg = ": " + yaml.dump(functions, default_flow_style=False)
+        # LOG.info("Service " + serv_id + msg)
 
         for function in functions:
 
