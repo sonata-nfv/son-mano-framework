@@ -2701,6 +2701,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
                             'scale': {'trigger': True, 'payload': {}},
                             'vnfr': request['content']}
 
+            del new_function['vnfr']['updated_at']
+            del new_function['vnfr']['created_at']
+            del new_function['vnfr']['uuid']
+
+            new_function['vnfr']['id'] = vnf['vnfr_id']
+
             self.services[serv_id]['function'].append(new_function)
             msg = ": Recreating ledger: VNFR retrieved."
             LOG.info("Service " + serv_id + msg)
