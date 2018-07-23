@@ -1745,13 +1745,14 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         LOG.info(str(yaml.dump(nsr, default_flow_style=False)))
 
-        # del nsr["uuid"]
-        # del nsr["updated_at"]
-        # del nsr["created_at"]
+        del nsr["uuid"]
+        del nsr["updated_at"]
+        del nsr["created_at"]
 
         error = None
 
         nsr_id = serv_id
+        nsr['id'] = nsr_id
         url = t.nsr_path + '/' + nsr_id
         LOG.info("Service " + serv_id + ": " + str(url))
         header = {'Content-Type': 'application/json'}
@@ -2645,6 +2646,14 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['egress'] = None
         self.services[serv_id]['public_key'] = None
         self.services[serv_id]['private_key'] = None
+
+        self.services[serv_id]['user_data'] = {}
+        self.services[serv_id]['user_data']['customer'] = {}
+        self.services[serv_id]['user_data']['developer'] = {}
+        self.services[serv_id]['user_data']['customer']['email'] = None
+        self.services[serv_id]['user_data']['customer']['phone'] = None
+        self.services[serv_id]['user_data']['developer']['email'] = None
+        self.services[serv_id]['user_data']['developer']['phone'] = None
 
         # Retrieve the service record based on the service instance id
         base = t.nsr_path + "/"
