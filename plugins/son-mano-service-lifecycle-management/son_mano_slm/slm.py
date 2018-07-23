@@ -617,6 +617,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
                                  yaml.dump(response),
                                  correlation_id=corr_id)
 
+        # Check if the message doesn't come from SLM itself
+        if prop.app_id == self.name:
+            return
+
         message = yaml.load(payload)
 
         # Check if payload is ok
