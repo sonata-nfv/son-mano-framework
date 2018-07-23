@@ -504,7 +504,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             return
 
         content = yaml.load(payload)
-        serv_id = content['instance_id']
+        serv_id = content['service_instance_id']
         LOG.info("Termination request received for service " + str(serv_id))
 
         self.terminate_workflow(serv_id,
