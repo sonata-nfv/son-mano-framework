@@ -558,7 +558,7 @@ def build_monitoring_message(service, functions, userdata):
                 function['sonata_func_id'] = vnfr['id']
                 function['name'] = vnfd['name']
                 function['description'] = vnfd['description']
-                function['pop_id'] = vnf['vim_uuid']
+                function['pop_id'] = vnfc['vim_id']
                 function['host_id'] = vnfc['vc_id']
                 function['metrics'] = []
 
