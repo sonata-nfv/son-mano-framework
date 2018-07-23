@@ -1752,7 +1752,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         error = None
 
         nsr_id = serv_id
-        url = t.NSR_REPOSITORY_URL + 'ns-instances/' + nsr_id
+        url = t.nsr_path + '/' + nsr_id
+        LOG.info("Service " + serv_id + ": " + str(url))
         header = {'Content-Type': 'application/json'}
 
         nsr_resp = requests.put(url,
