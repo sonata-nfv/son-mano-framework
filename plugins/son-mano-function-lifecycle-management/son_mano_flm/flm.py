@@ -782,9 +782,12 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         # Updating the record
         vnfr["id"] = vnfr_id
-        del vnfr["uuid"]
-        del vnfr["updated_at"]
-        del vnfr["created_at"]
+        try:
+            del vnfr["uuid"]
+            del vnfr["updated_at"]
+            del vnfr["created_at"]
+        except:
+            pass
 
         # Put it
         url = t.vnfr_path + '/' + vnfr_id

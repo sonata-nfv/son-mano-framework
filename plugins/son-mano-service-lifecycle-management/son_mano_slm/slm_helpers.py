@@ -547,7 +547,7 @@ def build_monitoring_message(service, functions, userdata):
         for vdu in vnfr['virtual_deployment_units']:
 
             for vdu_d in vnfd['virtual_deployment_units']:
-                if vdu_d['id'] == vdu['id']:
+                if vdu_d['id'].split('-')[0] == vdu['id']:
                     vdu_descriptor = vdu_d
                     break
 
