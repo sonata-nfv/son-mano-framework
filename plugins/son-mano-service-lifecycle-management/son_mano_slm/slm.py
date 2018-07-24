@@ -1750,9 +1750,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         LOG.info(str(yaml.dump(nsr, default_flow_style=False)))
 
-        del nsr["uuid"]
-        del nsr["updated_at"]
-        del nsr["created_at"]
+        try:
+            del nsr["uuid"]
+            del nsr["updated_at"]
+            del nsr["created_at"]
+        except:
+            pass
 
         error = None
 
@@ -2145,9 +2148,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         nsr_id = serv_id
         nsr['status'] = "terminated"
         nsr['id'] = nsr_id
-        del nsr["uuid"]
-        del nsr["updated_at"]
-        del nsr["created_at"]
 
         # Put it
         url = t.nsr_path + '/' + nsr_id
@@ -2186,9 +2186,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
             # Updating the record
             vnfr['status'] = "terminated"
             vnfr["id"] = vnfr_id
-            del vnfr["uuid"]
-            del vnfr["updated_at"]
-            del vnfr["created_at"]
 
             # Put it
             url = t.vnfr_path + '/' + vnfr_id
@@ -2673,6 +2670,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
             return None
 
         self.services[serv_id]['service']['nsr'] = request['content']
+        del self.services[serv_id]['service']['nsr']["uuid"]
+        del self.services[serv_id]['service']['nsr']["updated_at"]
+        del self.services[serv_id]['service']['nsr']["created_at"]
         LOG.info("Service " + serv_id + ": Recreating ledger: NSR retrieved.")
 
         # Retrieve the NSD
