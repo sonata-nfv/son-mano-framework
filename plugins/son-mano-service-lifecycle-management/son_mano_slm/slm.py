@@ -728,6 +728,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     vim_id = vdu['vnfc_instance'][0]['vim_id']
                     vnf_base_dict['vim_uuid'] = vim_id
 
+        # fix vdu_id
+        for vdu in vnf_base_dict['vnfd']['virtual_deployment_units']:
+            vdu['id'] = vdu['id'] + '-' + vnf_id
+
         msg = ": VIM for new VNF: " + vnf_base_dict['vim_uuid']
         LOG.info('Service ' + str(serv_id) + msg)
         self.services[serv_id]['function'].append(vnf_base_dict)
@@ -2528,6 +2532,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
                                  'scale': {'trigger': True, 'payload': {}},
                                  'vnfd': vnfd,
                                  'id': vnf_id}
+
+                for vdu in vnf_base_dict['vnfd']['virtual_deployment_units']:
+                    vdu['id'] = vdu['id'] + '-' + vnf_id
                 self.services[serv_id]['function'].append(vnf_base_dict)
 
         # Add to correlation id to the ledger
@@ -2724,6 +2731,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
             vnf['vnfd'] = req['content']['vnfd']
             vnf['vnfd']['uuid'] = vnfd_id
+
+            for vdu in vnf['vnfd']['virtual_deployment_units']:
+                vdu['id'] = vdu['id'] + '-' + vnf['id']
+
             LOG.info("Service " + serv_id + ": Recreate: VNFD retrieved.")
 
         LOG.info("Serice " +

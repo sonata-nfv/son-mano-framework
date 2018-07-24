@@ -142,7 +142,7 @@ def build_vnfr(ia_vnfr, vnfd):
         vdu = {}
         # vdu info returned by IA
         # mandatofy info
-        vdu['id'] = ia_vdu['id']
+        vdu['id'] = ia_vdu['id'].split('-')[0]
         vdu['resource_requirements'] = vnfd_vdu['resource_requirements']
 
         # vdu optional info
