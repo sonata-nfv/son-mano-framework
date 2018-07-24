@@ -705,6 +705,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             self.recreate_ledger(payload['corr_id'], serv_id)
 
         self.services[serv_id]['start_time'] = time.time()
+        self.services[serv_id]['topic'] = t.MANO_SCALE
         for vnf in self.services[serv_id]['function']:
             vnf['start']['trigger'] = False
             vnf['deployed'] = True
