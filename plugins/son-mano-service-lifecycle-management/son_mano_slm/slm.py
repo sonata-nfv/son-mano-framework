@@ -399,43 +399,53 @@ class ServiceLifecycleManager(ManoBasePlugin):
         topic.
         """
 
-        # Check if the messages comes from the GK or is forward by another SLM
-        message_from_gk = True
+        def send_response(error, serv_id=None):
+            response = {}
+            response['error'] = error
+
+            if error is None:
+                response['status'] = 'INSTANTIATING'
+            else:
+                response['status'] = 'ERROR'
+
+            msg = ' Response on instantiation request: ' + str(response)
+            LOG.info('Service ' + str(serv_id) + msg)
+            self.manoconn.notify(t.GK_CREATE,
+                                 yaml.dump(response),
+                                 correlation_id=corr_id)
+
+        # Check if the messages comes from the SLM
         if properties.app_id == self.name:
-            message_from_gk = False
-            if properties.reply_to is None:
-                return
+            LOG.info("Ignoring self-sent message.")
+            return
 
-        # Bypass for backwards compatibility, to be removed after
-        # transition to new version of SLM is completed
-        message = yaml.load(payload)
-
+        error = None
         # Extract the correlation id and generate a reduced id
         corr_id = properties.correlation_id
+        if corr_id is None:
+            error = "Please provide a correlation id."
+            send_response(error)
+            return
+
         reduced_id = tools.convert_corr_id(corr_id)
-
-        # If the message comes from another SLM, check if the request has made
-        # a round trip
-        if not message_from_gk:
-            calc_rank = reduced_id % self.slm_config['slm_total']
-            roundtrip = (calc_rank == self.slm_config['slm_rank'])
-
-            if roundtrip:
-                # If the message made a round trip, a new SLM should be started
-                # as this implies that the resources are exhausted
-                deploy_new_slm()
-
-            else:
-                # TODO: check if this SLM has the resources for this request
-                has_enough_resources = True
-                if has_enough_resources:
-                    pass
-                else:
-                    # TODO: forward to next SLM
-                    return
 
         # Start handling the request
         message = yaml.load(payload)
+
+        if 'NSD' not in message.keys():
+            error = 'No NSD key in message'
+            send_response(error)
+            return
+
+        if 'VNFD0' not in message.keys():
+            error = 'No VNFD key in message'
+            send_response(error)
+            return
+
+        if 'user_data' not in message.keys():
+            error = 'No user_data in message'
+            send_response(error)
+            return
 
         # Add the service to the ledger
         serv_id = self.add_service_to_ledger(message, corr_id)
