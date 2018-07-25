@@ -536,7 +536,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         error = None
         # Extract the correlation id and generate a reduced id
-        corr_id = properties.correlation_id
+        corr_id = prop.correlation_id
         if corr_id is None:
             error = "Please provide a correlation id."
             send_response(error)
