@@ -530,7 +530,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                                  correlation_id=corr_id)
 
         # Check if the messages comes from the SLM
-        if properties.app_id == self.name:
+        if prop.app_id == self.name:
             LOG.info("Ignoring self-sent message.")
             return
 
