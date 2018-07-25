@@ -432,6 +432,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Start handling the request
         message = yaml.load(payload)
 
+        if not isinstance(message, dict):
+            error = 'Payload is not a dictionary'
+            send_response(error)
+            return
+
         if 'NSD' not in message.keys():
             error = 'No NSD key in message'
             send_response(error)
@@ -538,6 +543,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
             return
 
         content = yaml.load(payload)
+
+        if not isinstance(content, dict):
+            error = 'Payload is not a dictionary'
+            send_response(error)
+            return
 
         if 'service_instance_uuid' not in content.keys():
             error = "Please provide the service_instance_uuid key"
@@ -669,6 +679,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
         corr_id = prop.correlation_id
         if corr_id is None:
             error = 'No correlation id provided in header of request'
+            send_response(error, None)
+            return
+
+        if not isinstance(message, dict):
+            error = 'Payload is not a dictionary'
             send_response(error, None)
             return
 
