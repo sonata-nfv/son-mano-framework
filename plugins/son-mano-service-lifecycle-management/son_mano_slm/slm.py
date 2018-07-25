@@ -2310,7 +2310,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             LOG.info('Error occured during deconfiguring WAN: ' + str(error))
             self.error_handling(serv_id, t.GK_KILL, error)
 
-        self.start_next_task(serv_id)
+#        self.start_next_task(serv_id)
 
     def stop_monitoring(self, serv_id):
         """
