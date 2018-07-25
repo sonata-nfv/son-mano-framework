@@ -509,11 +509,41 @@ class ServiceLifecycleManager(ManoBasePlugin):
         topic.
         """
 
-        # Check if the messages comes from the GK or is forward by another SLM
-        if prop.app_id == self.name:
+        def send_response(error, serv_id=None):
+            response = {}
+            response['error'] = error
+
+            if error is None:
+                response['status'] = 'TERMINATING'
+            else:
+                response['status'] = 'ERROR'
+
+            msg = ' Response on termination request: ' + str(response)
+            LOG.info('Service ' + str(serv_id) + msg)
+            self.manoconn.notify(t.GK_KILL,
+                                 yaml.dump(response),
+                                 correlation_id=corr_id)
+
+        # Check if the messages comes from the SLM
+        if properties.app_id == self.name:
+            LOG.info("Ignoring self-sent message.")
+            return
+
+        error = None
+        # Extract the correlation id and generate a reduced id
+        corr_id = properties.correlation_id
+        if corr_id is None:
+            error = "Please provide a correlation id."
+            send_response(error)
             return
 
         content = yaml.load(payload)
+
+        if 'service_instance_uuid' not in content.keys():
+            error = "Please provide the service_instance_uuid key"
+            send_response(error)
+            return
+
         serv_id = content['service_instance_uuid']
         LOG.info("Termination request received for service " + str(serv_id))
 
