@@ -5,9 +5,9 @@
 
 # son-mano-framework
 
-The MANO framework is the core of **SONATA's (powered by 5GTANGO)** service platform. It consists of a set of loosely coupled components (micro-services) that use a message broker to communicate, thus providing a highly flexible orchestration system. These components are called **MANO plugins** and can easily be replaced to customize the orchestration functionalities of the platform.
+The MANO framework is at the core of **SONATA's (powered by 5GTANGO)** service platform. It consists of a set of loosely coupled components (micro-services) that use a message broker to communicate, thus providing a highly flexible orchestration system. These components are called **MANO plugins** and can easily be replaced to customize the orchestration functionalities of the platform.
 
-The main orchestration functionalities are currently implemented in the [service lifecycle management plugin (SLM)](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-service-lifecycle-management). The SLM uses the [function lifecycle management plugin (FLM)](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-function-lifecycle-management) to perform the tasks on the level of the vnf and the [specific manager registry (SMR)](https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-specificmanager) for customised life cycle events that are embedded in service specific managers (SSMs) and function specific managers (FSMs). These SSMs and FSMs are processes created by the developer of the service which customise life cycle events of the service or vnf they are attached to. The SLM and FLM create and maintain records for the deployed services and vnfs by using [repositories](https://github.com/sonata-nfv/son-catalogue-repos) and the SLM informs the [Monitoring Manager](https://github.com/sonata-nfv/son-monitor) when a new service or vnfs should be monitored. The SLM and the FLM use the [infrastructure adaptor (IA)](https://github.com/sonata-nfv/son-sp-infrabstract) for all instructions and requests related to the VIMs and WIMs.
+The main orchestration functionalities are currently implemented in the [service lifecycle management plugin (SLM)](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-service-lifecycle-management). The SLM uses the [function lifecycle management plugin (FLM)](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-function-lifecycle-management) to perform the tasks on the level of the vnf and the [specific manager registry (SMR)](https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-specificmanager) for customised life cycle events that are embedded in service specific managers (SSMs) and function specific managers (FSMs). These SSMs and FSMs are processes created by the developer of the service which customise life cycle events of the service or vnf they are attached to. The SLM and FLM create and maintain records for the deployed services and vnfs by using [repositories](https://github.com/sonata-nfv/son-catalogue-repos) and the SLM informs the [Monitoring Manager](https://github.com/sonata-nfv/son-monitor) when a new service or vnfs should be monitored. The SLM and the FLM use the [infrastructure adaptor (IA)](https://github.com/sonata-nfv/son-sp-infrabstract) for all instructions and requests related to the VIMs and WIMs. The MANO Framework requires access to a [catalogue](https://github.com/sonata-nfv/tng-cat) for some of its workflows, to fetch descriptors.
 
 The MANO framework exposes the following workflows to its north-bound:
 
@@ -24,9 +24,9 @@ The MANO framework exposes the following life cycle events to be customised/over
 * Reaction by the MANO Framework on received Monitoring information (Monitoring SSM)
 * Start, stop and configureevents for a single VNF (Start/Stop/Configure FSM)
 
-More details on these processes can be found in the wiki. The overall SONATA service platform architecture is available on the website:
+More details on these processes can be found in the wiki. The overall SONATA (powered by 5GTANGO) service platform architecture is available on the website:
 
-* [SONATA Architecture](http://sonata-nfv.eu/content/architecture)
+* [5GTANGO Service Platform Deliverable 5.1](https://5gtango.eu/project-outcomes/deliverables/43-d5-1-service-platform-operational-first-prototype.html)
 * [SONATA Architecture Deliverable 2.2](http://sonata-nfv.eu/sites/default/files/sonata/public/content-files/pages/SONATA_D2.2_Architecture_and_Design.pdf)
 
 ## Development
@@ -63,6 +63,8 @@ Son-mano-framework expects the following environment:
 * [Docker](https://www.docker.com) >= 1.10 (Apache 2.0)
 * [RabbitMQ](https://www.rabbitmq.com) >= 3.5 (Mozilla Public License)
 * [MongoDB](https://www.mongodb.com/community) >= 3.2 (AGPLv3)
+* A repository to store records that excepts our record schemas (https://github.com/sonata-nfv/tng-schema)
+* A catalogue to where the descriptors can be requested from
 
 Son-mano-framework has the following dependencies:
 
@@ -106,42 +108,21 @@ python setup.py develop
 To run all components of the MANO framework you have to start their containers. Additionally, a container that runs RabbitMQ and a container that runs MongoDB has to be started. A docker network is facilitating the connections between the containers.
 
 1. `docker network create sonata`
-2. `docker run -d -p 5672:5672 --name broker --net=sonata rabbitmq:3-management`
+2. `docker run -d -p 5672:5672 --name broker --net=sonata rabbitmq:3.6-management`
 3. `docker run -d -p 27017:27017 --name mongo --net=sonata mongo`
 4. `HOSTIP=<hosting_ip>`
-5. `docker run -d --name pluginmanager --net=sonata --network-alias=pluginmanager -p 8001:8001 -e mongo_host=$HOSTIP -e broker_host=amqp://guest:guest@broker:5672/%2F sonatanfv/pluginmanager`
-6. `docker run -d --name servicelifecyclemanagement --net=sonata --network-alias=servicelifecyclemanagement -e url_nsr_repository=http://$HOSTIP:4002/records/nsr/ -e url_vnfr_repository=http://$HOSTIP:4002/records/vnfr/ -e url_monitoring_server=http://$HOSTIP:8000/api/v1/ -e broker_host=amqp://guest:guest@broker:5672/%2F sonatanfv/servicelifecyclemanagement`
-7. `docker run -d --name functionlifecyclemanagement --net=sonata --network-alias=functionlifecyclemanagement -e url_vnfr_repository=http://$HOSTIP:4002/records/vnfr/ -e url_monitoring_server=http://$HOSTIP:8000/api/v1/ -e broker_host=amqp://guest:guest@broker:5672/%2F sonatanfv/functionlifecyclemanagement`
-8. `docker run -d --name placementplugin --net=sonata --network-alias=placementplugin -e broker_host=amqp://guest:guest@broker:5672/%2F sonatanfv/placementplugin`
-9. `docker run -d --name placementexecutive --net=sonata --network-alias=placementexecutive -e broker_host=amqp://guest:guest@broker:5672/%2F sonatanfv/placementexecutive`
-10. `docker run -d --name specificmanagerregistry --net=sonata --network-alias=specificmanagerregistry -e network_id=sonata -e broker_host=amqp://guest:guest@broker:5672/%2F -e broker_man_host=http://broker:15672 -e sm_broker_host=amqp://specific-management:sonata@broker:5672 -v '/var/run/docker.sock:/var/run/docker.sock' sonatanfv/specificmanagerregistry`
+5. `docker run -d --name pluginmanager --net=sonata --network-alias=pluginmanager -p 8001:8001 -e mongo_host=$HOSTIP sonatanfv/pluginmanager`
+6. `docker run -d --name servicelifecyclemanagement --net=sonata --network-alias=servicelifecyclemanagement sonatanfv/servicelifecyclemanagement`
+7. `docker run -d --name functionlifecyclemanagement --net=sonata --network-alias=functionlifecyclemanagement sonatanfv/functionlifecyclemanagement`
+8. `docker run -d --name placementplugin --net=sonata --network-alias=placementplugin sonatanfv/placementplugin`
+9. `docker run -d --name placementexecutive --net=sonata --network-alias=placementexecutive sonatanfv/placementexecutive`
+10.`docker run -d --name specificmanagerregistry --net=sonata --network-alias=specificmanagerregistry -v '/var/run/docker.sock:/var/run/docker.sock' sonatanfv/specificmanagerregistry`
 
-The parameter `broker_host` provides the url on which the message broker can be found. It is build as `amqp://<username>:<password>@<broker_name>:5672/%2F`. 
-
-With the deployment of the SLM and FLM, it is possible to add some ENV parameters, to indicate the urls where the repositories are located. These parameters are optional, and only useful if the MANO framework is used inside the full setup of the SONATA service platform.
-
-Runtime information for these docker containers can be accessed through the standard docker commands:
-
-1. `docker logs <docker_name>`
-2. `docker attach <docker_name>`
+Please check specific dockerfiles of each micro-service whether the default ENV variables are correct for your setup.
 
 ### Unit tests
-#### Container-based unit tests
 
-This is how the Jenkins CI runs the unit tests:
-
-* `./run_tests.sh`
-
-This script builds all required containers, starts them, and executes the unit tests within them.
-
-#### Manual unit tests
-
-Runs unit tests on a local installation.
-
-* NOTICE: The tests need a running RabbitMQ broker to test the messaging subsystem! Without this, tests will fail.
-* `cd son-mano-framework`
-* `py.test -v son-mano-base/`
-
+Unit testing is done through a Jenkinsfile, which can be found on the root of the repository. Specific scripts for unit tests per component can be found in `pipeline/unittest`.
 
 ## License
 
@@ -157,13 +138,9 @@ Son-mano-framework is published under Apache 2.0 license. Please see the LICENSE
 The following lead developers are responsible for this repository and have admin rights. They can, for example, merge pull requests.
 
 * Thomas Soenen (https://github.com/tsoenen)
-* Hadi Razzaghi Kouchaksaraei (https://github.com/hadik3r)
 * Manuel Peuster (https://github.com/mpeuster)
 * Felipe Vicens (https://github.com/felipevicens)
-* Adrian Rosello (https://github.com/adrian-rosello)
-* Sharon Mendel-Brin (https://github.com/mendel) 
 
-#### Feedback-Chanel
+#### Feedback-Channel
 
-* You may use the mailing list [sonata-dev@lists.atosresearch.eu](mailto:sonata-dev@lists.atosresearch.eu)
 * [GitHub issues](https://github.com/sonata-nfv/son-mano-framework/issues)
