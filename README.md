@@ -1,26 +1,28 @@
 [![Build Status](https://jenkins.sonata-nfv.eu/buildStatus/icon?job=son-mano-framework-pipeline/master)](https://jenkins.sonata-nfv.eu/job/son-mano-framework-pipeline/job/master/)
- [![Join the chat at https://gitter.im/sonata-nfv/5gtango-sp](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/sonata-nfv/5gtango-sp)
+[![Join the chat at https://gitter.im/sonata-nfv/5gtango-sp](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/sonata-nfv/5gtango-sp)
  
  <p align="center"><img src="https://github.com/sonata-nfv/tng-api-gtw/wiki/images/sonata-5gtango-logo-500px.png" /></p>
 
 # son-mano-framework
 
-SONATA's MANO framework is the core of SONATA's service platform. It consists of a set of loosely coupled components (micro-services) that use a message broker to communicate, thus providing a highly flexible orchestration system. These components are called **MANO plugins** and can easily be replaced to customize the orchestration functionalities of the platform.
+The MANO framework is the core of **SONATA's (powered by 5GTANGO)** service platform. It consists of a set of loosely coupled components (micro-services) that use a message broker to communicate, thus providing a highly flexible orchestration system. These components are called **MANO plugins** and can easily be replaced to customize the orchestration functionalities of the platform.
 
-The main orchestration functionalities are currently implemented in the [service lifecycle management plugin (SLM)](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-service-lifecycle-management) which receives requests from the [gatekeeper](https://github.com/sonata-nfv/son-gkeeper). The SLM uses the [function lifecycle management plugin (FLM)](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-function-lifecycle-management) to perform the tasks on the level of the vnf and the [specific manager registry (SMR)](https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-specificmanager) for customised life cycle events that are embedded in service specific managers (SSMs) and function specific managers (FSMs). These SSMs and FSMs are processes created by the developer of the service which customise life cycle events of the service or vnf they are attached to. The SLM and FLM create and maintain records for the deployed services and vnfs by using [repositories](https://github.com/sonata-nfv/son-catalogue-repos) and the SLM informs the [Monitoring Manager](https://github.com/sonata-nfv/son-monitor) when a new service or vnfs should be monitored. The SLM and the FLM use the [infrastructure adaptor (IA)](https://github.com/sonata-nfv/son-sp-infrabstract) for all instructions and requests related to the VIMs and WIMs.
+The main orchestration functionalities are currently implemented in the [service lifecycle management plugin (SLM)](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-service-lifecycle-management). The SLM uses the [function lifecycle management plugin (FLM)](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-function-lifecycle-management) to perform the tasks on the level of the vnf and the [specific manager registry (SMR)](https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-specificmanager) for customised life cycle events that are embedded in service specific managers (SSMs) and function specific managers (FSMs). These SSMs and FSMs are processes created by the developer of the service which customise life cycle events of the service or vnf they are attached to. The SLM and FLM create and maintain records for the deployed services and vnfs by using [repositories](https://github.com/sonata-nfv/son-catalogue-repos) and the SLM informs the [Monitoring Manager](https://github.com/sonata-nfv/son-monitor) when a new service or vnfs should be monitored. The SLM and the FLM use the [infrastructure adaptor (IA)](https://github.com/sonata-nfv/son-sp-infrabstract) for all instructions and requests related to the VIMs and WIMs.
 
-The MANO framework exposes the following workflows, through the GK, to the user:
+The MANO framework exposes the following workflows to its north-bound:
 
 * Instantiate a service
 * Terminate a running service instance
+* Scale a running service
 
 The MANO framework exposes the following life cycle events to be customised/overwritten by SSMs and FSMs:
 
 * The placement of a service (Placement SSM)
 * The configuration of a service (Configure SSM)
 * The schedule of a workflow (Task SSM)
-* Start, stop, configure and scale events for a single VNF (Start/Stop/Configure/Scale FSM)
+* The scaling workfow for a service (Scale SSM)
 * Reaction by the MANO Framework on received Monitoring information (Monitoring SSM)
+* Start, stop and configureevents for a single VNF (Start/Stop/Configure FSM)
 
 More details on these processes can be found in the wiki. The overall SONATA service platform architecture is available on the website:
 
