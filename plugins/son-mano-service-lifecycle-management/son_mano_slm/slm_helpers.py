@@ -562,9 +562,9 @@ def build_monitoring_message(service, functions, userdata):
                 function['host_id'] = vnfc['vc_id']
                 function['metrics'] = []
 
-                if 'monitoring_parameters' in vdu:
+                if 'monitoring_parameters' in vdu_descriptor:
 
-                    for mp in vdu['monitoring_parameters']:
+                    for mp in vdu_descriptor['monitoring_parameters']:
                         metric = {}
                         metric['name'] = mp['name']
                         metric['unit'] = mp['unit']
