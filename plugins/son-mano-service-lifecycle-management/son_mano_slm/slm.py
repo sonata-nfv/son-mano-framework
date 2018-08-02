@@ -52,11 +52,6 @@ except:
     import slm_helpers as tools
 
 try:
-    from son_mano_slm import slm_helpers_old as oldtools
-except:
-    import slm_helpers_old as oldtools
-
-try:
     from son_mano_slm import slm_topics as t
 except:
     import slm_topics as t
