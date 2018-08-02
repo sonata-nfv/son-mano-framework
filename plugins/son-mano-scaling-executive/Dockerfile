@@ -41,6 +41,8 @@ ENV broker_host amqp://guest:guest@broker:5672/%2F
 ENV broker_exchange son-kernel
 ENV sm_broker_host amqp://specific-management:sonata@son-broker:5672
 
+RUN apt-get update && apt-get install -y glpk-utils && apt-get install -y python3-pip
+
 # add generic project files
 ADD son-mano-base /son-mano-base
 ADD utils/delayedstart.sh /delayedstart.sh

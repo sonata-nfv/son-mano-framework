@@ -39,6 +39,8 @@ ENV mongo_port 27017
 ENV broker_host amqp://guest:guest@broker:5672/%2F
 ENV broker_exchange son-kernel
 
+RUN apt-get update && apt-get install -y glpk-utils && apt-get install -y python3-pip
+
 ADD son-mano-base /son-mano-base
 ADD son-mano-pluginmanager /son-mano-pluginmanager
 ADD utils/delayedstart.sh /delayedstart.sh
