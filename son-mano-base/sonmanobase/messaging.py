@@ -75,7 +75,7 @@ class ManoBrokerConnection(object):
         # trigger connection setup (without blocking)
         self.setup_connection()
         # Creating the publishing channel
-        self.publishing_channel = self.connection.channel()
+        self.publishing_channel = self._connection.channel()
         # declare the exchange to be used
         self.publishing_channel.exchange.declare(self.rabbitmq_exchange,
                                                  exchange_type=self.rabbitmq_exchange_type)
