@@ -123,6 +123,8 @@ class ManoBrokerConnection(object):
 
         try:
             del self._channels[self.publishing_channel_id]
+        except:
+            pass
 
         # Recreate publishing channel from id and publish message
         with self._connection.channel(self.publishing_channel_id) as channel:
