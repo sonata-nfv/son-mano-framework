@@ -112,13 +112,14 @@ class ManoBrokerConnection(object):
         :return:
         """
         # Check if publishin channel exists
-        if self.publishing_channel is None:
-            # create a new channel
-            self.publishing_channel = self._connection.channel()
-            # declare the exchange to be used
-            self.publishing_channel.exchange.declare(self.rabbitmq_exchange,
-                                                     exchange_type=self.rabbitmq_exchange_type)
-        with self.publishing_channel as channel:
+        # if self.publishing_channel is None:
+        #     # create a new channel
+        #     self.publishing_channel = self._connection.channel()
+        #     # declare the exchange to be used
+        #     self.publishing_channel.exchange.declare(self.rabbitmq_exchange,
+        #                                              exchange_type=self.rabbitmq_exchange_type)
+        # with self.publishing_channel as channel:
+        with self._connection.channel(channel_id=1000) as channel:
             # update the default properties with custom ones from the properties argument
             if properties is None:
                 properties = dict()
