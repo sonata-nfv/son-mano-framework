@@ -75,7 +75,7 @@ class ManoBrokerConnection(object):
         # trigger connection setup (without blocking)
         self.setup_connection()
         # Creating the publishing channel
-        self.publishing_channel = None
+        self.publishing_channel_id = None
         # Threading workers
         self.thrd_pool = pool.ThreadPoolExecutor(max_workers=100)
         # Track the workers
@@ -111,15 +111,21 @@ class ManoBrokerConnection(object):
         :param properties: custom properties for the message (as dict)
         :return:
         """
-        # Check if publishin channel exists
-        # if self.publishing_channel is None:
-        #     # create a new channel
-        #     self.publishing_channel = self._connection.channel()
-        #     # declare the exchange to be used
-        #     self.publishing_channel.exchange.declare(self.rabbitmq_exchange,
-        #                                              exchange_type=self.rabbitmq_exchange_type)
+        # Check if publishing channel exists
+        if self.publishing_channel_id is None:
+            # create a new channel
+            channel = self._connection.channel()
+            # declare the exchange to be used
+            self.publishing_channel.exchange.declare(self.rabbitmq_exchange,
+                                                     exchange_type=self.rabbitmq_exchange_type)
+            self.publishing_channel_id = channel._channel_id
+            LOG.info("Publishin Channel id: " + str(self.publishing_channel_id))
+            channel.close()
         # with self.publishing_channel as channel:
-        with self._connection.channel(1000) as channel:
+        with self._connection.channel(self.publishing_channel_id) as channel:
+            # declare the exchange to be used
+            channel.exchange.declare(self.rabbitmq_exchange,
+                                     exchange_type=self.rabbitmq_exchange_type)
             # update the default properties with custom ones from the properties argument
             if properties is None:
                 properties = dict()
