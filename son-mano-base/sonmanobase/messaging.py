@@ -145,6 +145,7 @@ class ManoBrokerConnection(object):
                     default_properties["headers"][k] = "" if v is None else v
 
             LOG.info("Publishing channel id: " + str(channel._channel_id))
+            LOG.info("Forced channel id: " + str(self.publishing_channel_id))
 
             # publish the message
             try:
@@ -154,7 +155,7 @@ class ManoBrokerConnection(object):
                                       properties=default_properties)
             except:
                 LOG.info("Publishing error")
-                LOG.info("Publihsin error: " + str(channel.check_for_errors()))
+                LOG.info("Publishing error: " + str(channel.check_for_errors()))
 
             LOG.debug("PUBLISHED to %r: %r", topic, message)
 
