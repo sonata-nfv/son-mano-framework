@@ -41,7 +41,7 @@ import os
 logging.basicConfig(level=logging.INFO)
 logging.getLogger('pika').setLevel(logging.ERROR)
 LOG = logging.getLogger("son-mano-base:messaging")
-LOG.setLevel(logging.DEBUG)
+LOG.setLevel(logging.INFO)
 
 # if we don't find a broker configuration in our ENV, we use this URL as default
 RABBITMQ_URL_FALLBACK = "amqp://guest:guest@localhost:5672/%2F"
