@@ -142,7 +142,7 @@ class ManoBrokerConnection(object):
                                       routing_key=topic,
                                       exchange=self.rabbitmq_exchange,
                                       properties=default_properties)
-            else:
+            except:
                 LOG.info("Publishing error")
                 LOG.info("Publihsin error: " + str(channel.check_for_errors()))
 
