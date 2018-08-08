@@ -75,7 +75,7 @@ class ManoBrokerConnection(object):
         # trigger connection setup (without blocking)
         self.setup_connection()
         # Creating the publishing channel
-        self.publishing_channel = None
+        self.publishing_channel_id = None
         # Threading workers
         self.thrd_pool = pool.ThreadPoolExecutor(max_workers=100)
         # Track the workers
@@ -111,20 +111,24 @@ class ManoBrokerConnection(object):
         :param properties: custom properties for the message (as dict)
         :return:
         """
-        # Check if publishing channel exists
-        if self.publishing_channel is None:
+        # Check if publishing channel id exists
+        if self.publishing_channel_id is None:
             # create a new channel
             channel = self._connection.channel()
             # declare the exchange to be used
             channel.exchange.declare(self.rabbitmq_exchange,
                                      exchange_type=self.rabbitmq_exchange_type)
-            self.publishing_channel = channel
-            LOG.info("Publish channel id: " + str(self.publishing_channel._channel_id))
+            self.publishing_channel_id = channel._channel_id
+            LOG.info("Publish channel id: " + str(self.publishing_channel_id))
+
+        try:
+            del self._channels[self.publishing_channel_id]
 
         # Recreate publishing channel from id and publish message
-        with self.publishing_channel as channel:
-            # ensure channel is open
-            channel.open()
+        with self._connection.channel(self.publishing_channel_id) as channel:
+            # declare the exchange to be used
+            channel.exchange.declare(self.rabbitmq_exchange,
+                                     exchange_type=self.rabbitmq_exchange_type)
             # update the default properties with custom ones from the properties argument
             if properties is None:
                 properties = dict()
@@ -144,6 +148,7 @@ class ManoBrokerConnection(object):
                     default_properties["headers"][k] = "" if v is None else v
 
             LOG.info("Publishing channel id: " + str(channel._channel_id))
+            LOG.info("Forced channel id: " + str(self.publishing_channel_id))
 
             # publish the message
             try:
