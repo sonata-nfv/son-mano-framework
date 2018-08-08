@@ -122,7 +122,7 @@ class ManoBrokerConnection(object):
             LOG.info("Publish channel id: " + str(self.publishing_channel._channel_id))
 
         # Recreate publishing channel from id and publish message
-        with publishing_channel as channel:
+        with self.publishing_channel as channel:
             # ensure channel is open
             channel.open()
             # update the default properties with custom ones from the properties argument
