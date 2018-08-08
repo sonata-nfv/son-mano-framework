@@ -119,7 +119,7 @@ class ManoBrokerConnection(object):
         #     self.publishing_channel.exchange.declare(self.rabbitmq_exchange,
         #                                              exchange_type=self.rabbitmq_exchange_type)
         # with self.publishing_channel as channel:
-        with self._connection.channel(channel_id=1000) as channel:
+        with self._connection.channel(1000) as channel:
             # update the default properties with custom ones from the properties argument
             if properties is None:
                 properties = dict()
