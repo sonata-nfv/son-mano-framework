@@ -75,11 +75,7 @@ class ManoBrokerConnection(object):
         # trigger connection setup (without blocking)
         self.setup_connection()
         # Creating the publishing channel
-        self.publishing_channel = self._connection.channel()
-        # declare the exchange to be used
-        self.publishing_channel.exchange.declare(self.rabbitmq_exchange,
-                                                 exchange_type=self.rabbitmq_exchange_type)
-
+        self.publishing_channel = None
         # Threading workers
         self.thrd_pool = pool.ThreadPoolExecutor(max_workers=100)
         # Track the workers
@@ -115,7 +111,13 @@ class ManoBrokerConnection(object):
         :param properties: custom properties for the message (as dict)
         :return:
         """
-        # create a new channel
+        # Check if publishin channel exists
+        if self.publishing_channel is None:
+            # create a new channel
+            self.publishing_channel = self._connection.channel()
+            # declare the exchange to be used
+            self.publishing_channel.exchange.declare(self.rabbitmq_exchange,
+                                                     exchange_type=self.rabbitmq_exchange_type)
         with self.publishing_channel as channel:
             # update the default properties with custom ones from the properties argument
             if properties is None:
@@ -135,10 +137,15 @@ class ManoBrokerConnection(object):
                 for k, v in default_properties["headers"].items():
                     default_properties["headers"][k] = "" if v is None else v
             # publish the message
-            channel.basic.publish(body=message,
-                                  routing_key=topic,
-                                  exchange=self.rabbitmq_exchange,
-                                  properties=default_properties)
+            try:
+                channel.basic.publish(body=message,
+                                      routing_key=topic,
+                                      exchange=self.rabbitmq_exchange,
+                                      properties=default_properties)
+            else:
+                LOG.info("Publishing error")
+                LOG.info("Publihsin error: " + str(channel.check_for_errors()))
+
             LOG.debug("PUBLISHED to %r: %r", topic, message)
 
     def subscribe(self, cbf, topic, subscription_queue=None):
