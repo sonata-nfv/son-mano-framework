@@ -144,7 +144,7 @@ class ManoBrokerConnection(object):
                 for k, v in default_properties["headers"].items():
                     default_properties["headers"][k] = "" if v is None else v
 
-            LOG.info("Publishing channel id: " + str(channel_channel_id))
+            LOG.info("Publishing channel id: " + str(channel._channel_id))
 
             # publish the message
             try:
