@@ -74,6 +74,11 @@ class ManoBrokerConnection(object):
         self._connection = None
         # trigger connection setup (without blocking)
         self.setup_connection()
+        # Creating the publishing channel
+        self.publishing_channel = self.connection.channel()
+        # declare the exchange to be used
+        self.publishing_channel.exchange.declare(self.rabbitmq_exchange,
+                                                 exchange_type=self.rabbitmq_exchange_type)
 
         # Threading workers
         self.thrd_pool = pool.ThreadPoolExecutor(max_workers=100)
@@ -111,9 +116,7 @@ class ManoBrokerConnection(object):
         :return:
         """
         # create a new channel
-        with self._connection.channel() as channel:
-            # declare the exchange to be used
-            channel.exchange.declare(self.rabbitmq_exchange, exchange_type=self.rabbitmq_exchange_type)
+        with self.publishing_channel as channel:
             # update the default properties with custom ones from the properties argument
             if properties is None:
                 properties = dict()
