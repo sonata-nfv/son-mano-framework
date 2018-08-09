@@ -39,10 +39,9 @@ ENV PLUGIN_BASE son-mano-placement
 ENV broker_host amqp://guest:guest@broker:5672/%2F
 ENV broker_exchange son-kernel
 
-RUN apt-get update && apt-get install -y glpk-utils && apt-get install -y python3-pip
+RUN apt-get update && apt-get install -y glpk-utils && apt-get install -y python3-pip && apt-get install -y git
 
 RUN pip3 install pulp
-RUN apt-get install -y git
 RUN pip install git+git://github.com/eandersson/amqpstorm.git@feature/reuse_channels
 
 # add generic project files
