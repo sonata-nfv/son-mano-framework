@@ -41,7 +41,7 @@ import os
 logging.basicConfig(level=logging.INFO)
 logging.getLogger('pika').setLevel(logging.ERROR)
 LOG = logging.getLogger("son-mano-base:messaging")
-LOG.setLevel(logging.INFO)
+LOG.setLevel(logging.DEBUG)
 
 # if we don't find a broker configuration in our ENV, we use this URL as default
 RABBITMQ_URL_FALLBACK = "amqp://guest:guest@localhost:5672/%2F"
@@ -74,8 +74,7 @@ class ManoBrokerConnection(object):
         self._connection = None
         # trigger connection setup (without blocking)
         self.setup_connection()
-        # Creating the publishing channel
-        self.publishing_channel_id = None
+
         # Threading workers
         self.thrd_pool = pool.ThreadPoolExecutor(max_workers=100)
         # Track the workers
@@ -111,26 +110,12 @@ class ManoBrokerConnection(object):
         :param properties: custom properties for the message (as dict)
         :return:
         """
-        # Check if publishing channel id exists
-        if self.publishing_channel_id is None:
-            # create a new channel
-            channel = self._connection.channel()
+        # create a new channel
+        with self._connection.channel() as channel:
+            # channel id
+            LOG.info("Channel ID: " + str(channel._channel_id))
             # declare the exchange to be used
-            channel.exchange.declare(self.rabbitmq_exchange,
-                                     exchange_type=self.rabbitmq_exchange_type)
-            self.publishing_channel_id = channel._channel_id
-            LOG.info("Publish channel id: " + str(self.publishing_channel_id))
-
-        try:
-            del self._channels[self.publishing_channel_id]
-        except:
-            pass
-
-        # Recreate publishing channel from id and publish message
-        with self._connection.channel(self.publishing_channel_id) as channel:
-            # declare the exchange to be used
-            channel.exchange.declare(self.rabbitmq_exchange,
-                                     exchange_type=self.rabbitmq_exchange_type)
+            channel.exchange.declare(self.rabbitmq_exchange, exchange_type=self.rabbitmq_exchange_type)
             # update the default properties with custom ones from the properties argument
             if properties is None:
                 properties = dict()
@@ -148,20 +133,11 @@ class ManoBrokerConnection(object):
             if "headers" in default_properties:
                 for k, v in default_properties["headers"].items():
                     default_properties["headers"][k] = "" if v is None else v
-
-            LOG.info("Publishing channel id: " + str(channel._channel_id))
-            LOG.info("Forced channel id: " + str(self.publishing_channel_id))
-
             # publish the message
-            try:
-                channel.basic.publish(body=message,
-                                      routing_key=topic,
-                                      exchange=self.rabbitmq_exchange,
-                                      properties=default_properties)
-            except:
-                LOG.info("Publishing error")
-                LOG.info("Publishing error: " + str(channel.check_for_errors()))
-
+            channel.basic.publish(body=message,
+                                  routing_key=topic,
+                                  exchange=self.rabbitmq_exchange,
+                                  properties=default_properties)
             LOG.debug("PUBLISHED to %r: %r", topic, message)
 
     def subscribe(self, cbf, topic, subscription_queue=None):
