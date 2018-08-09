@@ -112,6 +112,8 @@ class ManoBrokerConnection(object):
         """
         # create a new channel
         with self._connection.channel() as channel:
+            # channel id
+            LOG.info("Channel ID: " + str(channel._channel_id))
             # declare the exchange to be used
             channel.exchange.declare(self.rabbitmq_exchange, exchange_type=self.rabbitmq_exchange_type)
             # update the default properties with custom ones from the properties argument
