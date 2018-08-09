@@ -57,6 +57,8 @@ ENV DOCKER_HOST unix://var/run/docker.sock
 #ENV network_name broker,broker
 
 RUN apt-get update && apt-get install -y glpk-utils && apt-get install -y python3-pip
+RUN apt-get install -y git
+RUN pip install git+git://github.com/eandersson/amqpstorm.git@feature/reuse_channels
 
 ADD son-mano-base /son-mano-base
 ADD son-mano-specificmanager/son-mano-specific-manager-registry /son-mano-specific-manager-registry

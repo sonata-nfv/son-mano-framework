@@ -55,6 +55,9 @@ ENV vnfr_collection vnfr/vnf-instances
 # Monitoring information
 ENV monitoring_path http://son-monitor-manager:8000/api/v1
 
+RUN apt-get install -y git
+RUN pip install git+git://github.com/eandersson/amqpstorm.git@feature/reuse_channels
+
 # add generic project files
 ADD son-mano-base /son-mano-base
 ADD utils/delayedstart.sh /delayedstart.sh

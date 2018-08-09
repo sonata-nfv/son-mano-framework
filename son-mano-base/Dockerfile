@@ -38,6 +38,7 @@ ENV broker_host amqp://guest:guest@broker:5672/%2F
 ENV broker_exchange son-kernel
 
 RUN apt-get update && apt-get install -y glpk-utils && apt-get install -y python3-pip
+RUN apt-get install -y git
 RUN pip install git+git://github.com/eandersson/amqpstorm.git@feature/reuse_channels
 
 ADD son-mano-base /son-mano-base
