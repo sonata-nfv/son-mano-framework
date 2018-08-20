@@ -491,7 +491,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         add_schedule.append('vnfs_start')
         add_schedule.append('vnf_chain')
         add_schedule.append('store_nsr')
-        add_schedule.append('wan_configure')
+        # add_schedule.append('wan_configure')
         add_schedule.append('start_monitoring')
         add_schedule.append('inform_gk_instantiation')
 
@@ -1899,6 +1899,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         topic = "generic.ssm." + str(serv_id)
 
+        # TODO: recreate ssm connections when MANO is restarted
         ssm_conn = self.ssm_connections[serv_id]
 
         ssm_conn.call_async(self.resp_ssm_configure,
