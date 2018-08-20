@@ -1211,9 +1211,10 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         # GET VNFD
         vnfd_id = self.functions[func_id]['vnfr']['descriptor_reference']
+        LOG.info(str(t.vnfd_path + '/', vnfd_id))
         get_vnfd = tools.getRestData(t.vnfd_path + '/', vnfd_id)
         if get_vnfd['error'] is not None:
-            error = get_vnfd['error'] + ': ' + get_vnfd['content']
+            error = str(get_vnfd['error']) + ': ' + str(get_vnfd['content'])
             self.functions[func_id]['error'] = error
             return False
         self.functions[func_id]['vnfd'] = get_vnfd['content']
