@@ -1246,7 +1246,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
         self.functions[func_id]['schedule'] = []
 
         # Create the FSM dict if FSMs are defined in VNFD
-        fsm_dict = tools.get_fsm_from_vnfd(vnfd)
+        fsm_dict = tools.get_fsm_from_vnfd(self.functions[func_id]['vnfd'])
         self.functions[func_id]['fsm'] = fsm_dict
 
         # Create the chain pause and kill flag
