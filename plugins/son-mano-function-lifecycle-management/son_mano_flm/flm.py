@@ -782,7 +782,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
         outg_message['vim_uuid'] = function['vim_uuid']
         outg_message['vnf_uuid'] = func_id
 
-        payload = yaml.dump(out_message)
+        payload = yaml.dump(outg_message)
 
         corr_id = str(uuid.uuid4())
         self.functions[func_id]['act_corr_id'] = corr_id
