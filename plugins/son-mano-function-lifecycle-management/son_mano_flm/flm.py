@@ -914,7 +914,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
         vnfr = self.functions[func_id]['vnfr']
 
         # Put it
-        url = t.vnfr_path + '/' + vnfr_id
+        url = t.vnfr_path + '/' + func_id
         header = {'Content-Type': 'application/json'}
 
         try:
@@ -925,7 +925,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
             vnfr_resp_json = str(vnfr_resp.json())
 
             if (vnfr_resp.status_code == 200):
-                msg = ": VNFR update accepted for " + vnfr_id
+                msg = ": VNFR update accepted for " + func_id
                 LOG.info("Function " + func_id + msg)
             else:
                 msg = ": VNFR update not accepted: " + vnfr_resp_json
