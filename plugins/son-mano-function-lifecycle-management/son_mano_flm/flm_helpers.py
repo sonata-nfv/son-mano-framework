@@ -110,7 +110,7 @@ def getRestData(base, path, expected_code=200):
 
     url = base + path
     try:
-        get_response = requests.get(url, timeout=1.0)
+        get_response = requests.get(url, timeout=5.0)
         content = yaml.load(get_response.content)
         code = get_response.status_code
 
