@@ -778,6 +778,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
             # sending response to requesting party
             send_response(error, serv_id, scaling_type)
 
+            # build content for scaling workflow
+            content = {}
+            content['vnf_id'] = message['vnf_id']
+            content['corr_id'] = corr_id
+
             # starting scaling workflow
             self.remove_vnf_workflow(serv_id, content)
 
