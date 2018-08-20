@@ -1212,7 +1212,8 @@ class FunctionLifecycleManager(ManoBasePlugin):
         # GET VNFD
         vnfd_id = self.functions[func_id]['vnfr']['descriptor_reference']
         LOG.info(str(t.vnfd_path + '/' + vnfd_id))
-        get_vnfd = tools.getRestData(t.vnfd_path + '/', vnfd_id)
+        head = {"Content-type": "application/json"}
+        get_vnfd = tools.getRestData(t.vnfd_path + '/', vnfd_id, head=head)
         if get_vnfd['error'] is not None:
             error = str(get_vnfd['error']) + ': ' + str(get_vnfd['content'])
             self.functions[func_id]['error'] = error
