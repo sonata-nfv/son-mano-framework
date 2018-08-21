@@ -1219,7 +1219,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
             LOG.info(str(error))
             self.functions[func_id]['error'] = error
             return False
-        self.functions[func_id]['vnfd'] = get_vnfd['content']
+        self.functions[func_id]['vnfd'] = get_vnfd['content']['vnfd']
         LOG.info(str(self.functions[func_id]['vnfd']))
 
         self.functions[func_id]['id'] = func_id
