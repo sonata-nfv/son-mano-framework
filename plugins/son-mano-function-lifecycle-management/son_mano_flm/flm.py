@@ -138,7 +138,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
         self.manoconn.subscribe(self.function_instance_scale, t.VNF_SCALE)
 
         # The topic on which terminate requests are posted.
-        self.manoconn.subscribe(self.function_instance_kill, t.VNF_KILL)
+        self.manoconn.subscribe(self.function_instance_remove, t.VNF_REMOVE)
 
     def on_lifecycle_start(self, ch, mthd, prop, msg):
         """
@@ -495,9 +495,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
         add_schedule = []
 
         add_schedule.append("trigger_scale_fsm")
-        # TODO: add interaction with Mistral when FSM responds (using the
-        # content of the response)
-        add_schedule.append("update_vnfr_after_scale")
+        add_schedule.append("update_record")
         add_schedule.append("respond_to_request")
 
         self.functions[func_id]['schedule'].extend(add_schedule)
@@ -509,30 +507,76 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         return self.functions[func_id]['schedule']
 
-    def function_instance_kill(self, ch, method, properties, payload):
+    def function_instance_remove(self, ch, method, properties, payload):
         """
-        This method starts the vnf kill workflow
+        This method starts the vnf remove workflow
         """
+        def send_error_response(error, func_id, scaling_type=None):
+            response = {}
+            response['error'] = error
+
+            response['status'] = 'ERROR'
+
+            msg = ' Response on remove request: ' + str(response)
+            LOG.info('Function ' + str(func_id) + msg)
+            self.manoconn.notify(t.VNF_REMOVE,
+                                 yaml.dump(response),
+                                 correlation_id=corr_id)
 
         # Don't trigger on self created messages
         if self.name == properties.app_id:
             return
 
-        LOG.info("Function instance kill request received.")
+        LOG.info("Function instance remove request received.")
         message = yaml.load(payload)
+
+        # Check if payload is ok.
 
         # Extract the correlation id
         corr_id = properties.correlation_id
 
-        func_id = message['id']
+        if corr_id is None:
+            error = 'No correlation id provided in header of request'
+            send_error_response(error, None)
+            return
+
+        if not isinstance(message, dict):
+            error = 'Payload is not a dictionary'
+            send_error_response(error, None)
+            return
+
+        if 'vnf_id' not in message.keys():
+            error = 'vnf_uuid key not provided'
+            send_error_response(error, None)
+            return
+
+        func_id = message['vnf_id']
+
+        if 'serv_id' not in message.keys():
+            error = 'serv_id key not provided'
+            send_error_response(error, func_id)
+
+        if 'vim_id' not in message.keys():
+            error = 'vim_id key not provided'
+            send_error_response(error, func_id)
 
         # recreate the ledger
-        self.recreate_ledger(message, corr_id, func_id, t.VNF_KILL)
+        self.recreate_ledger(message, corr_id, func_id, t.VNF_REMOVE)
+
+        vnf = self.functions[func_id]
+        if vnf['error'] is not None:
+            send_error_response(vnf['error'], func_id)
+
+        if vnf['vnfr']['status'] == 'terminated':
+            error = 'VNF is already terminated'
+            send_error_response(error, func_id)
 
         # Schedule the tasks that the FLM should do for this request.
         add_schedule = []
-
-        # TODO: add the relevant methods for the kill workflow
+        add_schedule.append('remove_vnf')
+        add_schedule.append('update_record')
+        add_schedule.append('terminate_fsms')
+        add_schedule.append('respond_to_request')
 
         self.functions[func_id]['schedule'].extend(add_schedule)
 
@@ -663,6 +707,38 @@ class FunctionLifecycleManager(ManoBasePlugin):
         # Continue with the scheduled tasks
         self.start_next_task(func_id)
 
+    def terminate_fsms(self, func_id):
+        """
+        This method requests the termination of all fsms associated with a VNF.
+        """
+
+        vnf = self.functions[func_id]
+        if 'function_specific_managers' in vnf['vnfd'].keys():
+            corr_id = str(uuid.uuid4())
+            self.functions[func_id]['act_corr_id'] = corr_id
+
+            LOG.info("Function " + func_id +
+                     ": Setting termination flag for fsms.")
+            for fsm in vnf['vnfd']['function_specific_managers']:
+                if 'options' not in fsm.keys():
+                    fsm['options'] = []
+                fsm['options'].append({'key': 'termination',
+                                      'value': 'true'})
+
+            payload = yaml.dump({'VNFD': vnf['vnfd'], 'UUID': func_id})
+
+            self.manoconn.call_async(self.no_resp_needed,
+                                     t.FSM_TERM,
+                                     payload)
+
+    def no_resp_needed(self, ch, method, prop, payload):
+        """
+        Dummy response method when other component will send a response, but
+        FLM does not need it
+        """
+
+        pass
+
     def deploy_vnf(self, func_id):
         """
         This methods requests the deployment of a vnf
@@ -689,6 +765,34 @@ class FunctionLifecycleManager(ManoBasePlugin):
         # Contact the IA
         self.manoconn.call_async(self.IA_deploy_response,
                                  t.IA_DEPLOY,
+                                 payload,
+                                 correlation_id=corr_id)
+
+        # Pause the chain of tasks to wait for response
+        self.functions[func_id]['pause_chain'] = True
+
+    def remove_vnf(self, func_id):
+        """
+        This method requets the removal of a vnf
+        """
+
+        function = self.functions[func_id]
+        outg_message = {}
+        outg_message["service_instance_id"] = function['serv_id']
+        outg_message['vim_uuid'] = function['vim_uuid']
+        outg_message['vnf_uuid'] = func_id
+
+        payload = yaml.dump(outg_message)
+
+        corr_id = str(uuid.uuid4())
+        self.functions[func_id]['act_corr_id'] = corr_id
+
+        msg = ": IA contacted for function removal."
+        LOG.info("Function " + func_id + msg)
+        LOG.debug("Payload of request: " + payload)
+        # Contact the IA
+        self.manoconn.call_async(self.ia_remove_response,
+                                 t.IA_REMOVE,
                                  payload,
                                  correlation_id=corr_id)
 
@@ -733,6 +837,30 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         self.start_next_task(func_id)
 
+    def ia_remove_response(self, ch, method, prop, payload):
+        """
+        This method handles responses on IA VNF remove requests.
+        """
+        inc_message = yaml.load(payload)
+
+        func_id = tools.funcid_from_corrid(self.functions, prop.correlation_id)
+
+        msg = "Response from IA on vnf remove call received."
+        LOG.info("Function " + func_id + msg)
+
+        if inc_message['request_status'] == "COMPLETED":
+            LOG.info("Vnf removal successful")
+            self.functions[func_id]["vnfr"]["status"] = "terminated"
+
+        else:
+            msg = "Removal failed: " + inc_message["message"]
+            LOG.info("Function " + func_id + msg)
+            self.functions[func_id]["error"] = inc_message["message"]
+            self.flm_error(func_id, self.functions[func_id]['topic'])
+            return
+
+        self.start_next_task(func_id)
+
     def store_vnfr(self, func_id):
         """
         This method stores the vnfr in the repository
@@ -772,39 +900,22 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         return
 
-    def update_vnfr_after_scale(self, func_id):
+    def update_record(self, func_id):
         """
         This method updates the vnfr after a vnf scale event
         """
-
-        # TODO: for now, this method only updates the version
-        # number of the record. Once the mistral interaction
-        # is added, other fields of the record might need upates
-        # as well
-
         error = None
-        vnfr = self.functions[func_id]['vnfr']
-        vnfr_id = func_id
 
         # Updating version number
-        old_version = int(vnfr['version'])
-        cur_version = old_version + 1
-        vnfr['version'] = str(cur_version)
+        version = int(self.functions[func_id]['vnfr']['version'])
+        version = version + 1
+        self.functions[func_id]['vnfr']['version'] = str(version)
 
-        # Updating the record
-        vnfr["id"] = vnfr_id
-        try:
-            del vnfr["uuid"]
-            del vnfr["updated_at"]
-            del vnfr["created_at"]
-        except:
-            pass
+        vnfr = self.functions[func_id]['vnfr']
 
         # Put it
-        url = t.vnfr_path + '/' + vnfr_id
+        url = t.vnfr_path + '/' + func_id
         header = {'Content-Type': 'application/json'}
-
-        LOG.info("Service " + serv_id + ": VNFR update: " + url)
 
         try:
             vnfr_resp = requests.put(url,
@@ -814,19 +925,19 @@ class FunctionLifecycleManager(ManoBasePlugin):
             vnfr_resp_json = str(vnfr_resp.json())
 
             if (vnfr_resp.status_code == 200):
-                msg = ": VNFR update accepted for " + vnfr_id
-                LOG.info("Service " + serv_id + msg)
+                msg = ": VNFR update accepted for " + func_id
+                LOG.info("Function " + func_id + msg)
             else:
                 msg = ": VNFR update not accepted: " + vnfr_resp_json
-                LOG.info("Service " + serv_id + msg)
-                error = {'http_code': vnfr_resp.status_code,
-                         'message': vnfr_resp_json}
+                LOG.info("Function " + func_id + msg)
+                error = str(vnfr_resp.status_code) + ': ' + str(vnfr_resp_json)
         except:
-            error = {'http_code': '0',
-                     'message': 'Timeout when contacting VNFR repo'}
+            error = '400: timeout on contacting repo for VNFR update'
 
         if error is not None:
-            LOG.info("record update failed: " + str(error))
+            LOG.info()
+            msg = ": record update failed: " + str(error)
+            LOG.info("Function " + func_id + msg)
             self.functions[func_id]["error"] = error
             self.flm_error(func_id)
 
@@ -1067,7 +1178,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
         # Add keys
         self.functions[func_id]['public_key'] = payload['public_key']
         self.functions[func_id]['private_key'] = payload['private_key']
-        
+
         LOG.info(str(payload['public_key']))
 
         return func_id
@@ -1084,17 +1195,32 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         # Add the function to the ledger and add instance ids
         self.functions[func_id] = {}
+        self.functions[func_id]['error'] = None
 
-        # TODO: add the real vnfr here
-        vnfr = {}
-        self.functions[func_id]['vnfr'] = vnfr
+        # Get VNFR
+        get_vnfr = tools.getRestData(t.vnfr_path + '/', func_id)
+        if get_vnfr['error'] is not None:
+            error = get_vnfr['error'] + ': ' + get_vnfr['content']
+            self.functions[func_id]['error'] = error
+            return False
+        self.functions[func_id]['vnfr'] = get_vnfr['content']
+        self.functions[func_id]['vnfr']['id'] = func_id
+        del self.functions[func_id]['vnfr']['created_at']
+        del self.functions[func_id]['vnfr']['updated_at']
+        del self.functions[func_id]['vnfr']['uuid']
 
-        if 'vnfd' in payload.keys():
-            vnfd = payload['vnfd']
-        else:
-            # TODO: retrieve VNFD from CAT based on func_id
-            vnfd = {}
-        self.functions[func_id]['vnfd'] = vnfd
+        # GET VNFD
+        vnfd_id = self.functions[func_id]['vnfr']['descriptor_reference']
+        LOG.info(str(t.vnfd_path + '/' + vnfd_id))
+        head = {"Content-type": "application/json"}
+        get_vnfd = tools.getRestData(t.vnfd_path + '/', vnfd_id, head=head)
+        if get_vnfd['error'] is not None:
+            error = str(get_vnfd['error']) + ': ' + str(get_vnfd['content'])
+            LOG.info(str(error))
+            self.functions[func_id]['error'] = error
+            return False
+        self.functions[func_id]['vnfd'] = get_vnfd['content']['vnfd']
+        LOG.info(str(self.functions[func_id]['vnfd']))
 
         self.functions[func_id]['id'] = func_id
 
@@ -1111,14 +1237,28 @@ class FunctionLifecycleManager(ManoBasePlugin):
         self.functions[func_id]['serv_id'] = payload['serv_id']
 
         # Add the VIM uuid
-        self.functions[func_id]['vim_uuid'] = ''
+        if 'vim_id' in payload.keys():
+            self.functions[func_id]['vim_uuid'] = payload['vim_id']
+        else:
+            vdus = self.functions[func_id]['vnfr']['virtual_deployment_units']
+            vim_id = vdus[0]['vnfc_instance'][0]['vim_id']
+            self.functions[func_id]['vim_uuid'] = vim_id
 
         # Create the function schedule
         self.functions[func_id]['schedule'] = []
 
         # Create the FSM dict if FSMs are defined in VNFD
-        fsm_dict = tools.get_fsm_from_vnfd(vnfd)
+        fsm_dict = tools.get_fsm_from_vnfd(self.functions[func_id]['vnfd'])
+        LOG.info(str(fsm_dict))
         self.functions[func_id]['fsm'] = fsm_dict
+
+        # Setup broker connection with the SSMs of this service.
+        if func_id not in self.fsm_connections.keys():
+            url = self.fsm_url_base + 'fsm-' + func_id
+            fsm_conn = messaging.ManoBrokerRequestResponseConnection(self.name,
+                                                                     url=url)
+
+            self.fsm_connections[func_id] = fsm_conn
 
         # Create the chain pause and kill flag
 
@@ -1132,10 +1272,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
         self.functions[func_id]['act_corr_id'] = None
         self.functions[func_id]['message'] = None
 
-        # Add error field
-        self.functions[func_id]['error'] = None
-
-        return func_id
+        return True
 
 
 def main():
