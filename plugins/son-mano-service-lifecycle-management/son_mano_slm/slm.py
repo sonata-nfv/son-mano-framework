@@ -2889,6 +2889,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Retrieve the NSD
         nsr = self.services[serv_id]['service']['nsr']
+        self.services[serv_id]['service']['nsr']['id'] = serv_id
         nsd_uuid = nsr['descriptor_reference']
 
         head = {'content-type': 'application/x-yaml'}
@@ -2957,6 +2958,15 @@ class ServiceLifecycleManager(ManoBasePlugin):
         ssm_dict = tools.get_sm_from_descriptor(nsd)
 
         self.services[serv_id]['service']['ssm'] = ssm_dict
+
+        # Recreate connection with SSM
+        if serv_id not in self.ssm_connections.keys():
+            url = self.ssm_url_base + 'ssm-' + serv_id
+            ssm_conn = messaging.ManoBrokerRequestResponseConnection(self.name,
+                                                                     url=url)
+
+            self.ssm_connections[serv_id] = ssm_conn
+
 
         # Retrieve the deployed FSMs based on the VNFD
         for vnf in self.services[serv_id]['function']:

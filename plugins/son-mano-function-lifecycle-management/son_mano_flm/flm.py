@@ -1249,6 +1249,14 @@ class FunctionLifecycleManager(ManoBasePlugin):
         fsm_dict = tools.get_fsm_from_vnfd(self.functions[func_id]['vnfd'])
         self.functions[func_id]['fsm'] = fsm_dict
 
+        # Setup broker connection with the SSMs of this service.
+        if func_id not in self.fsm_connections.keys():
+            url = self.fsm_url_base + 'fsm-' + func_id
+            fsm_conn = messaging.ManoBrokerRequestResponseConnection(self.name,
+                                                                     url=url)
+
+            self.fsm_connections[func_id] = fsm_conn
+
         # Create the chain pause and kill flag
 
         self.functions[func_id]['pause_chain'] = False
