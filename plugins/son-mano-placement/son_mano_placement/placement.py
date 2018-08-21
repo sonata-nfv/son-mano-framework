@@ -186,12 +186,12 @@ class PlacementPlugin(ManoBasePlugin):
                 operator_weight = op_pol['weights']['operator']
                 developer_weight = op_pol['weights']['developer']
 
-            # Solve first for only operator or developer influence, to calibrate
-            operator_optimal_value = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=1.0, developer_weight=0.0, vnf_single_pop=vnf_single_pop)[2]
-            developer_optimal_value = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=0.0, developer_weight=1.0, vnf_single_pop=vnf_single_pop)[2]
+            # # Solve first for only operator or developer influence, to calibrate
+            # operator_optimal_value = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=1.0, developer_weight=0.0, vnf_single_pop=vnf_single_pop)[2]
+            # developer_optimal_value = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=0.0, developer_weight=1.0, vnf_single_pop=vnf_single_pop)[2]
 
-            operator_weight = abs(operator_weight / operator_optimal_value)
-            developer_weight = abs(developer_weight / developer_optimal_value)
+            # operator_weight = abs(operator_weight / operator_optimal_value)
+            # developer_weight = abs(developer_weight / developer_optimal_value)
 
             placement = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=operator_weight, developer_weight=developer_weight, vnf_single_pop=vnf_single_pop)
             LOG.info("Placement calculated:" + str(placement))
