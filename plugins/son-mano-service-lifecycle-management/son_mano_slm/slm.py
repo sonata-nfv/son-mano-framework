@@ -1300,6 +1300,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     del function['vnfr']['updated_at']
                     del function['vnfr']['created_at']
                     del function['vnfr']['uuid']
+                    function['vnfr']['id'] = function['id']
 
         vnfs_to_depl = self.services[serv_id]['vnfs_to_resp'] - 1
         self.services[serv_id]['vnfs_to_resp'] = vnfs_to_depl
