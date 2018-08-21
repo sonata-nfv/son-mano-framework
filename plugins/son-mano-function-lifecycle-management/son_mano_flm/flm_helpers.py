@@ -103,14 +103,19 @@ def get_fsm_from_vnfd(vnfd):
     return fsm_dict
 
 
-def getRestData(base, path, expected_code=200):
+def getRestData(base, path, expected_code=200, head=None):
     """
     This method can be used to retrieve data through a rest api.
     """
 
     url = base + path
     try:
-        get_response = requests.get(url, timeout=1.0)
+        if head is None:
+            get_response = requests.get(url, timeout=5.0)
+        else:
+            get_response = requests.get(url,
+                                        headers=head,
+                                        timeout=5.0)
         content = yaml.load(get_response.content)
         code = get_response.status_code
 
