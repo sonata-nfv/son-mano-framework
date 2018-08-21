@@ -491,7 +491,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         add_schedule.append('vnfs_start')
         add_schedule.append('vnf_chain')
         add_schedule.append('store_nsr')
-        # add_schedule.append('wan_configure')
+        add_schedule.append('wan_configure')
         add_schedule.append('start_monitoring')
         add_schedule.append('inform_gk_instantiation')
 
@@ -2437,39 +2437,47 @@ class ServiceLifecycleManager(ManoBasePlugin):
         corr_id = str(uuid.uuid4())
         self.services[serv_id]['act_corr_id'] = corr_id
 
-        message = {}
-        message['service_instance_id'] = serv_id
+        nsd = self.services[serv_id]['service']['nsd']
+        vim_list = self.services[serv_id]['service']['ordered_vim_list']
+        LOG.info("Service " + serv_id + ": vim list: " + str(vim_list))
 
-        # Add egress and ingress fields
-        message['nap'] = {}
-        nap_empty = True
+        if 'forwarding_graphs' in nsd.keys() or len(vim_list) > 1:
+            message = {}
+            message['service_instance_id'] = serv_id
 
-        if self.services[serv_id]['ingress'] is not None:
-            message['nap']['ingresses'] = self.services[serv_id]['ingress']
-            nap_empty = False
-        if self.services[serv_id]['egress'] is not None:
-            message['nap']['egresses'] = self.services[serv_id]['egress']
-            nap_empty = False
+            # Add egress and ingress fields
+            message['nap'] = {}
+            nap_empty = True
 
-        # Check if `nap` is empty
-        if nap_empty:
-            message.pop('nap')
+            if self.services[serv_id]['ingress'] is not None:
+                message['nap']['ingresses'] = self.services[serv_id]['ingress']
+                nap_empty = False
+            if self.services[serv_id]['egress'] is not None:
+                message['nap']['egresses'] = self.services[serv_id]['egress']
+                nap_empty = False
 
-        # Create ordered vim_list
-        ordered_vim = []
-        calc_list = self.services[serv_id]['service']['ordered_vim_list']
-        for vim in calc_list:
-            ordered_vim.append({'uuid': vim, 'order': calc_list.index(vim)})
+            # Check if `nap` is empty
+            if nap_empty:
+                message.pop('nap')
 
-        message['vim_list'] = ordered_vim
+            # Create ordered vim_list
+            ordered_vim = []
+            vim_list = self.services[serv_id]['service']['ordered_vim_list']
+            for vim in calc_list:
+                ordered_vim.append({'uuid': vim, 'order': vim_list.index(vim)})
 
-        self.manoconn.call_async(self.wan_configure_response,
-                                 t.IA_CONF_WAN,
-                                 yaml.dump(message),
-                                 correlation_id=corr_id)
+            message['vim_list'] = ordered_vim
 
-        # # Pause the chain of tasks to wait for response
-        self.services[serv_id]['pause_chain'] = True
+            self.manoconn.call_async(self.wan_configure_response,
+                                     t.IA_CONF_WAN,
+                                     yaml.dump(message),
+                                     correlation_id=corr_id)
+
+            # # Pause the chain of tasks to wait for response
+            self.services[serv_id]['pause_chain'] = True
+        else:
+            LOG.info("Service " + serv_id + ": No WAN required")
+
 
     def wan_configure_response(self, ch, method, prop, payload):
         """
