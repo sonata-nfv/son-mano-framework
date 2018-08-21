@@ -1216,6 +1216,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
         get_vnfd = tools.getRestData(t.vnfd_path + '/', vnfd_id, head=head)
         if get_vnfd['error'] is not None:
             error = str(get_vnfd['error']) + ': ' + str(get_vnfd['content'])
+            LOG.info(str(error))
             self.functions[func_id]['error'] = error
             return False
         self.functions[func_id]['vnfd'] = get_vnfd['content']
@@ -1247,6 +1248,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         # Create the FSM dict if FSMs are defined in VNFD
         fsm_dict = tools.get_fsm_from_vnfd(self.functions[func_id]['vnfd'])
+        LOG.info(str(fsm_dict))
         self.functions[func_id]['fsm'] = fsm_dict
 
         # Setup broker connection with the SSMs of this service.
