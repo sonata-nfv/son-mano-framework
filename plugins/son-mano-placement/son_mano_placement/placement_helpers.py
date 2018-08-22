@@ -78,6 +78,13 @@ def get_image_list(vnfs):
             new_dict['storage'] = req['storage']['size']
             new_dict['function_id'] = vnf['id']
             new_dict['id'] = str(vnf['id']) + '_' + vdu['id']
+            new_dict['needs_placement'] = True
+            if 'deployed' in vnf.keys():
+                new_dict['needs_placement'] = False
+                new_dict['vim'] = vnf['vim_uuid']
+                new_dict['cpu'] = 0
+                new_dict['ram'] = 0
+                new_dict['storage'] = 0
             images_to_map.append(new_dict)
 
     return images_to_map

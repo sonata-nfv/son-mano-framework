@@ -868,6 +868,14 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]["current_workflow"] = 'addvnf'
 
         add_schedule = []
+        add_schedule.append('request_topology')
+        add_schedule.append('request_policies')
+
+        # Perform the placement
+        if 'placement' in self.services[serv_id]['service']['ssm'].keys():
+            add_schedule.append('req_placement_from_ssm')
+        else:
+            add_schedule.append('SLM_mapping')
         add_schedule.append('vnf_deploy')
         add_schedule.append('vnfs_start')
         add_schedule.append('update_nsr')
@@ -1566,7 +1574,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
                                          correlation_id=corr_id)
 
         self.services[serv_id]['pause_chain'] = True
-
 
     def vnf_deploy(self, serv_id):
         """
@@ -2924,12 +2931,16 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 request_returned_with_error(request, 'VNFR')
                 return None
 
+            vdu = request['content']['virtual_deployment_units'][0]
+            vim_id = vdu['vnfc_instance'][0]['vim_id']
+
             new_function = {'id': vnf['vnfr_id'],
                             'start': {'trigger': True, 'payload': {}},
                             'stop': {'trigger': True, 'payload': {}},
                             'configure': {'trigger': True, 'payload': {}},
                             'scale': {'trigger': True, 'payload': {}},
-                            'vnfr': request['content']}
+                            'vnfr': request['content'],
+                            'vim_uuid': vim_id}
 
             del new_function['vnfr']['updated_at']
             del new_function['vnfr']['created_at']
