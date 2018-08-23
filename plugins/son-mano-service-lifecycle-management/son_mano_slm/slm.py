@@ -876,6 +876,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             add_schedule.append('req_placement_from_ssm')
         else:
             add_schedule.append('SLM_mapping')
+        add_schedule.append('ia_prepare')
         add_schedule.append('vnf_deploy')
         add_schedule.append('vnfs_start')
         add_schedule.append('update_nsr')
