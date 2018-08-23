@@ -868,6 +868,15 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]["current_workflow"] = 'addvnf'
 
         add_schedule = []
+        add_schedule.append('request_topology')
+        add_schedule.append('request_policies')
+
+        # Perform the placement
+        if 'placement' in self.services[serv_id]['service']['ssm'].keys():
+            add_schedule.append('req_placement_from_ssm')
+        else:
+            add_schedule.append('SLM_mapping')
+        add_schedule.append('ia_prepare')
         add_schedule.append('vnf_deploy')
         add_schedule.append('vnfs_start')
         add_schedule.append('update_nsr')
@@ -1481,6 +1490,16 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         msg = ": Requesting IA to prepare the infrastructure."
         LOG.info("Service " + serv_id + msg)
+
+        # Find the VIMs that already have a stack
+        used_vims = []
+        for function in self.services[serv_id]['function']:
+            if 'deployed' in function.keys():
+                used_vims.append(function['vim_uuid'])
+
+        msg = ": Already used PoPs: " + str(used_vims)
+        LOG.info("Service " + serv_id + msg)
+
         # Build mapping message for IA
         IA_mapping = {}
 
@@ -1493,42 +1512,45 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Add the vnfs
         for function in self.services[serv_id]['function']:
             vim_uuid = function['vim_uuid']
+            if 'deployed' not in function.keys() and vim_uuid not in used_vims:
+                new_vim = True
+                for vim in IA_mapping['vim_list']:
+                    if vim['uuid'] == vim_uuid:
+                        new_vim = False
+                        index = IA_mapping['vim_list'].index(vim)
 
-            # Add VIM uuid if new
-            new_vim = True
-            for vim in IA_mapping['vim_list']:
-                if vim['uuid'] == vim_uuid:
-                    new_vim = False
-                    index = IA_mapping['vim_list'].index(vim)
+                if new_vim:
+                    IA_mapping['vim_list'].append({'uuid': vim_uuid,
+                                                   'vm_images': []})
+                    index = len(IA_mapping['vim_list']) - 1
 
-            if new_vim:
-                IA_mapping['vim_list'].append({'uuid': vim_uuid,
-                                               'vm_images': []})
-                index = len(IA_mapping['vim_list']) - 1
+                for vdu in function['vnfd']['virtual_deployment_units']:
+                    url = vdu['vm_image']
+                    vm_uuid = tools.generate_image_uuid(vdu, function['vnfd'])
 
-            for vdu in function['vnfd']['virtual_deployment_units']:
-                url = vdu['vm_image']
-                vm_uuid = tools.generate_image_uuid(vdu, function['vnfd'])
+                    content = {'image_uuid': vm_uuid, 'image_url': url}
 
-                content = {'image_uuid': vm_uuid, 'image_url': url}
+                    if 'vm_image_md5' in vdu.keys():
+                        content['image_md5'] = vdu['vm_image_md5']
 
-                if 'vm_image_md5' in vdu.keys():
-                    content['image_md5'] = vdu['vm_image_md5']
+                    IA_mapping['vim_list'][index]['vm_images'].append(content)
 
-                IA_mapping['vim_list'][index]['vm_images'].append(content)
+        if len(IA_mapping['vim_list']) > 0:
+            msg = ": new PoPs to be used: " + str(IA_mapping['vim_list'])
+            LOG.info("Service " + serv_id + msg)
 
-        # Add correlation id to the ledger for future reference
-        corr_id = str(uuid.uuid4())
-        self.services[serv_id]['act_corr_id'] = corr_id
+            # Add correlation id to the ledger for future reference
+            corr_id = str(uuid.uuid4())
+            self.services[serv_id]['act_corr_id'] = corr_id
 
-        # Send this mapping to the IA
-        self.manoconn.call_async(self.resp_prepare,
-                                 t.IA_PREPARE,
-                                 yaml.dump(IA_mapping),
-                                 correlation_id=corr_id)
+            # Send this mapping to the IA
+            self.manoconn.call_async(self.resp_prepare,
+                                     t.IA_PREPARE,
+                                     yaml.dump(IA_mapping),
+                                     correlation_id=corr_id)
 
-        # Pause the chain of tasks to wait for response
-        self.services[serv_id]['pause_chain'] = True
+            # Pause the chain of tasks to wait for response
+            self.services[serv_id]['pause_chain'] = True
 
     def vnf_remove(self, serv_id):
         """
@@ -1566,7 +1588,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
                                          correlation_id=corr_id)
 
         self.services[serv_id]['pause_chain'] = True
-
 
     def vnf_deploy(self, serv_id):
         """
@@ -2463,7 +2484,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             # Create ordered vim_list
             ordered_vim = []
             vim_list = self.services[serv_id]['service']['ordered_vim_list']
-            for vim in calc_list:
+            for vim in vim_list:
                 ordered_vim.append({'uuid': vim, 'order': vim_list.index(vim)})
 
             message['vim_list'] = ordered_vim
@@ -2880,6 +2901,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['user_data']['customer']['phone'] = None
         self.services[serv_id]['user_data']['developer']['email'] = None
         self.services[serv_id]['user_data']['developer']['phone'] = None
+        self.services[serv_id]['customer_policies'] = {}
 
         # Retrieve the service record based on the service instance id
         base = t.nsr_path + "/"
@@ -2924,12 +2946,16 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 request_returned_with_error(request, 'VNFR')
                 return None
 
+            vdu = request['content']['virtual_deployment_units'][0]
+            vim_id = vdu['vnfc_instance'][0]['vim_id']
+
             new_function = {'id': vnf['vnfr_id'],
                             'start': {'trigger': True, 'payload': {}},
                             'stop': {'trigger': True, 'payload': {}},
                             'configure': {'trigger': True, 'payload': {}},
                             'scale': {'trigger': True, 'payload': {}},
-                            'vnfr': request['content']}
+                            'vnfr': request['content'],
+                            'vim_uuid': vim_id}
 
             del new_function['vnfr']['updated_at']
             del new_function['vnfr']['created_at']
