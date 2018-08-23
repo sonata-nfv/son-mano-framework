@@ -2470,7 +2470,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             # Create ordered vim_list
             ordered_vim = []
             vim_list = self.services[serv_id]['service']['ordered_vim_list']
-            for vim in calc_list:
+            for vim in vim_list:
                 ordered_vim.append({'uuid': vim, 'order': vim_list.index(vim)})
 
             message['vim_list'] = ordered_vim
