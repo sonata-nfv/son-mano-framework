@@ -1489,6 +1489,16 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         msg = ": Requesting IA to prepare the infrastructure."
         LOG.info("Service " + serv_id + msg)
+
+        # Find the VIMs that already have a stack
+        used_vims = []
+        for function in self.services[serv_id]['function']:
+            if 'deployed' in function.keys():
+                used_vims.append(function['vim_uuid'])
+
+        msg = ": Already used PoPs: " + str(used_vims)
+        LOG.info("Service " + serv_id + msg)
+
         # Build mapping message for IA
         IA_mapping = {}
 
@@ -1501,42 +1511,45 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Add the vnfs
         for function in self.services[serv_id]['function']:
             vim_uuid = function['vim_uuid']
+            if 'deployed' not in function.keys() and vim_uuid not in used_vims:
+                new_vim = True
+                for vim in IA_mapping['vim_list']:
+                    if vim['uuid'] == vim_uuid:
+                        new_vim = False
+                        index = IA_mapping['vim_list'].index(vim)
 
-            # Add VIM uuid if new
-            new_vim = True
-            for vim in IA_mapping['vim_list']:
-                if vim['uuid'] == vim_uuid:
-                    new_vim = False
-                    index = IA_mapping['vim_list'].index(vim)
+                if new_vim:
+                    IA_mapping['vim_list'].append({'uuid': vim_uuid,
+                                                   'vm_images': []})
+                    index = len(IA_mapping['vim_list']) - 1
 
-            if new_vim:
-                IA_mapping['vim_list'].append({'uuid': vim_uuid,
-                                               'vm_images': []})
-                index = len(IA_mapping['vim_list']) - 1
+                for vdu in function['vnfd']['virtual_deployment_units']:
+                    url = vdu['vm_image']
+                    vm_uuid = tools.generate_image_uuid(vdu, function['vnfd'])
 
-            for vdu in function['vnfd']['virtual_deployment_units']:
-                url = vdu['vm_image']
-                vm_uuid = tools.generate_image_uuid(vdu, function['vnfd'])
+                    content = {'image_uuid': vm_uuid, 'image_url': url}
 
-                content = {'image_uuid': vm_uuid, 'image_url': url}
+                    if 'vm_image_md5' in vdu.keys():
+                        content['image_md5'] = vdu['vm_image_md5']
 
-                if 'vm_image_md5' in vdu.keys():
-                    content['image_md5'] = vdu['vm_image_md5']
+                    IA_mapping['vim_list'][index]['vm_images'].append(content)
 
-                IA_mapping['vim_list'][index]['vm_images'].append(content)
+        if len(IA_mapping['vim_list']) > 0:
+            msg = ": new PoPs to be used: " + str(IA_mapping['vim_list'])
+            LOG.info("Service " + serv_id + msg)
 
-        # Add correlation id to the ledger for future reference
-        corr_id = str(uuid.uuid4())
-        self.services[serv_id]['act_corr_id'] = corr_id
+            # Add correlation id to the ledger for future reference
+            corr_id = str(uuid.uuid4())
+            self.services[serv_id]['act_corr_id'] = corr_id
 
-        # Send this mapping to the IA
-        self.manoconn.call_async(self.resp_prepare,
-                                 t.IA_PREPARE,
-                                 yaml.dump(IA_mapping),
-                                 correlation_id=corr_id)
+            # Send this mapping to the IA
+            self.manoconn.call_async(self.resp_prepare,
+                                     t.IA_PREPARE,
+                                     yaml.dump(IA_mapping),
+                                     correlation_id=corr_id)
 
-        # Pause the chain of tasks to wait for response
-        self.services[serv_id]['pause_chain'] = True
+            # Pause the chain of tasks to wait for response
+            self.services[serv_id]['pause_chain'] = True
 
     def vnf_remove(self, serv_id):
         """
