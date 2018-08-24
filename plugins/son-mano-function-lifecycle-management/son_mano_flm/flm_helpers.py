@@ -51,12 +51,13 @@ def funcid_from_corrid(ledger, corr_id):
     """
 
     for func_id in ledger.keys():
-        if isinstance(ledger[func_id]['act_corr_id'], list):
-            if str(corr_id) in ledger[func_id]['act_corr_id']:
-                break
-        else:
-            if ledger[func_id]['act_corr_id'] == str(corr_id):
-                break
+        if 'act_corr_id' in ledger[func_id].keys():
+            if isinstance(ledger[func_id]['act_corr_id'], list):
+                if str(corr_id) in ledger[func_id]['act_corr_id']:
+                    break
+            else:
+                if ledger[func_id]['act_corr_id'] == str(corr_id):
+                    break
 
     return func_id
 
