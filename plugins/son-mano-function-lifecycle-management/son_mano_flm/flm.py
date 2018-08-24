@@ -1195,6 +1195,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         # Add the function to the ledger and add instance ids
         self.functions[func_id] = {}
+        self.functions[func_id]['act_corr_id'] = None
         self.functions[func_id]['error'] = None
 
         # Get VNFR
@@ -1269,7 +1270,6 @@ class FunctionLifecycleManager(ManoBasePlugin):
         self.functions[func_id]['start'] = None
         self.functions[func_id]['stop'] = None
         self.functions[func_id]['configure'] = None
-        self.functions[func_id]['act_corr_id'] = None
         self.functions[func_id]['message'] = None
 
         return True
