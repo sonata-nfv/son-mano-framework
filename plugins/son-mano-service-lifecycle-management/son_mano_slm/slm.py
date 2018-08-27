@@ -3126,7 +3126,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         serv_id = tools.servid_from_corrid(self.services, prop.correlation_id)
         LOG.info("Service " + serv_id + ": Placement response received")
 
-        if mapping is None:
+        if mapping is None or mapping == {}:
             # The GK should be informed that the placement failed and the
             # deployment was aborted.
             LOG.info("Service " + serv_id + ": Placement not possible")
