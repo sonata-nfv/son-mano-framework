@@ -2995,7 +2995,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['service']['ssm'] = ssm_dict
 
         # Recreate connection with SSM
-        if ssm_dict is not {} and serv_id not in self.ssm_connections.keys():
+        if bool(ssm_dict) and serv_id not in self.ssm_connections.keys():
             url = self.ssm_url_base + 'ssm-' + serv_id
             ssm_conn = messaging.ManoBrokerRequestResponseConnection(self.name,
                                                                      url=url)
