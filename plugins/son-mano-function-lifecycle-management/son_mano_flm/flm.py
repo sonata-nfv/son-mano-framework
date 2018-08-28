@@ -1254,7 +1254,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
         self.functions[func_id]['fsm'] = fsm_dict
 
         # Setup broker connection with the SSMs of this service.
-        if func_id not in self.fsm_connections.keys():
+        if fsm_dict is not {} and func_id not in self.fsm_connections.keys():
             url = self.fsm_url_base + 'fsm-' + func_id
             fsm_conn = messaging.ManoBrokerRequestResponseConnection(self.name,
                                                                      url=url)
