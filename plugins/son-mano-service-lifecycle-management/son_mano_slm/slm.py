@@ -559,6 +559,26 @@ class ServiceLifecycleManager(ManoBasePlugin):
             return
 
         serv_id = content['service_instance_uuid']
+
+        # Checks if service can be terminated
+        head = {'Content-Type': 'application/json'}
+        req = tools.getRestData(t.nsr_path + '/',
+                                serv_id,
+                                header=head)
+
+        if req['error'] is not None:
+            error = str(req['error']) + ': ' + req['content']
+            msg = "error while retrieving NSR. " + error
+            send_response(msg, serv_id)
+            return
+
+        nsr = req['content']
+
+        if nsr['status'] == 'terminated':
+            error = 'nsr already terminated'
+            send_response(error, serv_id)
+            return
+
         LOG.info("Termination request received for service " + str(serv_id))
 
         self.terminate_workflow(serv_id,
