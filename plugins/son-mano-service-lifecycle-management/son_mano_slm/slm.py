@@ -2018,7 +2018,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         nsr_id = serv_id
         nsr['id'] = nsr_id
-        nsr['version'] = nsr['version'] + 1
+        nsr['version'] = int(nsr['version']) + 1
         url = t.nsr_path + '/' + nsr_id
         LOG.info("Service " + serv_id + ": " + str(url))
         header = {'Content-Type': 'application/json'}
