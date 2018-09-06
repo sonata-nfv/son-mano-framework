@@ -202,15 +202,26 @@ class SpecificManagerRegistry(ManoBasePlugin):
 
                     # check if the SM is already registered
                     if sm_repo_id in self.ssm_repo.keys():
-                        LOG.error("Cannot register '{0}', already exists".format(message['specific_manager_id']))
-                        result = {'status': 'Failed', 'error': "Cannot register '{0}', "
+                        # check if the sm is an updating version
+                        if message['update_version'] == 'true':
+                            self.ssm_repo[sm_repo_id]['status']= 'registered'
+                            self.ssm_repo[sm_repo_id]['version'] = message['version']
+                            self.ssm_repo[sm_repo_id]['description'] = message['description']
+                            result = self.ssm_repo[sm_repo_id]
+                        else:
+                            LOG.error("Cannot register '{0}', already exists".format(message['specific_manager_id']))
+                            result = {'status': 'Failed', 'error': "Cannot register '{0}', "
                                                                    "already exists".format(message['specific_manager_id'])}
                     else:
                         pid = str(uuid.uuid4())
                         response = {
                             "status": "registered",
+                            "specific_manager_type": message['specific_manager_type'],
+                            "service_name": message['service_name'],
+                            "function_name": message['function_name'],
                             "specific_manager_id": message['specific_manager_id'],
                             "version": message['version'],
+                            "description": message['description'],
                             "uuid": pid,
                             "sfuuid": message['sf_uuid'],
                             "error": None
