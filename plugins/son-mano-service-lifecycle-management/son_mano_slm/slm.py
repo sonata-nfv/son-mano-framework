@@ -559,6 +559,26 @@ class ServiceLifecycleManager(ManoBasePlugin):
             return
 
         serv_id = content['service_instance_uuid']
+
+        # Checks if service can be terminated
+        head = {'Content-Type': 'application/json'}
+        req = tools.getRestData(t.nsr_path + '/',
+                                serv_id,
+                                header=head)
+
+        if req['error'] is not None:
+            error = str(req['error']) + ': ' + req['content']
+            msg = "error while retrieving NSR. " + error
+            send_response(msg, serv_id)
+            return
+
+        nsr = req['content']
+
+        if nsr['status'] == 'terminated':
+            error = 'nsr already terminated'
+            send_response(error, serv_id)
+            return
+
         LOG.info("Termination request received for service " + str(serv_id))
 
         self.terminate_workflow(serv_id,
@@ -810,6 +830,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         add_schedule = []
         add_schedule.append('vnf_remove')
+        add_schedule.append('update_nsr')
         if 'scale' in self.services[serv_id]['service']['ssm'].keys():
             add_schedule.append("configure_ssm")
             add_schedule.append("vnfs_config")
@@ -1298,18 +1319,20 @@ class ServiceLifecycleManager(ManoBasePlugin):
             LOG.info("Service " + serv_id + ": VNF correctly removed.")
             for function in self.services[serv_id]['function']:
                 if function['id'] == message['vnf_id']:
-                    base = t.vnfr_path + "/"
-                    request = tools.getRestData(base, message['vnf_id'])
+                    self.services[serv_id]['function'].remove(function)
+                    break
+                    # base = t.vnfr_path + "/"
+                    # request = tools.getRestData(base, message['vnf_id'])
 
-                    if request['error'] is not None:
-                        error = 'could not retrieve VNFR: ' + request['error']
-                        self.error_handling(serv_id, topic, error)
+                    # if request['error'] is not None:
+                    #     error = 'could not retrieve VNFR: ' + request['error']
+                    #     self.error_handling(serv_id, topic, error)
 
-                    function['vnfr'] = request['content']
-                    del function['vnfr']['updated_at']
-                    del function['vnfr']['created_at']
-                    del function['vnfr']['uuid']
-                    function['vnfr']['id'] = function['id']
+                    # function['vnfr'] = request['content']
+                    # del function['vnfr']['updated_at']
+                    # del function['vnfr']['created_at']
+                    # del function['vnfr']['uuid']
+                    # function['vnfr']['id'] = function['id']
 
         vnfs_to_depl = self.services[serv_id]['vnfs_to_resp'] - 1
         self.services[serv_id]['vnfs_to_resp'] = vnfs_to_depl
@@ -1995,6 +2018,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         nsr_id = serv_id
         nsr['id'] = nsr_id
+        nsr['version'] = str(int(nsr['version']) + 1)
         url = t.nsr_path + '/' + nsr_id
         LOG.info("Service " + serv_id + ": " + str(url))
         header = {'Content-Type': 'application/json'}
