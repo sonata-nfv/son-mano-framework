@@ -46,6 +46,8 @@ ADD utils/delayedstart.sh /delayedstart.sh
 # add plugin related files
 ADD plugins/${PLUGIN_BASE} /plugins/${PLUGIN_BASE}
 
+RUN apt-get install -y git
+RUN pip install git+git://github.com/eandersson/amqpstorm.git@feature/reuse_channels
 
 # install son-mano-base to be able to use the plugin base class etc.
 WORKDIR /son-mano-base

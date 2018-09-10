@@ -51,12 +51,13 @@ def funcid_from_corrid(ledger, corr_id):
     """
 
     for func_id in ledger.keys():
-        if isinstance(ledger[func_id]['act_corr_id'], list):
-            if str(corr_id) in ledger[func_id]['act_corr_id']:
-                break
-        else:
-            if ledger[func_id]['act_corr_id'] == str(corr_id):
-                break
+        if 'act_corr_id' in ledger[func_id].keys():
+            if isinstance(ledger[func_id]['act_corr_id'], list):
+                if str(corr_id) in ledger[func_id]['act_corr_id']:
+                    break
+            else:
+                if ledger[func_id]['act_corr_id'] == str(corr_id):
+                    break
 
     return func_id
 
@@ -103,14 +104,19 @@ def get_fsm_from_vnfd(vnfd):
     return fsm_dict
 
 
-def getRestData(base, path, expected_code=200):
+def getRestData(base, path, expected_code=200, head=None):
     """
     This method can be used to retrieve data through a rest api.
     """
 
     url = base + path
     try:
-        get_response = requests.get(url, timeout=1.0)
+        if head is None:
+            get_response = requests.get(url, timeout=5.0)
+        else:
+            get_response = requests.get(url,
+                                        headers=head,
+                                        timeout=5.0)
         content = yaml.load(get_response.content)
         code = get_response.status_code
 

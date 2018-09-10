@@ -46,15 +46,17 @@ VNF_START = "mano.function.start"
 VNF_CONFIG = "mano.function.configure"
 VNF_STOP = "mano.function.stop"
 VNF_SCALE = "mano.function.scale"
-VNF_KILL = "mano.function.terminate"
+VNF_REMOVE = "mano.function.remove"
 
 # With infrastructure adaptor
 IA_DEPLOY = 'infrastructure.function.deploy'
+IA_REMOVE = 'infrastructure.function.remove'
 
 # With specific manager registry
 SRM_ONBOARD = 'specific.manager.registry.fsm.on-board'
 SRM_INSTANT = 'specific.manager.registry.fsm.instantiate'
 SRM_UPDATE = 'specific.manager.registry.fsm.update'
+FSM_TERM = 'specific.manager.registry.fsm.terminate'
 
 # Catalogue urls
 cat_path = os.environ.get("cat_path").strip("/")

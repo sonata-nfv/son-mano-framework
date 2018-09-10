@@ -186,12 +186,12 @@ class PlacementPlugin(ManoBasePlugin):
                 operator_weight = op_pol['weights']['operator']
                 developer_weight = op_pol['weights']['developer']
 
-            # Solve first for only operator or developer influence, to calibrate
-            operator_optimal_value = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=1.0, developer_weight=0.0, vnf_single_pop=vnf_single_pop)[2]
-            developer_optimal_value = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=0.0, developer_weight=1.0, vnf_single_pop=vnf_single_pop)[2]
+            # # Solve first for only operator or developer influence, to calibrate
+            # operator_optimal_value = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=1.0, developer_weight=0.0, vnf_single_pop=vnf_single_pop)[2]
+            # developer_optimal_value = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=0.0, developer_weight=1.0, vnf_single_pop=vnf_single_pop)[2]
 
-            operator_weight = abs(operator_weight / operator_optimal_value)
-            developer_weight = abs(developer_weight / developer_optimal_value)
+            # operator_weight = abs(operator_weight / operator_optimal_value)
+            # developer_weight = abs(developer_weight / developer_optimal_value)
 
             placement = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=operator_weight, developer_weight=developer_weight, vnf_single_pop=vnf_single_pop)
             LOG.info("Placement calculated:" + str(placement))
@@ -305,9 +305,16 @@ class PlacementPlugin(ManoBasePlugin):
             lpProblem += top[vim]['core_used'] + sum(images_to_map[x[0]]['cpu'] * variables[x] for x in decision_vars if x[1] == vim) <= top[vim]['core_total']
             lpProblem += top[vim]['memory_used'] + sum(images_to_map[x[0]]['ram'] * variables[x] for x in decision_vars if x[1] == vim) <= top[vim]['memory_total']
 
-        # Every VNF should be assigned to one PoP
+        # Every VNF that needs to be placed should be assigned to one PoP
         for vnf in range(len(images_to_map)):
-            lpProblem += sum(variables[x] for x in decision_vars if x[0] == vnf) == 1
+            if images_to_map[vnf]['needs_placement']:
+                lpProblem += sum(variables[x] for x in decision_vars if x[0] == vnf) == 1
+            else:
+                used_vim = images_to_map[vnf]['vim']
+                for vim in range(len(top)):
+                    if top[vim]['vim_uuid'] == used_vim:
+                        lpProblem += variables[(vnf, vim)] == 1
+                        break
 
         # Add blacklist from customers. If PoP is on blacklist, no VNFs can be on it.
         if 'blacklist' in cu_policy.keys():
