@@ -96,45 +96,6 @@ pipeline {
         }
       }
     }
-    stage('Checkstyle') {
-      parallel {
-        stage('Service Lifecycle Manager') {
-          steps {
-            sh './pipeline/checkstyle/servicelifecyclemanager_stylecheck.sh || true'
-          }
-        }
-        stage('Function Lifecycle Manager') {
-          steps {
-            sh './pipeline/checkstyle/functionlifecyclemanager_stylecheck.sh || true'
-          }
-        }
-        stage('Plugin Manager') {
-          steps {
-            sh './pipeline/checkstyle/pluginmanager_stylecheck.sh || true'
-          }
-        }
-        stage('sonmanobase') {
-          steps {
-            sh './pipeline/checkstyle/sonmanobase_stylecheck.sh || true'
-          }
-        }
-        stage('Specifc Manager Registry') {
-          steps {
-            sh './pipeline/checkstyle/specificmanagerregistry_stylecheck.sh || true'
-          }
-        }
-        stage('Placement Executive') {
-          steps {
-            sh './pipeline/checkstyle/placementexecutive_stylecheck.sh || true'
-          }
-        }
-        stage('Placement Plugin') {
-          steps {
-            sh './pipeline/checkstyle/placementplugin_stylecheck.sh || true'
-          }
-        }
-      }
-    }
     stage('Publish to :latest') {
       parallel {
         stage('Service Lifecycle Manager') {
@@ -181,79 +142,64 @@ pipeline {
         }
       }
     }
-    stage('Deploying in pre-integration ') {
+    stage('Publishing to :v4.0') {
       when{
-        not{
-          branch 'master'
-        }        
-      }      
-      steps {
-        sh 'rm -rf tng-devops || true'
-        sh 'git clone https://github.com/sonata-nfv/tng-devops.git'
-        dir(path: 'tng-devops') {
-          sh 'ansible-playbook roles/sp.yml -i environments -e "target=pre-int-sp component=mano-framework"'
-        }
-      }
-    }
-    stage('Publishing to :int') {
-      when{
-        branch 'master'
+        branch 'v4.0'
       }      
       parallel {
         stage('Service Lifecycle Manager') {
           steps {
             echo 'Publishing Service Lifecycle Manager container'
-            sh './pipeline/publish/servicelifecyclemanagement.sh int'
+            sh './pipeline/publish/servicelifecyclemanagement.sh v4.0'
           }
         }
         stage('Function Lifecycle Manager') {
           steps {
             echo 'Publishing Function Lifecycle Manager container'
-            sh './pipeline/publish/functionlifecyclemanagement.sh int'
+            sh './pipeline/publish/functionlifecyclemanagement.sh v4.0'
           }
         }
         stage('Plugin Manager') {
           steps {
             echo 'Publishing Plugin Manager container'
-            sh './pipeline/publish/pluginmanager.sh int'
+            sh './pipeline/publish/pluginmanager.sh v4.0'
           }
         }
         stage('sonmanobase') {
           steps {
             echo 'Publishing sonmanobase container'
-            sh './pipeline/publish/sonmanobase.sh int'
+            sh './pipeline/publish/sonmanobase.sh v4.0'
           }
         }
         stage('Specifc Manager Registry') {
           steps {
             echo 'Publishing Specific Manager Registry container'
-            sh './pipeline/publish/specificmanagerregistry.sh int'
+            sh './pipeline/publish/specificmanagerregistry.sh v4.0'
           }
         }
         stage('Placement Executive') {
           steps {
             echo 'Publishing Placement Executive container'
-            sh './pipeline/publish/placementexecutive.sh int'
+            sh './pipeline/publish/placementexecutive.sh v4.0'
           }
         }
         stage('Placement Plugin') {
           steps {
             echo 'Publishing Placement Plugin container'
-            sh './pipeline/publish/placementplugin.sh int'
+            sh './pipeline/publish/placementplugin.sh v4.0'
           }
         }
       }
     }
-    stage('Deploying in integration') {
+    stage('Deploying in staging') {
       when{
-        branch 'master'
+        branch 'v4.0'
       }      
       steps {
-        sh './pipeline/publish/retag.sh'
         sh 'rm -rf tng-devops || true'
         sh 'git clone https://github.com/sonata-nfv/tng-devops.git'
         dir(path: 'tng-devops') {
-          sh 'ansible-playbook roles/sp.yml -i environments -e "target=int-sp component=mano-framework"'
+          sh 'ansible-playbook roles/sp.yml -i environments -e "target=sta-sp-v4.0 component=mano-framework"'
         }
       }
     }
