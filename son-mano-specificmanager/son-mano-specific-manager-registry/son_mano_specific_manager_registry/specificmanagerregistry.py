@@ -198,16 +198,16 @@ class SpecificManagerRegistry(ManoBasePlugin):
                 # check if the message format is correct
                 if 'specific_manager_id' in message:
                     LOG.debug("Registration request received for: {0}".format(message['specific_manager_id']))
-                    sm_repo_id = "{0}{1}".format(message['specific_manager_id'], message['sf_uuid'])
+                    sf_uuid = message['sf_uuid']
 
                     # check if the SM is already registered
-                    if sm_repo_id in self.ssm_repo.keys():
+                    if sf_uuid in self.ssm_repo.keys():
                         # check if the sm is an updating version
                         if message['update_version'] == 'true':
-                            self.ssm_repo[sm_repo_id]['status']= 'registered'
-                            self.ssm_repo[sm_repo_id]['version'] = message['version']
-                            self.ssm_repo[sm_repo_id]['description'] = message['description']
-                            result = self.ssm_repo[sm_repo_id]
+                            self.ssm_repo[sf_uuid]['status']= 'registered'
+                            self.ssm_repo[sf_uuid]['version'] = message['version']
+                            self.ssm_repo[sf_uuid]['description'] = message['description']
+                            result = self.ssm_repo[sf_uuid]
                         else:
                             LOG.error("Cannot register '{0}', already exists".format(message['specific_manager_id']))
                             result = {'status': 'Failed', 'error': "Cannot register '{0}', "
@@ -216,17 +216,12 @@ class SpecificManagerRegistry(ManoBasePlugin):
                         pid = str(uuid.uuid4())
                         response = {
                             "status": "registered",
-                            "specific_manager_type": message['specific_manager_type'],
-                            "service_name": message['service_name'],
-                            "function_name": message['function_name'],
                             "specific_manager_id": message['specific_manager_id'],
                             "version": message['version'],
-                            "description": message['description'],
                             "uuid": pid,
-                            "sfuuid": message['sf_uuid'],
                             "error": None
                         }
-                        self.ssm_repo.update({sm_repo_id: response})
+                        self.ssm_repo.update({sf_uuid: response})
                         result = response
                 else:
                     result = {'status': 'Failed', 'error': 'Invalid registration request format'}
@@ -282,11 +277,12 @@ class SpecificManagerRegistry(ManoBasePlugin):
 
     def instantiate(self, message):
 
-        descriptor = None; manager = None; result_dict = {}; sm_type='ssm'; v_host_error=False
+        descriptor = None; manager = None; result_dict = {}; v_host_error=False
 
         if 'NSD' in message:
             descriptor = 'NSD'
             manager = 'service_specific_managers'
+            sm_type='ssm'
         elif 'VNFD' in message:
             descriptor = 'VNFD'
             manager = 'function_specific_managers'
@@ -315,22 +311,22 @@ class SpecificManagerRegistry(ManoBasePlugin):
                 else:
                     p_key = None
                 LOG.info('Instantiation request received for: {0}'.format(m_id))
-                sm_repo_name= "{0}{1}".format(m_id, message['UUID'])
+                sf_uuid= message['UUID']
                 try:
                     self.smrengine.start(id=m_id, image=m_image, sm_type=sm_type, uuid=message['UUID'], p_key= p_key)
                 except BaseException as error:
                     LOG.error('Instantiation failed for: {0}, Error: {1}'.format(m_id, error))
                     result_dict.update({m_id: {'status': 'Failed', 'uuid': 'None', 'error': str(error)}})
                 else:
-                    registration = threading.Thread(target= self._wait_for_sm_registration, args=[sm_repo_name,m_id])
+                    registration = threading.Thread(target= self._wait_for_sm_registration, args=[sf_uuid,m_id])
                     registration.daemon = True
                     registration.start()
                     registration.join()
-                    if sm_repo_name in self.ssm_repo.keys():
+                    if sf_uuid in self.ssm_repo.keys():
                         LOG.debug('Registration & instantiation succeeded for: {0}'.format(m_id))
-                        self.ssm_repo[sm_repo_name]['status'] = 'running'
+                        self.ssm_repo[sf_uuid]['status'] = 'running'
                         result_dict.update({m_id: {'status': 'Instantiated',
-                                            'uuid': self.ssm_repo[sm_repo_name]['uuid'], 'error': 'None'}})
+                                            'uuid': sf_uuid, 'error': 'None'}})
                     else:
                         LOG.error('Instantiation failed:SSM name {0} not found!'.format(m_id))
                         result_dict.update({m_id: {'status': 'Failed', 'uuid': 'None', 'error': 'Registration failed'}})
@@ -541,16 +537,16 @@ class SpecificManagerRegistry(ManoBasePlugin):
                         result_dict.update({m_id: {'status': 'Failed', 'error': str(error)}})
                     else:
                         LOG.debug("Termination succeeded for: {0}".format(m_id))
-                        self.ssm_repo["{0}{1}".format(m_id, message['UUID'])]['status']= 'terminated'
+                        self.ssm_repo[message['UUID']]['status']= 'terminated'
                         result_dict.update({m_id: {'status': 'Terminated', 'error': 'None'}})
 
         return result_dict
 
-    def _wait_for_sm_registration(self, rep_name, name):
+    def _wait_for_sm_registration(self, sf_uuid, name):
         c = 0
         timeout = 60
         sleep_interval = 2
-        while rep_name not in self.ssm_repo.keys() and c < timeout:
+        while sf_uuid not in self.ssm_repo.keys() and c < timeout:
             time.sleep(sleep_interval)
             c += sleep_interval
 
