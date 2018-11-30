@@ -43,13 +43,15 @@ import time
 from mongoengine import DoesNotExist
 
 from sonmanobase.plugin import ManoBasePlugin
+from sonmanobase.logger import TangoLogger
 from son_mano_pluginmanager import model
 from son_mano_pluginmanager import interface
 
-logging.basicConfig(level=logging.INFO)
-LOG = logging.getLogger("son-mano-pluginmanger")
-LOG.setLevel(logging.INFO)
-logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
+json_logging = not (os.environ.get("json_logging") == "False")
+
+LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=json_logging)
+TangoLogger.getLogger("son-mano-base:messaging", logging.INFO, log_json=json_logging)
+TangoLogger.getLogger("son-mano-base:plugin", logging.INFO, log_json=json_logging)
 
 
 class SonPluginManager(ManoBasePlugin):

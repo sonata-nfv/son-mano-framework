@@ -37,11 +37,9 @@ import os
 import threading
 
 from sonmanobase import messaging
+from sonmanobase.logger import TangoLogger
 
-logging.basicConfig(level=logging.INFO)
-LOG = logging.getLogger("son-mano-base:plugin")
-LOG.setLevel(logging.DEBUG)
-
+LOG = TangoLogger.getLogger("son-mano-base:plugin", log_level=logging.DEBUG, log_json=True)
 
 class ManoBasePlugin(object):
     """

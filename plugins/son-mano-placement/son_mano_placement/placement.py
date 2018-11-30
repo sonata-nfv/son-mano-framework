@@ -45,15 +45,16 @@ import concurrent.futures as pool
 # import psutil
 
 from sonmanobase.plugin import ManoBasePlugin
+from sonmanobase.logger import TangoLogger
 
 try:
     from son_mano_placement import placement_helpers as tools
 except:
     import placement_helpers as tools
 
-logging.basicConfig(level=logging.INFO)
-LOG = logging.getLogger("plugin:placement")
-LOG.setLevel(logging.INFO)
+LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=True)
+TangoLogger.getLogger("son-mano-base:messaging", logging.INFO, log_json=True)
+TangoLogger.getLogger("son-mano-base:plugin", logging.INFO, log_json=True)
 
 
 class PlacementPlugin(ManoBasePlugin):
@@ -375,11 +376,6 @@ def main():
     Entry point to start plugin.
     :return:
     """
-    # reduce messaging log level to have a nicer output for this plugin
-    logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
-    logging.getLogger("son-mano-base:plugin").setLevel(logging.INFO)
-#    logging.getLogger("amqp-storm").setLevel(logging.DEBUG)
-    # create our function lifecycle manager
     placement = PlacementPlugin()
 
 if __name__ == '__main__':

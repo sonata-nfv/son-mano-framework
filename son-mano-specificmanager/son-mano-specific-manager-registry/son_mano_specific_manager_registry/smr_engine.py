@@ -38,12 +38,9 @@ import os
 import docker
 import requests
 import yaml
+from sonmanobase.logger import TangoLogger
 
-logging.basicConfig(level=logging.INFO)
-LOG = logging.getLogger("son-mano-specific-manager-registry-engine")
-LOG.setLevel(logging.DEBUG)
-logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
-
+LOG = TangoLogger.getLogger("son-mano-specific-manager-registry-engine", log_level=logging.INFO, log_json=True)
 
 class SMREngine(object):
     def __init__(self):

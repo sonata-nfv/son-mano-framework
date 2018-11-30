@@ -36,12 +36,12 @@ import logging
 import yaml
 import os
 from sonmanobase.plugin import ManoBasePlugin
+from sonmanobase.logger import TangoLogger
 from sonmanobase import messaging
 
-logging.basicConfig(level=logging.INFO)
-LOG = logging.getLogger("son-mano-placement-executive")
-LOG.setLevel(logging.DEBUG)
-logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
+LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=True)
+TangoLogger.getLogger("son-mano-base:messaging", logging.INFO, log_json=True)
+TangoLogger.getLogger("son-mano-base:plugin", logging.INFO, log_json=True)
 
 
 class PlacementExecutive(ManoBasePlugin):

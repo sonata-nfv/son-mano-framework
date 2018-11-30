@@ -42,15 +42,14 @@ import threading
 import os
 
 from sonmanobase.plugin import ManoBasePlugin
+from sonmanobase.logger import TangoLogger
 from sonmanobase import messaging
 from son_mano_specific_manager_registry import smr_engine as engine
 from son_mano_specific_manager_registry import smr_topics as topic
 
-logging.basicConfig(level=logging.INFO)
-LOG = logging.getLogger("son-mano-specific-manager-registry")
-LOG.setLevel(logging.DEBUG)
-logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
-
+LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=True)
+TangoLogger.getLogger("son-mano-base:messaging", logging.INFO, log_json=True)
+TangoLogger.getLogger("son-mano-base:plugin", logging.INFO, log_json=True)
 
 class SpecificManagerRegistry(ManoBasePlugin):
 
