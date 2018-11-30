@@ -31,6 +31,7 @@
 # partner consortium (www.5gtango.eu).
 
 from amqpstorm import UriConnection
+from sonmanobase.logger import TangoLogger
 import logging
 import threading
 import concurrent.futures as pool
@@ -38,10 +39,8 @@ import uuid
 import time
 import os
 
-logging.basicConfig(level=logging.INFO)
-logging.getLogger('pika').setLevel(logging.ERROR)
-LOG = logging.getLogger("son-mano-base:messaging")
-LOG.setLevel(logging.DEBUG)
+TangoLogger.getLogger("pika", log_level=logging.ERROR, log_json=True)
+LOG = TangoLogger.getLogger("son-mano-base:messaging", log_level=logging.DEBUG, log_json=True)
 
 # if we don't find a broker configuration in our ENV, we use this URL as default
 RABBITMQ_URL_FALLBACK = "amqp://guest:guest@localhost:5672/%2F"

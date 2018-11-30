@@ -44,6 +44,7 @@ import concurrent.futures as pool
 # import psutil
 
 from sonmanobase.plugin import ManoBasePlugin
+from sonmanobase.logger import TangoLogger
 import sonmanobase.messaging as messaging
 
 try:
@@ -56,10 +57,7 @@ try:
 except:
     import slm_topics as t
 
-logging.basicConfig(level=logging.INFO)
-LOG = logging.getLogger("plugin:slm")
-LOG.setLevel(logging.INFO)
-
+LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=True)
 
 class ServiceLifecycleManager(ManoBasePlugin):
     """
@@ -3277,8 +3275,8 @@ def main():
     :return:
     """
     # reduce messaging log level to have a nicer output for this plugin
-    logging.getLogger("son-mano-base:messaging").setLevel(logging.INFO)
-    logging.getLogger("son-mano-base:plugin").setLevel(logging.INFO)
+    TangoLogger.getLogger("son-mano-base:messaging", logging.INFO, log_json=True)
+    TangoLogger.getLogger("son-mano-base:plugin", logging.INFO, log_json=True)
 #    logging.getLogger("amqp-storm").setLevel(logging.DEBUG)
     # create our service lifecycle manager
     slm = ServiceLifecycleManager()
