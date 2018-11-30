@@ -44,7 +44,7 @@ docker run -d --name test.mano.pluginmanager --net=son-mano-unittests \
 while [ true ];
 do
 	docker logs --tail 1 test.mano.pluginmanager 2> filename || true
-    if  tail filename| grep "INFO:son-mano-base:plugin:Plugin running..." ;
+    if  tail filename| grep "Plugin running..." ;
     then
             echo "Plugin Manager is up"
             break
