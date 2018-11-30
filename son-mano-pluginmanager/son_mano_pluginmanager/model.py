@@ -33,11 +33,10 @@
 import logging
 import os
 from datetime import datetime
+from sonmanobase.logger import TangoLogger
 from mongoengine import Document, connect, StringField, DateTimeField, BooleanField, signals
 
-logging.basicConfig(level=logging.INFO)
-LOG = logging.getLogger("son-mano-pluginmanger:model")
-LOG.setLevel(logging.INFO)
+LOG = TangoLogger.getLogger("son-mano-pluginmanger:model", log_level=logging.INFO, log_json=json_logging)
 
 
 class Plugin(Document):

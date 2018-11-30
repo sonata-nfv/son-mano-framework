@@ -47,7 +47,8 @@ from sonmanobase.logger import TangoLogger
 from son_mano_pluginmanager import model
 from son_mano_pluginmanager import interface
 
-json_logging = bool(os.environ.get("json_logging"))
+json_logging = not (os.environ.get("json_logging") == "False")
+
 LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=json_logging)
 TangoLogger.getLogger("son-mano-base:messaging", logging.INFO, log_json=json_logging)
 TangoLogger.getLogger("son-mano-base:plugin", logging.INFO, log_json=json_logging)

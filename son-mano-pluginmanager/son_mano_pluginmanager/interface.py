@@ -40,11 +40,10 @@ from flask import Flask, request
 import flask_restful as fr
 from mongoengine import DoesNotExist
 from son_mano_pluginmanager import model
+from sonmanobase.logger import TangoLogger
 
-logging.basicConfig(level=logging.INFO)
-LOG = logging.getLogger("son-mano-pluginmanger:interface")
-LOG.setLevel(logging.INFO)
-logging.getLogger("werkzeug").setLevel(logging.WARNING)
+LOG = TangoLogger.getLogger("son-mano-pluginmanger:interface", log_level=logging.INFO, log_json=True)
+TangoLogger.getLogger("werkzeug").setLevel(logging.WARNING)
 
 
 class PluginsEndpoint(fr.Resource):
