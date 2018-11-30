@@ -36,7 +36,7 @@ from datetime import datetime
 from sonmanobase.logger import TangoLogger
 from mongoengine import Document, connect, StringField, DateTimeField, BooleanField, signals
 
-LOG = TangoLogger.getLogger("son-mano-pluginmanger:model", log_level=logging.INFO, log_json=json_logging)
+LOG = TangoLogger.getLogger("son-mano-pluginmanger:model", log_level=logging.INFO, log_json=True)
 
 
 class Plugin(Document):
