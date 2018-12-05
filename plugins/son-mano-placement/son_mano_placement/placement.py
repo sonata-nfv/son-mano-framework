@@ -342,7 +342,7 @@ class PlacementPlugin(ManoBasePlugin):
         # Ensure that VMs can only be deployed on VM VIMs, and containers on container VIMs.
         for vnf in range(len(images_to_map)):
             for vim in range(len(top)):
-                if images_to_map['type'] != top[vim]['type']:
+                if images_to_map[vnf]['type'] != top[vim]['type']:
                     lpProblem += variables[(vnf, vim)] == 0
 
         # Solve the problem
