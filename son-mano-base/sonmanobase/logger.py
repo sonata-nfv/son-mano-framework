@@ -34,6 +34,7 @@ import coloredlogs
 import datetime
 import json
 import sys
+import traceback
 
 
 class TangoLogger(object):
@@ -41,17 +42,14 @@ class TangoLogger(object):
     5GTAGNO logger that allows to switch to "JSON mode" to creat
     JSON log messages in the 5GTANGO format.
     see:
-
     Two modes:
         - log_json = False: Normal colored logging in text format
         - log_json = True: 5GTANGO logging (flat JSON objects and metadata)
-
     Example:
     LOG = TangoLogger.getLogger("logger_name",
                                 log_level=logging.INFO, log_json=True)
     LOG.warning("this is a test message",
                 extra={"start_stop": "START", "status": "201"})
-
     Turns into (printed to a single line):
     {
         "type":"W",
@@ -123,7 +121,6 @@ class TangoJsonLogHandler(logging.StreamHandler):
     Custom log handler to create JSON-based log messages
     as required by the 5GTANGO SP.
     https://github.com/sonata-nfv/tng-gtk-utils
-
     It uses the normal Python logging interface and utilizes
     the "extra" parameter of the logging methods to add additional
     fields (optionally) for the JSON output.
@@ -134,6 +131,15 @@ class TangoJsonLogHandler(logging.StreamHandler):
         Creates a dict in 5GTANGO format from the given record.
         Sets defaults of not given.
         """
+        # fetch exception info and stack trace if available
+        exc_info_str = None
+        if record.exc_info:
+            exc_info_str = str(
+                traceback.format_exception(
+                    record.exc_info[0],
+                    record.exc_info[1],
+                    record.exc_info[2]))
+
         d = {
             # TANGO default fields
             "type": record.levelname[0],
@@ -148,6 +154,8 @@ class TangoJsonLogHandler(logging.StreamHandler):
             "lineno": record.lineno,
             "threadName": record.threadName,
             "processName": record.processName,
+            "stack_info": str(record.stack_info),
+            "exc_info": exc_info_str
         }
         return d
 
