@@ -33,6 +33,7 @@ import logging
 import coloredlogs
 import datetime
 import json
+import sys
 
 
 class TangoLogger(object):
@@ -155,3 +156,4 @@ class TangoJsonLogHandler(logging.StreamHandler):
         We go the simple way here: Just print the JSON :-)
         """
         print(json.dumps(self._to_tango_dict(record)))
+        sys.stdout.flush()
