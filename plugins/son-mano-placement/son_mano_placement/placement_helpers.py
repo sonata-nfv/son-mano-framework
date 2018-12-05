@@ -70,22 +70,40 @@ def get_image_list(vnfs):
     images_to_map = []
     for vnf in vnfs:
         vnfd = vnf['vnfd']
-        for vdu in vnfd['virtual_deployment_units']:
-            new_dict = {}
-            req = vdu['resource_requirements']
-            new_dict['cpu'] = req['cpu']['vcpus']
-            new_dict['ram'] = req['memory']['size']
-            new_dict['storage'] = req['storage']['size']
-            new_dict['function_id'] = vnf['id']
-            new_dict['id'] = str(vnf['id']) + '_' + vdu['id']
-            new_dict['needs_placement'] = True
-            if 'deployed' in vnf.keys():
-                new_dict['needs_placement'] = False
-                new_dict['vim'] = vnf['vim_uuid']
+        if 'virtual_deployment_units' in vnfd:
+            for vdu in vnfd['virtual_deployment_units']:
+                new_dict = {}
+                req = vdu['resource_requirements']
+                new_dict['type'] = 'vm'
+                new_dict['cpu'] = req['cpu']['vcpus']
+                new_dict['ram'] = req['memory']['size']
+                new_dict['storage'] = req['storage']['size']
+                new_dict['function_id'] = vnf['id']
+                new_dict['id'] = str(vnf['id']) + '_' + vdu['id']
+                new_dict['needs_placement'] = True
+                if 'deployed' in vnf.keys():
+                    new_dict['needs_placement'] = False
+                    new_dict['vim'] = vnf['vim_uuid']
+                    new_dict['cpu'] = 0
+                    new_dict['ram'] = 0
+                    new_dict['storage'] = 0
+                images_to_map.append(new_dict)
+
+        if 'cloudnative_deployment_units' in vnfd:
+            for vdu in vnfd['cloudnative_deployment_units']:
+                new_dict = {}
+                new_dict['type'] = 'container'
                 new_dict['cpu'] = 0
                 new_dict['ram'] = 0
                 new_dict['storage'] = 0
-            images_to_map.append(new_dict)
+                new_dict['function_id'] = vnf['id']
+                new_dict['id'] = str(vnf['id']) + '_' + vdu['id']
+                new_dict['needs_placement'] = True
+                if 'deployed' in vnf.keys():
+                    new_dict['needs_placement'] = False
+                    new_dict['vim'] = vnf['vim_uuid']
+                images_to_map.append(new_dict)
+
 
     return images_to_map
 
