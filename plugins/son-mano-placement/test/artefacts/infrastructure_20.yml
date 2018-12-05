@@ -7,6 +7,7 @@
   vim_endpoint: 10.100.32.200
   vim_name: Athens
   vim_uuid: 1111-22222222-33333333-4444
+  type: vm
 - core_total: 50
   core_used: 30
   memory_total: 50
@@ -16,7 +17,9 @@
   vim_endpoint: 10.1.10.1
   vim_name: Aveiro
   vim_uuid: 1111-22222222-33333333-5555
+  type: vm
 - core_total: 50
+  type: vm
   core_used: 40
   memory_total: 50
   memory_used: 40

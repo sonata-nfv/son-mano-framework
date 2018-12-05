@@ -303,8 +303,9 @@ class PlacementPlugin(ManoBasePlugin):
         # Set hard constraints
         # PoP resources can not be violated
         for vim in range(len(top)):
-            lpProblem += top[vim]['core_used'] + sum(images_to_map[x[0]]['cpu'] * variables[x] for x in decision_vars if x[1] == vim) <= top[vim]['core_total']
-            lpProblem += top[vim]['memory_used'] + sum(images_to_map[x[0]]['ram'] * variables[x] for x in decision_vars if x[1] == vim) <= top[vim]['memory_total']
+            if top[vim]['type'] == 'vm':
+                lpProblem += top[vim]['core_used'] + sum(images_to_map[x[0]]['cpu'] * variables[x] for x in decision_vars if x[1] == vim) <= top[vim]['core_total']
+                lpProblem += top[vim]['memory_used'] + sum(images_to_map[x[0]]['ram'] * variables[x] for x in decision_vars if x[1] == vim) <= top[vim]['memory_total']
 
         # Every VNF that needs to be placed should be assigned to one PoP
         for vnf in range(len(images_to_map)):
@@ -337,6 +338,12 @@ class PlacementPlugin(ManoBasePlugin):
                         if images_to_map[vdu_index_1]['function_id'] == images_to_map[vdu_index_2]['function_id']:
                             for pop_index in range(len(top)):
                                 lpProblem += variables[(vdu_index_1, pop_index)] == variables[(vdu_index_2, pop_index)]
+
+        # Ensure that VMs can only be deployed on VM VIMs, and containers on container VIMs.
+        for vnf in range(len(images_to_map)):
+            for vim in range(len(top)):
+                if images_to_map['type'] != top[vim]['type']:
+                    lpProblem += variables[(vnf, vim)] == 0
 
         # Solve the problem
         lpProblem.solve()
