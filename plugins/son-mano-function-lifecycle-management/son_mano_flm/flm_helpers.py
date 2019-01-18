@@ -144,7 +144,7 @@ def build_vnfr(ia_vnfr, vnfd):
     vnfr['id'] = ia_vnfr['id']
     # Building the vnfr makes it the first version of this vnfr.
     vnfr['version'] = '1'
-    vnfr['status'] = "normal operation"
+    vnfr['status'] = ia_vnfr['status']
     vnfr['descriptor_reference'] = ia_vnfr['descriptor_reference']
 
     # deployment flavour
@@ -152,42 +152,47 @@ def build_vnfr(ia_vnfr, vnfd):
         vnfr['deployment_flavour'] = ia_vnfr['deployment_flavour']
 
     # virtual_deployment_units
-    vnfr['virtual_deployment_units'] = []
-    for ia_vdu in ia_vnfr['virtual_deployment_units']:
-        vnfd_vdu = get_vnfd_vdu_by_reference(vnfd, ia_vdu['vdu_reference'])
+    if 'virtual_deployment_units' in ia_vnfr:
+        vnfr['virtual_deployment_units'] = []
+        for ia_vdu in ia_vnfr['virtual_deployment_units']:
+            vnfd_vdu = get_vnfd_vdu_by_reference(vnfd, ia_vdu['vdu_reference'])
 
-        vdu = {}
-        # vdu info returned by IA
-        # mandatofy info
-        vdu['id'] = ia_vdu['id'].split('-')[0]
-        vdu['resource_requirements'] = vnfd_vdu['resource_requirements']
+            vdu = {}
+            # vdu info returned by IA
+            # mandatofy info
+            vdu['id'] = ia_vdu['id'].split('-')[0]
+            vdu['resource_requirements'] = vnfd_vdu['resource_requirements']
 
-        # vdu optional info
-        if 'vm_image' in ia_vdu:
-            vdu['vm_image'] = ia_vdu['vm_image']
-        if 'vdu_reference' in ia_vdu:
-            vdu['vdu_reference'] = ia_vdu['vdu_reference']
-        if 'number_of_instances' in ia_vdu:
-            vdu['number_of_instances'] = ia_vdu['number_of_instances']
-        # vdu vnfc-instances (optional)
-        vdu['vnfc_instance'] = []
-        if 'vnfc_instance' in ia_vdu:
-            for ia_vnfc in ia_vdu['vnfc_instance']:
-                vnfc = {}
-                vnfc['id'] = ia_vnfc['id']
-                vnfc['vim_id'] = ia_vnfc['vim_id']
-                vnfc['vc_id'] = ia_vnfc['vc_id']
-                vnfc['connection_points'] = ia_vnfc['connection_points']
-                vdu['vnfc_instance'].append(vnfc)
+            # vdu optional info
+            if 'vm_image' in ia_vdu:
+                vdu['vm_image'] = ia_vdu['vm_image']
+            if 'vdu_reference' in ia_vdu:
+                vdu['vdu_reference'] = ia_vdu['vdu_reference']
+            if 'number_of_instances' in ia_vdu:
+                vdu['number_of_instances'] = ia_vdu['number_of_instances']
+            # vdu vnfc-instances (optional)
+            vdu['vnfc_instance'] = []
+            if 'vnfc_instance' in ia_vdu:
+                for ia_vnfc in ia_vdu['vnfc_instance']:
+                    vnfc = {}
+                    vnfc['id'] = ia_vnfc['id']
+                    vnfc['vim_id'] = ia_vnfc['vim_id']
+                    vnfc['vc_id'] = ia_vnfc['vc_id']
+                    vnfc['connection_points'] = ia_vnfc['connection_points']
+                    vdu['vnfc_instance'].append(vnfc)
 
-        # vdu monitoring-parameters (optional)
+            # vdu monitoring-parameters (optional)
 
-        if vnfd_vdu is not None and 'monitoring_parameters' in vnfd_vdu:
-            vdu['monitoring_parameters'] = vnfd_vdu['monitoring_parameters']
+            if vnfd_vdu is not None and 'monitoring_parameters' in vnfd_vdu:
+                vdu['monitoring_parameters'] = vnfd_vdu['monitoring_parameters']
 
-        vnfr['virtual_deployment_units'].append(vdu)
+            vnfr['virtual_deployment_units'].append(vdu)
 
-    # connection points && virtual links (optional)
+    # cloudnative_deployment_units
+    if 'cloudnative_deployment_units' in ia_vnfr:
+        vnfr["cloudnative_deployment_units"] = ia_vnfr["cloudnative_deployment_units"]
+
+    connection points && virtual links (optional)
     if 'connection_points' in ia_vnfr:
         vnfr['connection_points'] = ia_vnfr['connection_points']
     if 'virtual_links' in vnfd:
