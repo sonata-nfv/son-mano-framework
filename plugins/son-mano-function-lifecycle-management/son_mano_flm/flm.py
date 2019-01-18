@@ -878,28 +878,28 @@ class FunctionLifecycleManager(ManoBasePlugin):
 #            try:
         url = t.vnfr_path
         header = {'Content-Type': 'application/json'}
-        try:
-            vnfr_response = requests.post(url,
-                                          data=json.dumps(vnfr),
-                                          headers=header,
-                                          timeout=10.0)
-            LOG.info("Storing VNFR on " + url)
-            LOG.debug("VNFR: " + str(vnfr))
-            if (vnfr_response.status_code == 200):
-                LOG.info("VNFR storage accepted.")
-            # If storage fails, add error code and message to rply to gk
-            else:
-                LOG.info('http_code: ' + vnfr_response.status_code)
-                LOG.info('message: ' + json.loads(vnfr_response.text))
-                error = {'http_code': vnfr_response.status_code,
-                         'message': vnfr_response.json()}
-                self.functions[func_id]['error'] = error
-                LOG.info('vnfr to repo failed: ' + str(error))
-        except:
-            error = {'http_code': '0',
-                     'message': 'Timeout contacting VNFR server'}
+        # try:
+        vnfr_response = requests.post(url,
+                                      data=json.dumps(vnfr),
+                                      headers=header,
+                                      timeout=10.0)
+        LOG.info("Storing VNFR on " + url)
+        LOG.debug("VNFR: " + str(vnfr))
+        if (vnfr_response.status_code == 200):
+            LOG.info("VNFR storage accepted.")
+        # If storage fails, add error code and message to rply to gk
+        else:
+            LOG.info('http_code: ' + vnfr_response.status_code)
+            LOG.info('message: ' + json.loads(vnfr_response.text))
+            error = {'http_code': vnfr_response.status_code,
+                     'message': vnfr_response.json()}
             self.functions[func_id]['error'] = error
-            LOG.info('time-out on vnfr to repo')
+            LOG.info('vnfr to repo failed: ' + str(error))
+        # except:
+        #     error = {'http_code': '0',
+        #              'message': 'Timeout contacting VNFR server'}
+        #     self.functions[func_id]['error'] = error
+        #     LOG.info('time-out on vnfr to repo')
 
         return
 
