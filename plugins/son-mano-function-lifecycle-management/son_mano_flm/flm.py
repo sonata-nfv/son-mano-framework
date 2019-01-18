@@ -889,8 +889,8 @@ class FunctionLifecycleManager(ManoBasePlugin):
             LOG.info("VNFR storage accepted.")
         # If storage fails, add error code and message to rply to gk
         else:
-            LOG.info('http_code: ' + vnfr_response.status_code)
-            LOG.info('message: ' + json.loads(vnfr_response.text))
+            LOG.info('http_code: ' + str(vnfr_response.status_code))
+            LOG.info('message: ' + str(json.loads(vnfr_response.text)))
             error = {'http_code': vnfr_response.status_code,
                      'message': vnfr_response.json()}
             self.functions[func_id]['error'] = error
