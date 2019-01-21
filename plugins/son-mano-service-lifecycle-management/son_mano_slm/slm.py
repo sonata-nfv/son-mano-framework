@@ -2141,12 +2141,17 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method instructs the IA how to chain the functions together.
         """
 
+        nsd = self.services[serv_id]['service']['nsd']
+
+        if 'forwarding_graphs' not in nsd:
+            return
+
         corr_id = str(uuid.uuid4())
         self.services[serv_id]['act_corr_id'] = corr_id
 
         chain = {}
         chain["service_instance_id"] = serv_id
-        chain["nsd"] = self.services[serv_id]['service']['nsd']
+        chain["nsd"] = nsd
 
         vnfrs = []
         vnfds = []
