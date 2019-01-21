@@ -2637,6 +2637,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method instructs the monitoring manager to start monitoring
         """
 
+        # Disabling monitoring for cloudnative services
+        for vnf in self.services[serv_id]['function']:
+            if 'cloudnative_deployment_units' in vnf['vnfd']:
+                msg = ": No monitoring because of CNF presence."
+                LOG.info("Service " + serv_id + msg)
+                return
+
         # Configure the Monitoring SSM, if present
         if 'monitor' in self.services[serv_id]['service']['ssm'].keys():
             LOG.info("Service " + serv_id + ": Sending descriptors to Mon SSM")
