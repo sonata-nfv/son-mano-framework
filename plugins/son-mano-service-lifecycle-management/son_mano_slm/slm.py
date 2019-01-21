@@ -2144,6 +2144,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         nsd = self.services[serv_id]['service']['nsd']
 
         if 'forwarding_graphs' not in nsd:
+            msg = ": No fowarding graph, no chaining"
+            LOG.info("Service " + serv_id + msg)
             return
 
         corr_id = str(uuid.uuid4())
