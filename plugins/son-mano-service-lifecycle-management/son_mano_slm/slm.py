@@ -2134,6 +2134,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         This method instructs the IA how to chain the functions together.
         """
+        nsd = self.services[serv_id]['service']['nsd']
+        if 'forwarding_graphs' not in nsd:
+            msg = ": No forwarding graph, no chaining"
+            LOG.info("Service " + serv_id + msg)
+            return
 
         corr_id = str(uuid.uuid4())
         self.services[serv_id]['act_corr_id'] = corr_id
@@ -2203,6 +2208,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         This method instructs the IA to unchain the functions in the service.
         """
+        nsd = self.services[serv_id]['service']['nsd']
+        if 'forwarding_graphs' not in nsd:
+            msg = ": No forwarding graph, no unchaining"
+            LOG.info("Service " + serv_id + msg)
+            return
+
         msg = ": Deconfiguring the chaining of the service"
         LOG.info("Service " + serv_id + msg)
 
@@ -2546,6 +2557,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         This method will deconfigure the WAN
         """
+        nsd = self.services[serv_id]['service']['nsd']
+        if 'forwarding_graphs' not in nsd:
+            msg = ": No forwarding graph, no wan deconfiguring"
+            LOG.info("Service " + serv_id + msg)
+            return
 
         LOG.info("Service " + serv_id + ": WAN Deonfiguration")
         corr_id = str(uuid.uuid4())
