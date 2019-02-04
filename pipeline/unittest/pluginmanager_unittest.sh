@@ -39,7 +39,7 @@ echo "Run unittests Plugin Manager"
 
 # execute the container in test mode
 docker run --name test.mano.pluginmanager --net=son-mano-unittests \
---network-alias=pluginmanager --name test.mano.pluginmanager:v4.0 registry.sonata-nfv.eu:5000/pluginmanager py.test -v
+--network-alias=pluginmanager --name test.mano.pluginmanager registry.sonata-nfv.eu:5000/pluginmanager:v4.0 py.test -v
 
 echo "Plugin Manager unittests finised"
 
