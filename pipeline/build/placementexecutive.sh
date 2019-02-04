@@ -32,4 +32,4 @@
 
 #!/bin/bash
 set -e
-docker build -t registry.sonata-nfv.eu:5000/placementexecutive -f plugins/son-mano-placement-executive/Dockerfile .
+docker build -t registry.sonata-nfv.eu:5000/placementexecutive:v4.0 -f plugins/son-mano-placement-executive/Dockerfile .

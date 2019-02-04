@@ -96,52 +96,6 @@ pipeline {
         }
       }
     }
-    stage('Publish to :latest') {
-      parallel {
-        stage('Service Lifecycle Manager') {
-          steps {
-            echo 'Publishing Service Lifecycle Manager container'
-            sh './pipeline/publish/servicelifecyclemanagement.sh latest'
-          }
-        }
-        stage('Function Lifecycle Manager') {
-          steps {
-            echo 'Publishing Function Lifecycle Manager container'
-            sh './pipeline/publish/functionlifecyclemanagement.sh latest'
-          }
-        }
-        stage('Plugin Manager') {
-          steps {
-            echo 'Publishing Plugin Manager container'
-            sh './pipeline/publish/pluginmanager.sh latest'
-          }
-        }
-        stage('sonmanobase') {
-          steps {
-            echo 'Publishing sonmanobase container'
-            sh './pipeline/publish/sonmanobase.sh latest'
-          }
-        }
-        stage('Specifc Manager Registry') {
-          steps {
-            echo 'Publishing Specific Manager Registry container'
-            sh './pipeline/publish/specificmanagerregistry.sh latest'
-          }
-        }
-        stage('Placement Executive') {
-          steps {
-            echo 'Publishing Placement Executive container'
-            sh './pipeline/publish/placementexecutive.sh latest'
-          }
-        }
-        stage('Placement Plugin') {
-          steps {
-            echo 'Publishing Placement Plugin container'
-            sh './pipeline/publish/placementplugin.sh latest'
-          }
-        }
-      }
-    }
     stage('Publishing to :v4.0') {
       when{
         branch 'v4.0'
