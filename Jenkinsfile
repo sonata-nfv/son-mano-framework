@@ -96,10 +96,7 @@ pipeline {
         }
       }
     }
-    stage('Publishing to :v4.0') {
-      when{
-        branch 'v4.0'
-      }      
+    stage('Publishing to v4.0') {   
       parallel {
         stage('Service Lifecycle Manager') {
           steps {
