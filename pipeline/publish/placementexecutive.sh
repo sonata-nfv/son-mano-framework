@@ -35,6 +35,7 @@ set -e
 
 TAG=$1
 
-docker tag registry.sonata-nfv.eu:5000/placementexecutive:latest registry.sonata-nfv.eu:5000/placementexecutive":$TAG"
+docker tag registry.sonata-nfv.eu:5000/placementexecutive":$TAG" sonatanfv/placementexecutive":$TAG"
 
 docker push registry.sonata-nfv.eu:5000/placementexecutive":$TAG"
+docker push sonatanfv/placementexecutive":$TAG"

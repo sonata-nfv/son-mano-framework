@@ -39,7 +39,7 @@ echo "Run Plugin Manager, to be used by next unittests"
 
 # execute the container
 docker run -d --name test.mano.pluginmanager --net=son-mano-unittests \
---network-alias=pluginmanager --name test.mano.pluginmanager registry.sonata-nfv.eu:5000/pluginmanager
+--network-alias=pluginmanager --name test.mano.pluginmanager registry.sonata-nfv.eu:5000/pluginmanager:v4.0
 
 while [ true ];
 do
