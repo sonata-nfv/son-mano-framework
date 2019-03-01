@@ -1545,16 +1545,24 @@ class ServiceLifecycleManager(ManoBasePlugin):
                                                    'vm_images': []})
                     index = len(IA_mapping['vim_list']) - 1
 
-                for vdu in function['vnfd']['virtual_deployment_units']:
-                    url = vdu['vm_image']
-                    vm_uuid = tools.generate_image_uuid(vdu, function['vnfd'])
+                if 'virtual_deployment_units' in function['vnfd']:
+                    for vdu in function['vnfd']['virtual_deployment_units']:
+                        url = vdu['vm_image']
+                        vm_uuid = tools.generate_image_uuid(vdu, function['vnfd'])
 
-                    content = {'image_uuid': vm_uuid, 'image_url': url}
+                        content = {'image_uuid': vm_uuid, 'image_url': url}
 
-                    if 'vm_image_md5' in vdu.keys():
-                        content['image_md5'] = vdu['vm_image_md5']
+                        if 'vm_image_md5' in vdu.keys():
+                            content['image_md5'] = vdu['vm_image_md5']
 
-                    IA_mapping['vim_list'][index]['vm_images'].append(content)
+                        IA_mapping['vim_list'][index]['vm_images'].append(content)
+
+                if 'cloudnative_deployment_units' in function['vnfd']:
+                    for vdu in function['vnfd']['cloudnative_deployment_units']:
+                        url = vdu['image']
+                        content = {'image_url': url}                        
+                        IA_mapping['vim_list'][index]['vm_images'].append(content)
+
 
         if len(IA_mapping['vim_list']) > 0:
             msg = ": new PoPs to be used: " + str(IA_mapping['vim_list'])
@@ -2133,12 +2141,19 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method instructs the IA how to chain the functions together.
         """
 
+        nsd = self.services[serv_id]['service']['nsd']
+
+        if 'forwarding_graphs' not in nsd:
+            msg = ": No fowarding graph, no chaining"
+            LOG.info("Service " + serv_id + msg)
+            return
+
         corr_id = str(uuid.uuid4())
         self.services[serv_id]['act_corr_id'] = corr_id
 
         chain = {}
         chain["service_instance_id"] = serv_id
-        chain["nsd"] = self.services[serv_id]['service']['nsd']
+        chain["nsd"] = nsd
 
         vnfrs = []
         vnfds = []
@@ -2201,6 +2216,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         This method instructs the IA to unchain the functions in the service.
         """
+        nsd = self.services[serv_id]['service']['nsd']
+        if 'forwarding_graphs' not in nsd:
+            msg = ": No forwarding graph, no unchaining"
+            LOG.info("Service " + serv_id + msg)
+            return
+
         msg = ": Deconfiguring the chaining of the service"
         LOG.info("Service " + serv_id + msg)
 
@@ -2545,6 +2566,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method will deconfigure the WAN
         """
 
+        nsd = self.services[serv_id]['service']['nsd']
+        if 'forwarding_graphs' not in nsd:
+            msg = ": No forwarding graph, no wan deconfiguring"
+            LOG.info("Service " + serv_id + msg)
+            return
+
         LOG.info("Service " + serv_id + ": WAN Deonfiguration")
         corr_id = str(uuid.uuid4())
         self.services[serv_id]['act_corr_id'] = corr_id
@@ -2621,6 +2648,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         This method instructs the monitoring manager to start monitoring
         """
+
+        # Disabling monitoring for cloudnative services
+        for vnf in self.services[serv_id]['function']:
+            if 'cloudnative_deployment_units' in vnf['vnfd']:
+                msg = ": No monitoring because of CNF presence."
+                LOG.info("Service " + serv_id + msg)
+                return
 
         # Configure the Monitoring SSM, if present
         if 'monitor' in self.services[serv_id]['service']['ssm'].keys():
@@ -2787,16 +2821,20 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 msg = "VNFD instance id generated: " + vnf_id
                 LOG.info("Service " + serv_id + msg)
                 vnfd = payload[key]
-                vnf_base_dict = {'start': {'trigger': True, 'payload': {}},
-                                 'stop': {'trigger': True, 'payload': {}},
-                                 'configure': {'trigger': True, 'payload': {}},
-                                 'scale': {'trigger': True, 'payload': {}},
-                                 'vnfd': vnfd,
-                                 'id': vnf_id}
+                vnf_base = {'start': {'trigger': True, 'payload': {}},
+                            'stop': {'trigger': True, 'payload': {}},
+                            'configure': {'trigger': True, 'payload': {}},
+                            'scale': {'trigger': True, 'payload': {}},
+                            'vnfd': vnfd,
+                            'id': vnf_id}
 
-                for vdu in vnf_base_dict['vnfd']['virtual_deployment_units']:
-                    vdu['id'] = vdu['id'] + '-' + vnf_id
-                self.services[serv_id]['function'].append(vnf_base_dict)
+                if 'virtual_deployment_units' in vnf_base['vnfd'].keys():
+                    for vdu in vnf_base['vnfd']['virtual_deployment_units']:
+                        vdu['id'] = vdu['id'] + '-' + vnf_id
+                if 'cloudnative_deployment_units' in vnf_base['vnfd'].keys():
+                    for vdu in vnf_base['vnfd']['cloudnative_deployment_units']:
+                        vdu['id'] = vdu['id'] + '-' + vnf_id
+                self.services[serv_id]['function'].append(vnf_base)
 
         # Add to correlation id to the ledger
         self.services[serv_id]['original_corr_id'] = corr_id
@@ -2968,7 +3006,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 request_returned_with_error(request, 'VNFR')
                 return None
 
-            vdu = request['content']['virtual_deployment_units'][0]
+            if 'virtual_deployment_units' in request['content'].keys():
+                vdu = request['content']['virtual_deployment_units'][0]
+
+            if 'cloudnative_deployment_units' in request['content'].keys():
+                vdu = request['content']['cloudnative_deployment_units'][0]
+
             vim_id = vdu['vnfc_instance'][0]['vim_id']
 
             new_function = {'id': vnf['vnfr_id'],
@@ -3002,8 +3045,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
             vnf['vnfd'] = req['content']['vnfd']
             vnf['vnfd']['uuid'] = vnfd_id
 
-            for vdu in vnf['vnfd']['virtual_deployment_units']:
-                vdu['id'] = vdu['id'] + '-' + vnf['id']
+            if 'virtual_deployment_units' in vnf['vnfd'].keys():
+                for vdu in vnf['vnfd']['virtual_deployment_units']:
+                    vdu['id'] = vdu['id'] + '-' + vnf_id
+            if 'cloudnative_deployment_units' in vnf['vnfd'].keys():
+                for vdu in vnf['vnfd']['cloudnative_deployment_units']:
+                    vdu['id'] = vdu['id'] + '-' + vnf_id
 
             LOG.info("Service " + serv_id + ": Recreate: VNFD retrieved.")
 

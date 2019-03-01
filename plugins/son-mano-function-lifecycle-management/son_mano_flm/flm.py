@@ -1242,9 +1242,14 @@ class FunctionLifecycleManager(ManoBasePlugin):
         if 'vim_id' in payload.keys():
             self.functions[func_id]['vim_uuid'] = payload['vim_id']
         else:
-            vdus = self.functions[func_id]['vnfr']['virtual_deployment_units']
-            vim_id = vdus[0]['vnfc_instance'][0]['vim_id']
-            self.functions[func_id]['vim_uuid'] = vim_id
+            if 'virtual_deployment_units' in self.functions[func_id]['vnfr']:
+                vdus = self.functions[func_id]['vnfr']['virtual_deployment_units']
+                vim_id = vdus[0]['vnfc_instance'][0]['vim_id']
+                self.functions[func_id]['vim_uuid'] = vim_id
+            if 'cloudnative_deployment_units' in self.functions[func_id]['vnfr']:
+                cdus = self.functions[func_id]['vnfr']['cloudnative_deployment_units']
+                vim_id = cdus[0]['vim_id']
+                self.functions[func_id]['vim_uuid'] = vim_id
 
         # Create the function schedule
         self.functions[func_id]['schedule'] = []

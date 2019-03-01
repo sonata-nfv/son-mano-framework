@@ -77,7 +77,11 @@ def get_image_list(vnfs):
                 new_dict['type'] = 'vm'
                 new_dict['cpu'] = req['cpu']['vcpus']
                 new_dict['ram'] = req['memory']['size']
+                if req['memory']['size_unit'] == 'MB':
+                    new_dict['ram'] = new_dict['ram'] / 1024.0
                 new_dict['storage'] = req['storage']['size']
+                if req['storage']['size_unit'] == 'MB':
+                    new_dict['storage'] = new_dict['storage'] / 1024.0
                 new_dict['function_id'] = vnf['id']
                 new_dict['id'] = str(vnf['id']) + '_' + vdu['id']
                 new_dict['needs_placement'] = True

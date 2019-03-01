@@ -552,66 +552,67 @@ def build_monitoring_message(service, functions, userdata):
 
         vdu_hostid = []
 
-        # we should create one function per virtual deployment unit
-        for vdu in vnfr['virtual_deployment_units']:
+        if 'virtual_deployment_units' in vnfr:
+            # we should create one function per virtual deployment unit
+            for vdu in vnfr['virtual_deployment_units']:
 
-            for vdu_d in vnfd['virtual_deployment_units']:
-                if vdu_d['id'].split('-')[0] == vdu['id']:
-                    vdu_descriptor = vdu_d
-                    break
+                for vdu_d in vnfd['virtual_deployment_units']:
+                    if vdu_d['id'].split('-')[0] == vdu['id']:
+                        vdu_descriptor = vdu_d
+                        break
 
-            for vnfc in vdu['vnfc_instance']:
-                vdu_hostid.append({vdu['id']: vnfc['vc_id']})
+                for vnfc in vdu['vnfc_instance']:
+                    vdu_hostid.append({vdu['id']: vnfc['vc_id']})
 
-                function = {}
-                function['sonata_func_id'] = vnfr['id']
-                function['name'] = vnfd['name']
-                function['description'] = vnfd['description']
-                function['pop_id'] = vnfc['vim_id']
-                function['host_id'] = vnfc['vc_id']
-                function['metrics'] = []
+                    function = {}
+                    function['sonata_func_id'] = vnfr['id']
+                    function['name'] = vnfd['name']
+                    function['description'] = vnfd['description']
+                    function['pop_id'] = vnfc['vim_id']
+                    function['host_id'] = vnfc['vc_id']
+                    function['metrics'] = []
 
-                if 'monitoring_parameters' in vdu_descriptor:
+                    if 'monitoring_parameters' in vdu_descriptor:
 
-                    for mp in vdu_descriptor['monitoring_parameters']:
-                        metric = {}
-                        metric['name'] = mp['name']
-                        metric['unit'] = mp['unit']
+                        for mp in vdu_descriptor['monitoring_parameters']:
+                            metric = {}
+                            metric['name'] = mp['name']
+                            metric['unit'] = mp['unit']
 
-                        associated_rule = get_associated_rule(vnfd, mp['name'])
-                        if (associated_rule is not None):
-                            if 'threshold' in mp.keys():
-                                metric['threshold'] = mp['threshold']
-                            else:
-                                metric['threshold'] = None
-                            if 'frequency' in mp.keys():
-                                metric['interval'] = mp['frequency']
-                            else:
-                                metric['interval'] = None
-                            if 'command' in mp.keys():
-                                metric['cmd'] = mp['command']
-                            else:
-                                metric['cmd'] = None
-                            if 'description' in mp.keys():
-                                metric['description'] = mp['description']
-                            else:
-                                metric['description'] = ""
+                            associated_rule = get_associated_rule(vnfd, mp['name'])
+                            if (associated_rule is not None):
+                                if 'threshold' in mp.keys():
+                                    metric['threshold'] = mp['threshold']
+                                else:
+                                    metric['threshold'] = None
+                                if 'frequency' in mp.keys():
+                                    metric['interval'] = mp['frequency']
+                                else:
+                                    metric['interval'] = None
+                                if 'command' in mp.keys():
+                                    metric['cmd'] = mp['command']
+                                else:
+                                    metric['cmd'] = None
+                                if 'description' in mp.keys():
+                                    metric['description'] = mp['description']
+                                else:
+                                    metric['description'] = ""
 
-                            function['metrics'].append(metric)
+                                function['metrics'].append(metric)
 
-                if 'snmp_parameters' in vdu_descriptor:
-                    function['snmp'] = {}
-                    function['snmp'] = vdu_descriptor['snmp_parameters']
-                    function['snmp']['password'] = "supercalifrajilistico"
-                    function['snmp']['entity_id'] = vnfc['vc_id']
+                    if 'snmp_parameters' in vdu_descriptor:
+                        function['snmp'] = {}
+                        function['snmp'] = vdu_descriptor['snmp_parameters']
+                        function['snmp']['password'] = "supercalifrajilistico"
+                        function['snmp']['entity_id'] = vnfc['vc_id']
 
-                    mgmt_ip = ''
-                    for cp in vnfc['connection_points']:
-                        if cp['id'] == 'mgmt':
-                            mgmt_ip = cp['interface']['address']
-                    function['snmp']['ip'] = mgmt_ip
+                        mgmt_ip = ''
+                        for cp in vnfc['connection_points']:
+                            if cp['id'] == 'mgmt':
+                                mgmt_ip = cp['interface']['address']
+                        function['snmp']['ip'] = mgmt_ip
 
-                message['functions'].append(function)
+                    message['functions'].append(function)
 
         if 'monitoring_rules' in vnfd.keys():
 
