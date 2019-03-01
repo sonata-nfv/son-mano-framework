@@ -3047,10 +3047,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
             if 'virtual_deployment_units' in vnf['vnfd'].keys():
                 for vdu in vnf['vnfd']['virtual_deployment_units']:
-                    vdu['id'] = vdu['id'] + '-' + vnf_id
+                    vdu['id'] = vdu['id'] + '-' + vnf['id']
             if 'cloudnative_deployment_units' in vnf['vnfd'].keys():
                 for vdu in vnf['vnfd']['cloudnative_deployment_units']:
-                    vdu['id'] = vdu['id'] + '-' + vnf_id
+                    vdu['id'] = vdu['id'] + '-' + vnf['id']
 
             LOG.info("Service " + serv_id + ": Recreate: VNFD retrieved.")
 
