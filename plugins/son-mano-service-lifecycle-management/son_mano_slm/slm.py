@@ -3008,12 +3008,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
             if 'virtual_deployment_units' in request['content'].keys():
                 vdu = request['content']['virtual_deployment_units'][0]
+                vim_id = vdu['vnfc_instance'][0]['vim_id']
 
             if 'cloudnative_deployment_units' in request['content'].keys():
                 vdu = request['content']['cloudnative_deployment_units'][0]
-
-            vim_id = vdu['vnfc_instance'][0]['vim_id']
-
+                vim_id = vdu['vim_id']
+            
             new_function = {'id': vnf['vnfr_id'],
                             'start': {'trigger': True, 'payload': {}},
                             'stop': {'trigger': True, 'payload': {}},
