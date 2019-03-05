@@ -1076,16 +1076,83 @@ class FunctionLifecycleManager(ManoBasePlugin):
         response = yaml.load(payload)
 
         func_id = tools.funcid_from_corrid(self.functions, prop.correlation_id)
-        fsm_type = self.functions[func_id]['active_fsm']
+        function = self.functions[func_id]
+        fsm_type = function['active_fsm']
 
         LOG.info("Response from " + fsm_type + " FSM received")
 
         if response['status'] == "COMPLETED":
             LOG.info("FSM finished successfully")
-
+            if 'envs' in response.keys():
+                if function['type'] is not 'container':
+                    msg = 'type is not container, ignoring envs from fsm'
+                    LOG.info("Function " + func_id + msg)
+                else:
+                    if type(response['envs']) == dict:
+                        function['envs'] == response['envs']
+                        function['schedule'].insert(0, 'func_ia_configure')
+                    else:
+                        message = 'envs is not a dictionary'
+                        function["error"] = message
+                        self.flm_error(func_id)
         else:
             LOG.info(fsm_type + " FSM failed: " + response['error'])
-            self.functions[func_id]["error"] = response['error']
+            function["error"] = response['error']
+            self.flm_error(func_id)
+            return
+
+        self.start_next_task(func_id)
+
+    def func_ia_configure(self, func_id):
+        """
+        This method sends a CNF configure message to the IA, which has to
+        forward it the the k8s wrapper.
+        """
+
+        msg = 'Preparing message for k8s wrapper configure request'
+        LOG.info("Function " + func_id + msg)
+
+        function = self.functions[func_id]
+        cdu = function['vnfr']['cloudnative_deployment_units']
+        message = {}
+        message['vim_uuid'] = function['vim_uuid']
+        message['envs'] = function['envs']
+        message['service_instance_id'] = function['serv_id']
+        message['func_id'] = func_id
+        message['cdu_id'] = cdu[0]['cdu_reference']
+
+        payload = yaml.dump(message)
+
+        corr_id = str(uuid.uuid4())
+        self.functions[func_id]['act_corr_id'] = corr_id
+
+        msg = ": IA contacted for function configure."
+        LOG.info("Function " + func_id + msg)
+
+        # Making the call
+        self.manoconn.call_async(self.ia_configure_response,
+                                 t.IA_CONFIG,
+                                 payload,
+                                 correlation_id=corr_id)
+
+        # Pause the chain
+        self.functions[func_id]['pause_chain'] = True
+
+    def ia_configure_response(self, ch, method, prop, payload):
+        """
+        This method handles a response to a generic FSM trigger call
+        """
+        response = yaml.load(payload)
+
+        func_id = tools.funcid_from_corrid(self.functions, prop.correlation_id)
+
+        msg = 'Response received from IA on configure call'
+        LOG.info("Function " + func_id + msg)
+
+        if response['error'] is not None:
+            msg = ': CNF configure event failed: ' + response['error']
+            LOG.info("Function " + func_id + msg)
+            function["error"] = response['error']
             self.flm_error(func_id)
             return
 
@@ -1246,10 +1313,12 @@ class FunctionLifecycleManager(ManoBasePlugin):
                 vdus = self.functions[func_id]['vnfr']['virtual_deployment_units']
                 vim_id = vdus[0]['vnfc_instance'][0]['vim_id']
                 self.functions[func_id]['vim_uuid'] = vim_id
+                self.functions[func_id]['type'] = 'vm'
             if 'cloudnative_deployment_units' in self.functions[func_id]['vnfr']:
                 cdus = self.functions[func_id]['vnfr']['cloudnative_deployment_units']
                 vim_id = cdus[0]['vim_id']
                 self.functions[func_id]['vim_uuid'] = vim_id
+                self.functions[func_id]['type'] = 'container'
 
         # Create the function schedule
         self.functions[func_id]['schedule'] = []
