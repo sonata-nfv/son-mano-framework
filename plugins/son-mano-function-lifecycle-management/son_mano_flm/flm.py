@@ -1101,6 +1101,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
             self.flm_error(func_id)
             return
 
+        LOG.info(str(self.functions[func_id]['schedule']))
         self.start_next_task(func_id)
 
     def func_ia_configure(self, func_id):
