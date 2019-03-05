@@ -1089,7 +1089,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
                     LOG.info("Function " + func_id + msg)
                 else:
                     if type(response['envs']) == dict:
-                        function['envs'] == response['envs']
+                        function['envs'] = response['envs']
                         function['schedule'].insert(0, 'func_ia_configure')
                     else:
                         message = 'envs is not a dictionary'
