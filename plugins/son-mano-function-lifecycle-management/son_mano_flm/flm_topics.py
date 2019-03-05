@@ -51,6 +51,7 @@ VNF_REMOVE = "mano.function.remove"
 # With infrastructure adaptor
 IA_DEPLOY = 'infrastructure.function.deploy'
 IA_REMOVE = 'infrastructure.function.remove'
+IA_CONFIG = 'infrastructure.function.configure'
 
 # With specific manager registry
 SRM_ONBOARD = 'specific.manager.registry.fsm.on-board'
