@@ -1150,10 +1150,10 @@ class FunctionLifecycleManager(ManoBasePlugin):
         msg = 'Response received from IA on configure call'
         LOG.info("Function " + func_id + msg)
 
-        if response['error'] is not None:
-            msg = ': CNF configure event failed: ' + response['error']
+        if response['request_status'] == 'ERROR':
+            msg = ': CNF configure event failed: ' + response['message']
             LOG.info("Function " + func_id + msg)
-            function["error"] = response['error']
+            function["error"] = response['message']
             self.flm_error(func_id)
             return
 
