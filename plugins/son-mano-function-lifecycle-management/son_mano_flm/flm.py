@@ -1088,11 +1088,11 @@ class FunctionLifecycleManager(ManoBasePlugin):
                     msg = 'type is not container, ignoring envs from fsm'
                     LOG.info("Function " + func_id + msg)
                 else:
-                    if type(response['envs']) == dict:
+                    if type(response['envs']) == list:
                         function['envs'] = response['envs']
                         function['schedule'].insert(0, 'func_ia_configure')
                     else:
-                        message = 'envs is not a dictionary'
+                        message = 'envs is not a list'
                         function["error"] = message
                         self.flm_error(func_id)
         else:
@@ -1119,7 +1119,6 @@ class FunctionLifecycleManager(ManoBasePlugin):
         message['envs'] = function['envs']
         message['service_instance_id'] = function['serv_id']
         message['func_id'] = func_id
-        message['cdu_id'] = cdu[0]['cdu_reference']
 
         payload = yaml.dump(message)
 
