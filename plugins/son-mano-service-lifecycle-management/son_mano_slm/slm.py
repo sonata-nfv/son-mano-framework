@@ -2612,6 +2612,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
         msg = ": Stopping Monitoring by sending on " + url
         LOG.info("Service " + serv_id + msg)
 
+        if self.services[serv_id]['cnf']:
+            msg = ": CNFs involved, skipping monitoring cleanup"
+            LOG.info("Service " + serv_id + msg)
+            return
+
         error = None
         # try:
         header = {'Content-Type': 'application/json'}
@@ -2650,11 +2655,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
 
         # Disabling monitoring for cloudnative services
-        for vnf in self.services[serv_id]['function']:
-            if 'cloudnative_deployment_units' in vnf['vnfd']:
-                msg = ": No monitoring because of CNF presence."
-                LOG.info("Service " + serv_id + msg)
-                return
+        if self.services[serv_id]['cnf']:
+            msg = ": No monitoring because of CNF presence."
+            LOG.info("Service " + serv_id + msg)
+            return
 
         # Configure the Monitoring SSM, if present
         if 'monitor' in self.services[serv_id]['service']['ssm'].keys():
@@ -2807,6 +2811,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['service'] = {}
         self.services[serv_id]['service']['nsd'] = payload['NSD']
         self.services[serv_id]['service']['id'] = serv_id
+        self.services[serv_id]['cnf'] = False
 
         msg = ": NSD uuid is " + str(payload['NSD']['uuid'])
         LOG.info("Service " + serv_id + msg)
@@ -2832,6 +2837,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     for vdu in vnf_base['vnfd']['virtual_deployment_units']:
                         vdu['id'] = vdu['id'] + '-' + vnf_id
                 if 'cloudnative_deployment_units' in vnf_base['vnfd'].keys():
+                    self.services[serv_id]['cnf'] = True
                     for vdu in vnf_base['vnfd']['cloudnative_deployment_units']:
                         vdu['id'] = vdu['id'] + '-' + vnf_id
                 self.services[serv_id]['function'].append(vnf_base)
@@ -2953,6 +2959,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['egress'] = None
         self.services[serv_id]['public_key'] = None
         self.services[serv_id]['private_key'] = None
+        self.services[serv_id]['cnf'] = False
 
         self.services[serv_id]['user_data'] = {}
         self.services[serv_id]['user_data']['customer'] = {}
@@ -3011,6 +3018,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 vim_id = vdu['vnfc_instance'][0]['vim_id']
 
             if 'cloudnative_deployment_units' in request['content'].keys():
+                self.services[serv_id]['cnf'] = True
                 vdu = request['content']['cloudnative_deployment_units'][0]
                 vim_id = vdu['vim_id']
             
