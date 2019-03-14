@@ -527,12 +527,12 @@ def build_monitoring_message(service, functions, userdata):
     service['pop_id'] = None
 
     customer_data = {}
-    customer_data['email'] = userdata['customer']['email']
-    customer_data['phone'] = userdata['customer']['phone']
+    customer_data['email'] = userdata['customer'].get('email')
+    customer_data['phone'] = userdata['customer'].get('phone')
 
     developer_data = {}
-    developer_data['email'] = userdata['developer']['email']
-    developer_data['phone'] = userdata['developer']['phone']
+    developer_data['email'] = userdata['developer'].get('email')
+    developer_data['phone'] = userdata['developer'].get('phone')
 
     service['sonata_usr'] = customer_data
 
