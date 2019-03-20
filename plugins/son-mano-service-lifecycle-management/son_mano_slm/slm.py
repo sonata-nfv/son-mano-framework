@@ -3220,7 +3220,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             self.services[serv_id]['service']['mapping'] = mapping
             for function in self.services[serv_id]['function']:
                 vnf_id = function['id']
-                function['vim_uuid'] = mapping[vnf_id]['vim']
+                function['vim_uuid'] = mapping['du'][vnf_id]
 
         # Check if the placement does not contain any loops
         vim_list = tools.get_ordered_vim_list(self.services[serv_id])
