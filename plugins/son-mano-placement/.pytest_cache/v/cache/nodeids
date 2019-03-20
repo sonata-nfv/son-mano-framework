@@ -1,0 +1,22 @@
+[
+  "test/test_placement.py::testPlacementPluginFunctionality::test_Placement_affinity_2_vnf_2_vdu_a",
+  "test/test_placement.py::testPlacementPluginFunctionality::test_Placement_affinity_blacklist_2_vnf_2_vdu_a",
+  "test/test_placement.py::testPlacementPluginFunctionality::test_Placement_affinity_proximity_blacklist_2_vnf_2_vdu",
+  "test/test_placement.py::testPlacementPluginFunctionality::test_Placement_fill_first_2_vnf_2_vdu_a",
+  "test/test_placement.py::testPlacementPluginFunctionality::test_Placement_fill_first_2_vnf_2_vdu_b",
+  "test/test_placement.py::testPlacementPluginFunctionality::test_Placement_fill_first_2_vnf_2_vdu_c",
+  "test/test_placement.py::testPlacementPluginFunctionality::test_Placement_fill_first_2_vnf_2_vdu_d",
+  "test/test_placement.py::testPlacementPluginFunctionality::test_Placement_fill_first_2_vnf_2_vdu_e",
+  "test/test_placement.py::testPlacementPluginFunctionality::test_Placement_fill_first_blacklist_2_vnf_2_vdu",
+  "test/test_placement.py::testPlacementPluginFunctionality::test_Placement_load_balanced_1_vnf_1_vdu_a",
+  "test/test_placement.py::testPlacementPluginFunctionality::test_Placement_load_balanced_1_vnf_1_vdu_b",
+  "test/test_placement.py::testPlacementPluginFunctionality::test_Placement_load_balanced_1_vnf_2_vdu",
+  "test/test_placement.py::testPlacementPluginFunctionality::test_Placement_load_balanced_2_vnf_2_vdu",
+  "test/test_placement.py::testPlacementPluginFunctionality::test_Placement_load_balanced_blacklist_2_vnf_2_vdu",
+  "test/test_placement.py::testPlacementPluginFunctionality::test_Placement_load_balanced_proximity_2_vnf_2_vdu_a",
+  "test/test_placement.py::testPlacementPluginFunctionality::test_Placement_priority_2_vnf_2_vdu_a",
+  "test/test_placement.py::testPlacementPluginFunctionality::test_Placement_priority_2_vnf_2_vdu_b",
+  "test/test_placement.py::testPlacementPluginFunctionality::test_Placement_priority_blacklist_2_vnf_2_vdu",
+  "test/test_placement.py::testPlacementPluginFunctionality::test_Placement_proximity_2_vnf_2_vdu",
+  "test/test_placement.py::testPlacementPluginFunctionality::test_Placement_proximity_blacklist_2_vnf_2_vdu"
+]

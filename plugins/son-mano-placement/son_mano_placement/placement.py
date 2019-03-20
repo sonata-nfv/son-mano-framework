@@ -157,7 +157,8 @@ class PlacementPlugin(ManoBasePlugin):
         LOG.info("Placement request for service: " + content['serv_id'])
 
         serv_id = content['serv_id']
-        top = content['topology']
+        input_vims = content['topology']['vims']
+        input_wims = content['topology']['wims']
         nsd = content['nsd']
         vnfs = content['functions']
         op_pol = content['operator_policies']
@@ -165,44 +166,227 @@ class PlacementPlugin(ManoBasePlugin):
         ingress = content['nap']['ingresses']
         egress = content['nap']['egresses']
 
-        #Check if topology is not empty
-        if len(top) == 0:
-            response = {}
-            response['mapping'] = None
-            response['error'] = 'Empty topology list'
-        else:            
-            vnf_single_pop = False
-            if "vnf_single_pop" in content.keys():
-                vnf_single_pop = content["vnf_single_pop"]
+        # Translating payload into inputs for or placement process
 
-            # Convert memory information on topology to GB, from MB.
-            for pop in top:
-                pop['memory_used'] = pop['memory_used'] / 1024.0
-                pop['memory_total'] = pop['memory_total'] / 1024.0
+        # Build list of vnfds
+        vnfds = []
+        for vnf in vnfs:
+            vnfds.append(vnf['vnfd'])
 
-            # Extract weights
-            operator_weight = 1.0
-            developer_weight = 0.0
-            if 'weights' in op_pol.keys():
-                operator_weight = op_pol['weights']['operator']
-                developer_weight = op_pol['weights']['developer']
+        # Build list of deployment units
+        dus = []
+        for vnf in vnfs:
+            desc = vnf['vnfd']
+            if 'cloudnative_deployment_units' in desc.keys():
+                cdus = desc['cloudnative_deployment_units']
+                for cdu in cdus:
+                    new_du = {}
+                    new_du['type'] = 'container'
+                    new_du['cpu'] = 0
+                    new_du['ram'] = 0
+                    new_du['id'] = cdu['id']
+                    new_du['nf_id'] = vnf['id']
+                    if 'deployed' in vnf.keys():
+                        new_du['needs_placement'] = False
+                        new_du['vim'] = vnf['vim_uuid']
+                    dus.append(new_du)
+            if 'virtual_deployment_units' in desc.keys():
+                vdus = desc['virtual_deployment_units']
+                for vdu in vdus:
+                    new_du = {}
+                    new_du['type'] = 'vm'
+                    req = vdu['resource_requirements']
+                    new_du['cpu'] = req['cpu']['vcpus']
+                    new_du['ram'] = req['memory']['size']
+                    if req['memory']['size_unit'] == 'MB':
+                        new_du['ram'] = new_du['ram'] / 1024.0
+                    new_du['id'] = vdu['id']
+                    new_du['nf_id'] = vnf['id']
+                    if 'deployed' in vnf.keys():
+                        new_du['needs_placement'] = False
+                        new_du['vim'] = vnf['vim_uuid']
+                    dus.append(new_du)
 
-            # # Solve first for only operator or developer influence, to calibrate
-            # operator_optimal_value = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=1.0, developer_weight=0.0, vnf_single_pop=vnf_single_pop)[2]
-            # developer_optimal_value = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=0.0, developer_weight=1.0, vnf_single_pop=vnf_single_pop)[2]
+        LOG.info(serv_id + ': list of dus ' + str(dus))
 
-            # operator_weight = abs(operator_weight / operator_optimal_value)
-            # developer_weight = abs(developer_weight / developer_optimal_value)
+        # Build vim list
+        vims = []
+        for vim in input_vims:
+            new_vim = {}
+            new_vim['core_used'] = vim['core_used']
+            new_vim['core_total'] = vim['core_total']
+            new_vim['memory_used'] = vim['memory_used'] / 1024.0
+            new_vim['memory_total'] = vim['memory_total'] / 1024.0
+            new_vim['id'] = vim['vim_uuid']
+            new_vim['type'] = vim['type']
+            new_vim['latency'] = 0
+            new_vim['bandwidth'] = 1000
+            vims.append(new_vim)
 
-            placement = self.placement(serv_id, nsd, vnfs, top, op_pol, cu_pol, ingress, egress, operator_weight=operator_weight, developer_weight=developer_weight, vnf_single_pop=vnf_single_pop)
-            LOG.info("Placement calculated:" + str(placement))
+        LOG.info(serv_id + ': list of vims ' + str(vims))
 
-            response = {}
-            response['mapping'] = {}
-            response['error'] = placement[1]
-            if placement[1] is None:
-                for vnf_id in placement[0]:
-                    response['mapping'][vnf_id] = {'vim':placement[0][vnf_id]}
+        # Build wim list
+        wims = []
+        for wim in input_wims:
+            for pair in wim['qos']:
+                new_wim = {}
+                new_wim['vim_1'] = pair['node_1']
+                new_wim['vim_2'] = pair['node_2']
+                new_wim['id'] = wim['uuid']
+                new_wim['bandwidth'] = pair['bandwidth']
+                new_wim['latency'] = pair['latency']
+                wims.append(new_wim)
+
+        LOG.info(serv_id + ': list of wims ' + str(wims))
+        # build endpoint list
+        eps = []
+        if ingress is not None:
+            for ep in ingress:
+                if 'endpoint' in ep.keys():
+                    new_ep = {}
+                    new_ep['type'] = 'ingress'
+                    new_ep['id'] = ep['endpoint']
+                    eps.append(new_ep)
+        if egress is not None:
+            for ep in egress:
+                if 'endpoint' in ep.keys():
+                    new_ep = {}
+                    new_ep['type'] = 'egress'
+                    new_ep['id'] = ep['endpoint']
+                    eps.append(new_ep)
+
+        LOG.info(serv_id + ': list of eps ' + str(eps))
+
+        # build virtual link list that require qos considerations
+        vls = []
+        # add vls coming from the nsd
+        nsd_vls = nsd['virtual_links']
+        for nsd_vl in nsd_vls:
+            if 'qos_requirements' in nsd_vl.keys():
+                new_vl = {}
+                new_vl['id'] = nsd_vl['id']
+                new_vl['nodes'] = []
+                for ref in nsd_vl['connection_points_reference']:
+                    node_id = tools.map_ref_on_id(ref, nsd, vnfds, eps)
+                    new_vl['nodes'].append(node_id)
+
+                qos_req = nsd_vl['qos_requirements']
+                if 'minimum_bandwidth' in qos_req.keys():
+                    new_vl['bandwidth'] = int(qos_req['minimum_bandwidth'])
+                else:
+                    new_vl['bandwidth'] = 0
+                if 'latency' in qos_req.keys():
+                    new_vl['latency'] = int(qos_req['latency'])
+                else:
+                    new_vl['latency'] = 1000
+                vls.append(new_vl)
+        # add vls coming from vnfds, between deployment units
+        for vnf in vnfs:
+            for vl in vnf['vnfd']['virtual_links']:
+                if 'qos_requirements' in vl.keys():
+                    new_vl = {}
+                    new_vl['id'] = vnf['id'] + ':' + vl['id']
+                    qos_req = vl['qos_requirements']
+                    if 'minimum_bandwidth' in qos_req.keys():
+                        new_vl['bandwidth'] = int(qos_req['minimum_bandwidth'])
+                    else:
+                        new_vl['bandwidth'] = 0
+                    if 'latency' in qos_req.keys():
+                        new_vl['latency'] = int(qos_req['latency'])
+                    else:
+                        new_vl['latency'] = 1000
+                    new_vl['nodes'] = []
+                    for ref in vl['connection_points_reference']:
+                        if 'cloudnative_deployment_units' in vnfd.keys():
+                            for cdu in vnfd['cloudnative_deployment_units']:
+                                if cdu['id'].startswith(ref.split(':')[0]):
+                                    new_vl['nodes'].append(cdu['id'])
+                                    break
+                        if 'virtual_deployment_units' in vnfd.keys():
+                            for vdu in vnfd['virtual_deployment_units']:
+                                if vdu['id'].startswith(ref.split(':')[0]):
+                                    new_vl['nodes'].append(vdu['id'])
+                                    break
+                    vls.append(new_vl)
+
+        LOG.info(serv_id + ': list of vls ' + str(vls))
+
+        # build constraint dictionary
+        const = {}
+        const['op_constraint'] = op_pol
+        const['cu_constraint'] = cu_pol
+        const['dev_constraint'] = {}
+
+        LOG.info(serv_id + ': list of constraints ' + str(const))
+
+        # force dus of same vnf/cnf on same pop or not
+        sng = False
+        if "vnf_single_pop" in content.keys():
+            sng = content["vnf_single_pop"]
+
+        LOG.info(serv_id + ': VNFs single PoP ' + str(sng))
+
+        # Extract weights
+        op_weight = 1.0
+        dev_weight = 0.0
+        cu_weight = 0.0
+        if 'weights' in op_pol.keys():
+            op_weight = op_pol['weights']['operator']
+            dev_weight = op_pol['weights']['developer']
+        wghts = [op_weight, dev_weight, cu_weight]
+
+        LOG.info(serv_id + ': list of weights ' + str(wghts))
+
+        # Calculate the placement
+        res = self.placement(dus, vls, vims, wims, eps, const, wghts, sng=sng)
+        LOG.info(serv_id + ": Placement result:" + str(res))
+
+        # Build the response message
+        # Since this is used for the sonata MANO, where dus of the same VNF or
+        # CNF are deployed on the same VIM, the response can be on the vnf
+        # level
+        response = {}
+        response['mapping'] = {}
+        response['error'] = res[1]
+        if res[1] is None:
+            dus_map = {}
+            for vnf in vnfs:
+                for du in dus:
+                    if du['nf_id'] == vnf['id']:
+                        vim_id = res[0]['dus'][du['id']]
+                        dus_map[vnf['id']] = vim_id
+                        break
+            response['mapping']['du'] = dus_map
+
+            # For now, we ignore vls that are on vims. We only return those
+            # that are on wims
+            vls_map = {}
+            for vl in vls:
+                vim_wim_id = res[0]['vls'][vl['id']]
+                for wim in wims:
+                    if wim['id'] == vim_wim_id:
+                        vls_map[vl['id']] = vim_wim_id
+                        break
+
+            # Add virtual links that have no qos requirements but coincide with
+            # WIMs to the list
+            for nsd_vl in nsd_vls:
+                if 'qos_requirements' not in nsd_vl.keys():
+                    vim_or_ep = []
+                    for ref in nsd_vl['connection_points_reference']:
+                        node_id = tools.map_ref_on_id(ref, nsd, vnfds, eps)
+                        if ':' in ref:
+                            vim_id = res[0]['dus'][node_id]
+                            vim_or_ep.append(vim_id)
+                        else:
+                            vim_or_ep.append(node_id)
+                    for wim in wims:
+                        if wim['vim_1'] in vim_or_ep and \
+                           wim['vim_2'] in vim_or_ep:
+                            vls_map[nsd_vl['id']] = wim['id']
+                            break
+
+            response['mapping']['vl'] = vls_map
 
         LOG.info(str(response))
         topic = 'mano.service.place'
@@ -213,42 +397,72 @@ class PlacementPlugin(ManoBasePlugin):
 
         LOG.info("Placement response sent for service: " + content['serv_id'])
 
-    def placement(self, serv_id, nsd, vnfs, top, op_policy, cu_policy, ingress, egress, operator_weight=1.0, developer_weight=0.0, customer_weight=0.0, vnf_single_pop=False):
-        """
-        This is the default placement algorithm that is used if the SLM
-        is responsible to perform the placement
-        """
-        LOG.info(str(serv_id) + ": Embedding started for service")
-        LOG.info(str(serv_id) + ": Topology: " + str(top))
-        LOG.info(str(serv_id) + ": Customer Policies: " + str(cu_policy))
-        LOG.info(str(serv_id) + ": Operator Policies: " + str(op_policy))
-        if vnf_single_pop:
-            LOG.info(str(serv_id) + ": VNF single PoP activated.")
 
-        if not isinstance(op_policy, dict):
-            LOG.info(str(serv_id) + ": operator_policies is not a dict")
+    def placement(self, dus, vls, vims, wims, eps, const, wghts=[], sng=False):
+        """
+        This method implements the actual placement logic.
+
+        @param dus:    list of deployment units with attributes that need
+                       placement. Can be cloudnative or virtual dus.
+        @param vls:    list of virtual links between vnfs that require qos
+                       considerations. 
+        @param vims:   list of available VIMS with attributes
+        @param wims:   list of available WIMS with attributes
+        @param eps:    list of endpoints defined for the service. If virtual
+                       links with qos exist between VNFs and an endpoint, the
+                       endpoint should be attached to at least one of the WIMS.
+        @param wghts:  list of weights for operator, developer and customer
+                       influence on the placement result
+        @param sng:    do VNFs need to be placed on a single PoP
+        @param const:  dictionary of additional constraints set by the
+                       operator, customer or developer.
+
+        TODO:
+                * support for unidirectional qos information on WIMs
+                * support for more than bandwidth and latency qos
+                * support for more than E-Line virtual links
+                * support for developer constraintsf
+                * support for customer constraints
+                * support for more than cpu and ram resources
+        """
+
+        # If no weights are defined, operator gets to dominate procedure
+        if wghts == []:
+            wghts = [1.0, 0.0, 0.0]
+
+        # Some initial input validation
+        if not isinstance(const['op_constraint'], dict):
             return "Operator policies are not a dictionary", "ERROR"
-        if not isinstance(cu_policy, dict):
-            LOG.info(str(serv_id) + ": customer_policies is not a dict")
+        if not isinstance(const['cu_constraint'], dict):
             return "Customer policies are not a dictionary", "ERROR"
 
-        # Make a list of the images (VNF can have multiple VDU) that require
-        # mapping.
-        images_to_map = tools.get_image_list(vnfs)
-        LOG.info(str(serv_id) + ": List of images: " + str(images_to_map))
+        LOG.info("Placement calculation started")
 
-        # Create list of decision variables. Per image to map, we have n
-        #  decisionvariables if n is the number of PoPs that can be mapped on.
-        LOG.info(str(serv_id) + ": Creating decision variables")
-        range_images = range(len(images_to_map))
-        range_top = range(len(top))
-        decision_vars = [(x, y) for x in range_images for y in range_top]
+        # There are three types of decision vars: eps, dus and vls. They need
+        # to be aggregated in a single list of decision vars.
+        LOG.info("Create decision vars")
 
-        # The decision variables are 1 if VNF x is mapped on PoP y, 0 if not.
-        # Decision variables are thus binary.
-        LOG.info(str(serv_id) + ": Creating ILP problem")
+        offset_vls = len(dus)
+        offset_eps_1 = len(vls) + offset_vls
+        offset_wim = len(vims)
+        offset_eps_2 = len(wims) + offset_wim
+
+        var_dus = [(x,y) for x in range(len(dus)) for y in range(len(vims))]
+
+        a = range(len(vls))
+        b = range(len(vims + wims))
+        var_vls = [(x + offset_vls,y) for x in a for y in b]
+
+        c = range(len(eps))
+        var_eps = [(x + offset_eps_1, x + offset_eps_2) for x in c]
+
+        dec_var = var_dus + var_vls + var_eps
+
+        # Setting up the ILP problem. All decisions var should be integer and 
+        # either 0 or 1
+        LOG.info("Creating ILP problem")
         variables = pulp.LpVariable.dicts('variables',
-                                          decision_vars,
+                                          dec_var,
                                           lowBound=0,
                                           upBound=1,
                                           cat=pulp.LpInteger)
@@ -258,125 +472,221 @@ class PlacementPlugin(ManoBasePlugin):
 
         # Create objective based on customer policies
         # TODO: At this point, we don't have soft customer objectives
-        customer_objective = 0
-
-        # Create objective based on developer policies
-        source_ip = None
-        dest_ip = None
-        if ingress:
-            source_ip = ingress[0]['nap']
-        if egress:
-            dest_ip = egress[0]['nap']
-        developr_objective = tools.calculate_developer_objective(nsd,
-                                                                 vnfs,
-                                                                 source_ip,
-                                                                 dest_ip,
-                                                                 images_to_map,
-                                                                 top,
-                                                                 variables,
-                                                                 decision_vars,
-                                                                 LOG,
-                                                                 serv_id)
+        cu_obj = 0
 
         # Create objective based on operator policies
-        operator_objective = tools.calculate_operator_objective(variables,
-                                                                images_to_map,
-                                                                top,
-                                                                decision_vars,
-                                                                op_policy,
-                                                                LOG,
-                                                                serv_id,
-                                                                )
+        # Only var_dus is needed from the decision vars, because all 
+        # operator objectives are based on vims for now, no wims involved
+        op_obj = tools.calc_op_obj(variables,
+                                   dus,
+                                   vims,
+                                   var_dus,
+                                   const['op_constraint'],
+                                   LOG)
 
-        lpProblem += operator_weight * operator_objective[0] + developer_weight * developr_objective[0] + customer_objective * customer_weight
+        # Create objective based on developer policies
+        dev_obj = tools.calc_dev_obj(const['dev_constraint'],
+                                     dus,
+                                     '',
+                                     '',
+                                     vims,
+                                     variables,
+                                     var_dus,
+                                     LOG)
+
+        # Creating the object function
+        lpProblem += wghts[0] * op_obj[0] + \
+                     wghts[1] * dev_obj[0] + \
+                     wghts[2] * cu_obj
 
         # Add additional constraints created by developer policy model
         # translation
-        for constraint in developr_objective[1]:
+        for constraint in dev_obj[1]:
             lpProblem += constraint
 
         # Add additional constraints created by operator policy model
         # translation
-        for constraint in operator_objective[1]:
+        for constraint in op_obj[1]:
             lpProblem += constraint
 
         # Set hard constraints
-        # PoP resources can not be violated
-        for vim in range(len(top)):
-            if top[vim]['type'] == 'vm':
-                lpProblem += top[vim]['core_used'] + sum(images_to_map[x[0]]['cpu'] * variables[x] for x in decision_vars if x[1] == vim) <= top[vim]['core_total']
-                lpProblem += top[vim]['memory_used'] + sum(images_to_map[x[0]]['ram'] * variables[x] for x in decision_vars if x[1] == vim) <= top[vim]['memory_total']
+        # PoP resources can not be exceeded
+        for vim in vims:
+            vim_i = vims.index(vim)
+            if vim['type'] == 'vm':
+                cpu_sum = sum(dus[x[0]]['cpu'] * variables[x] \
+                          for x in var_dus if x[1] == vim_i)
+                ram_sum = sum(dus[x[0]]['ram'] * variables[x] \
+                          for x in var_dus if x[1] == vim_i)
+                cpu_total = vim['core_used'] + cpu_sum
+                ram_total = vim['memory_used'] + ram_sum
+                lpProblem +=  cpu_total <= vim['core_total']
+                lpProblem +=  ram_total <= vim['memory_total']
 
-        # Every VNF that needs to be placed should be assigned to one PoP
-        for vnf in range(len(images_to_map)):
-            if images_to_map[vnf]['needs_placement']:
-                lpProblem += sum(variables[x] for x in decision_vars if x[0] == vnf) == 1
-            else:
-                used_vim = images_to_map[vnf]['vim']
-                for vim in range(len(top)):
-                    if top[vim]['vim_uuid'] == used_vim:
-                        lpProblem += variables[(vnf, vim)] == 1
-                        break
+        # Every VNF in need of placement should be assigned to exactly 1 PoP
+        for du in dus:
+            du_i = dus.index(du)
+            sum_du = sum(variables[x] for x in var_dus if x[0] == du_i)
+            lpProblem += sum_du == 1
+            if 'placement_needed' in du.keys():
+                if not du['placement_needed']:
+                    used_vim = du['vim']
+                    for vim in vims:
+                        vim_i = vims.index(vim)
+                        if vim['vim_uuid'] == used_vim:
+                            lpProblem += variables[(du_i, vim_i)] == 1
+                            break
 
-        # Add blacklist from customers. If PoP is on blacklist, no VNFs can be on it.
-        if 'blacklist' in cu_policy.keys():
-            blacklist = cu_policy['blacklist']
-            LOG.info(str(serv_id) + ": Customer blacklist: " + str(blacklist))
+        # Add blacklist from customers. If PoP is on blacklist, no VNFs can
+        # be on it.
+        if 'blacklist' in const['cu_constraint'].keys():
+            blacklist = const['cu_constraint']['blacklist']
+            LOG.info("Customer blacklist: " + str(blacklist))
         else:
-            LOG.info(str(serv_id) + ": No customer blacklist provided.")
+            LOG.info("No customer blacklist provided.")
             blacklist = []
 
-        for index in range(len(top)):
-            if top[index]['vim_name'] in blacklist:
-                lpProblem+= sum(variables[x] for x in decision_vars if x[1] == index) == 0
+        for vim in vims:
+            vim_i = vims.index(vim)
+            if vim['id'] in blacklist:
+                vim_sum = sum(variables[x] for x in var_dus if x[1] == vim_i)
+                lpProblem+= vim_sum == 0
 
         # set constraints for single PoP VNFs
-        if vnf_single_pop:
-            for vdu_index_1 in range(len(images_to_map)):
-                for vdu_index_2 in range(len(images_to_map)):
-                    if vdu_index_1 < vdu_index_2:
-                        if images_to_map[vdu_index_1]['function_id'] == images_to_map[vdu_index_2]['function_id']:
-                            for pop_index in range(len(top)):
-                                lpProblem += variables[(vdu_index_1, pop_index)] == variables[(vdu_index_2, pop_index)]
+        if sng:
+            for du_1 in dus:
+                du_1_i = dus.index(du_1)
+                for du_2 in dus:
+                    du_2_i = dus.index(du_2)
+                    if du_1_i < du_2_i and du_1['nf_id'] == du_2['nf_id']:
+                        for vim_i in range(len(vims)):
+                            vim_du_1 = variables[(du_1_i, vim_i)]
+                            vim_du_2 = variables[(du_2_i, vim_i)]
+                            lpProblem += vim_du_1 == vim_du_2
 
-        # Ensure that VMs can only be deployed on VM VIMs, and containers on container VIMs.
-        for vnf in range(len(images_to_map)):
-            for vim in range(len(top)):
-                if images_to_map[vnf]['type'] != top[vim]['type']:
-                    lpProblem += variables[(vnf, vim)] == 0
+        # Ensure that VMs can only be deployed on VM VIMs,
+        # and containers on container VIMs.
+        for du in dus:
+            du_i = dus.index(du)
+            for vim in vims:
+                vim_i = vims.index(vim)
+                if du['type'] != vim['type']:
+                    lpProblem += variables[(du_i, vim_i)] == 0
+
+        # Virtual links can only be mapped on one physical link
+        for vl in vls:
+            vl_i = vls.index(vl) + offset_vls
+            sum_vl = sum(variables[x] for x in var_vls if x[0] == vl_i)
+            lpProblem += sum_vl == 1
+
+        # Resources of physical links can't be overconsumed
+        vim_wim = vims + wims
+        for wim in vim_wim:
+            wim_i = vim_wim.index(wim)
+            # Handle latency
+            for vl in vls:
+                vl_i = vls.index(vl) + offset_vls
+                z = variables[(vl_i, wim_i)]
+                lpProblem += z * vl['latency'] >= z * wim['latency']
+            # Handle bandwidth
+            sum_bw = sum(variables[x] * vls[x[0] - offset_vls]['bandwidth'] \
+                     for x in var_vls if x[1] == wim_i)
+            lpProblem += sum_bw <= wim['bandwidth']
+
+        # Virtual links should be mapped on WIMS that connect the VIMs that
+        # are hosting the VNFs of the virtual link. Take into account that
+        # vl can connect an endpoint. These are on a fixed location, so their
+        # placement is not part of the problem. The only thing that needs to
+        # be done for them is attach to a WIM.
+        adj_mat = [[0 for y in vims] for x in vim_wim]
+        for i in range(len(vims)):
+            adj_mat[i][i] = 1
+        for wim in wims:
+            i = wims.index(wim) + len(vims)
+            for vim in vims:
+                vim_i = vims.index(vim)
+                if vim['id'] == wim['vim_1']:
+                    adj_mat[i][vim_i] = 1
+                if vim['id'] == wim['vim_2']:
+                    adj_mat[i][vim_i] = 1
+
+        for vl in vls:
+            vl_i = vls.index(vl) + offset_vls
+            x1_i = -1
+            x2_i = -1
+            for du in dus:
+                if du['id'] == vl['nodes'][0]:
+                    x1_i = dus.index(du)
+                if du['id'] == vl['nodes'][1]:
+                    x2_i = dus.index(du)
+
+            for wim in vim_wim:
+                wim_i = vim_wim.index(wim)
+
+                if x1_i == -1:
+                    for ep in eps:
+                        if ep['id'] == vl['nodes'][0]:
+                            if wim['id'] in ep['wims']:
+                                sum_1 = 1
+                            else:
+                                sum_1 = 0
+                else:
+                    sum_1 = sum(variables[x] * adj_mat[wim_i][x[1]] \
+                            for x in var_dus if x[0] == x1_i)
+                if x2_i == -1:
+                    for ep in eps:
+                        if ep['id'] == vl['nodes'][1]:
+                            if wim['id'] in ep['wims']:
+                                sum_2 = 1
+                            else:
+                                sum_2 = 0
+                else:
+                    sum_2 = sum(variables[x] * adj_mat[wim_i][x[1]] \
+                            for x in var_dus if x[0] == x2_i)
+
+                lpProblem += sum_1 + sum_2 >= 2 * variables[(vl_i, wim_i)]
 
         # Solve the problem
         lpProblem.solve()
 
-        # Check the feasibility of the result
-        LOG.info(str(serv_id) + ": Result: " + str(pulp.LpStatus[lpProblem.status]))
-        if str(pulp.LpStatus[lpProblem.status]) != "Optimal":
-            LOG.info(str(serv_id) + ": Placement was not possible")
-            return {}, "Placement was not possible. Result: " + str(pulp.LpStatus[lpProblem.status]), 1.0
+        # for var in variables:
+        #     if variables[var].varValue == 1.0:
+        #         print(variables[var].varValue)
+        #         print(variables[var].cat)
+        #         print(variables[var].name)
 
-        # Interprete the results and build the repsonse
-        mapping = {}
-        for combo in decision_vars:
-            if (variables[combo].value()) == 1:
-                LOG.info('VNF' + str(images_to_map[combo[0]]['id']) + ' is mapped on PoP' + str(top[combo[1]]['vim_uuid']))
+        # print(lpProblem)
+        # print(lpProblem.status)
 
-                if vnf_single_pop:
-                    if images_to_map[combo[0]]['function_id'] not in mapping.keys():
-                        function_id = images_to_map[combo[0]]['function_id']
-                        mapping[function_id] = top[combo[1]]['vim_uuid']
-                else:
-                    mapping[images_to_map[combo[0]]['id']] = top[combo[1]]['vim_uuid']
+        # processing the result
+        result = {}
 
-        LOG.info(str(serv_id) + ": Resulting message: " + str(mapping))
+        if lpProblem.status != 1:
+            err = str(lpProblem.status)
+            msg = "Result of placement: infeasible, return code " + err
+            LOG.info(msg)
+            return result, msg
 
-        LOG.info(lpProblem.objective)
-        LOG.info(lpProblem.objective.value())
-        if lpProblem.objective.value() is not None:
-            optimal_value = lpProblem.objective.value()
-        else:
-            optimal_value = 1.0
-        return mapping, None, optimal_value
+        result['dus'] = {}
+        for du in dus:
+            du_i = dus.index(du)
+            for tup in var_dus:
+                if tup[0] == du_i and variables[tup].varValue == 1:
+                    vim_i = tup[1]
+                    break
+            result['dus'][du['id']] = vims[vim_i]['id']
 
+        result['vls'] = {}
+        for vl in vls:
+            vl_i = vls.index(vl) + offset_vls
+            for tup in var_vls:
+                if tup[0] == vl_i and variables[tup].varValue == 1:
+                    wim_i = tup[1]
+                    break
+            result['vls'][vl['id']] = vim_wim[wim_i]['id']
+
+        result['optimum'] = lpProblem.objective.value()
+        return result, None
 
 def main():
     """
