@@ -2505,7 +2505,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         vim_list = self.services[serv_id]['service']['ordered_vim_list']
         LOG.info("Service " + serv_id + ": vim list: " + str(vim_list))
 
-        if 'forwarding_graphs' in nsd.keys() or len(vim_list) > 1:
+        if 'forwarding_graphs' in nsd.keys() > 1:
             message = {}
             message['service_instance_id'] = serv_id
 
