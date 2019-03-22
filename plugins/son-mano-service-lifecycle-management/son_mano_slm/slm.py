@@ -2266,14 +2266,27 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         LOG.info("Service " + serv_id + ": Requesting IA to terminate service")
 
-        corr_id = str(uuid.uuid4())
-        self.services[serv_id]['act_corr_id'] = corr_id
+        functions = self.services[serv_id]['function']
+        self.services[serv_id]['vims_to_resp'] = 0
 
-        payload = json.dumps({'instance_uuid': serv_id})
-        self.manoconn.call_async(self.IA_termination_response,
-                                 t.IA_REMOVE,
-                                 payload,
-                                 correlation_id=corr_id)
+        self.services[serv_id]['act_corr_id'] = []
+
+        vims_completed = []
+
+        for vnf in functions:
+            vim_id = vnf['vim_uuid']
+            if vim_id not in vims_completed:
+                corr_id = str(uuid.uuid4())
+                vims_completed.append(vim_id)
+                self.services[serv_id]['act_corr_id'] = corr_id
+                self.services[serv_id]['vims_to_resp'] += 1
+
+                payload = json.dumps({'instance_uuid': serv_id,
+                                      'vim_uuid': vim_id})
+                self.manoconn.call_async(self.IA_termination_response,
+                                         t.IA_REMOVE,
+                                         payload,
+                                         correlation_id=corr_id)
 
         # Pause the chain of tasks to wait for response
         self.services[serv_id]['pause_chain'] = True
@@ -2299,7 +2312,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
             self.error_handling(serv_id, t.GK_KILL, error)
             return
 
-        self.start_next_task(serv_id)
+        self.services[serv_id]['vims_to_resp'] -= 1
+        if self.services[serv_id]['vims_to_resp'] == 0:
+            self.start_next_task(serv_id)
 
     def terminate_ssms(self, serv_id, require_resp=False):
         """
