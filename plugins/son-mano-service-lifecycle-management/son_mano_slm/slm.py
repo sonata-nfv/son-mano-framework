@@ -2864,6 +2864,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Create counter for vnfs
         self.services[serv_id]['vnfs_to_resp'] = 0
+        self.services[serv_id]['vims_to_resp'] = 0
 
         # Create the chain pause and kill flag
         self.services[serv_id]['pause_chain'] = False
@@ -2952,6 +2953,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['infrastructure'] = {}
         self.services[serv_id]['task_log'] = []
         self.services[serv_id]['vnfs_to_resp'] = 0
+        self.services[serv_id]['vims_to_resp'] = 0
         self.services[serv_id]['pause_chain'] = False
         self.services[serv_id]['error'] = None
         self.services[serv_id]['ip_mapping'] = []
