@@ -1635,8 +1635,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Create the VIM list
         IA_mapping['vim_list'] = [vims[x] for x in vims]
 
-        return IA_mapping, vnfs
-
         msg = ": new PoPs to be used: " + str(IA_mapping['vim_list'])
         LOG.info("Service " + serv_id + msg)
 
