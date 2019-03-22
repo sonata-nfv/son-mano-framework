@@ -1512,74 +1512,146 @@ class ServiceLifecycleManager(ManoBasePlugin):
         msg = ": Requesting IA to prepare the infrastructure."
         LOG.info("Service " + serv_id + msg)
 
-        # Find the VIMs that already have a stack
-        used_vims = []
-        for function in self.services[serv_id]['function']:
-            if 'deployed' in function.keys():
-                used_vims.append(function['vim_uuid'])
-
-        msg = ": Already used PoPs: " + str(used_vims)
-        LOG.info("Service " + serv_id + msg)
-
+        nsd = self.services[serv_id]['service']['nsd']
+        vnfs = self.services[serv_id]['function']
         # Build mapping message for IA
         IA_mapping = {}
 
         # Add the service instance uuid
         IA_mapping['instance_id'] = serv_id
 
+        # Build used VIM dictionary
+        dus = self.services[serv_id]['service']['mapping']['du']
+        vims = {dus[x] : {'uuid': dus[x], 'virtual_links': [], \
+               'vm_images': []} for x in dus}
+
+        # Indentify which vls and interfaces should be mapped on an external
+        # network.
+        if 'external_networks' in self.services[serv_id]['service'].keys():
+            ext_nets = self.services[serv_id]['service']['external_networks']
+            for ext_net in ext_nets:
+                vl_id = ext_net['vl']
+                net_id = ext_net['id']
+                for vl in nsd['virtual_links']:
+                    if vl['id'] == vl_id:
+                        refs = vl['connection_points_reference']
+                        interfaces = tools.map_refs_on_du_cps(refs, nsd, vnfs)
+                        tools.add_network_to_cp(net_id, interfaces)
+                        break
+
+        # Identify which vls and interfaces should be mapped on a created
+        # internal network
+        for vl in nsd['virtual_links']:
+            refs = vl['connection_points_reference']
+            interfaces = tools.map_refs_on_du_cps(refs, nsd, vnfs)
+            #split interfaces per vim
+            vim_list = {}
+            for interface in interfaces:
+                if interface['vim_id'] not in vim_list.keys():
+                    vim_list[interface['vim_id']] = []
+                vim_list[interface['vim_id']].append(interface)
+            #if more than 1 interface maps on a vim, create a network
+            for vim_id in vim_list.keys():
+                interfaces = vim_list[vim_id]
+                if len(interfaces) > 1:
+                    network_name = 'SonataService.' + serv_id + '.' + vl['id']
+                    tools.add_network_to_cp(network_name, interfaces)
+                    vims[vim_id]['virtual_links'].append({'id': network_name, 
+                                                         'access': True,
+                                                         'vl_id': vl['id']})
+
+        # Identify the VNF internal virtual links between cdus and add them
+        for vnf in vnfs:
+            vnfd = vnf['vnfd']
+            for vl in vnfd['virtual_links']:
+                refs = vl['connection_points_reference']
+                refs_with_colon = [x for x in refs if ':' in x]
+                if refs == refs_with_colon:
+                    # You have identified an internal virtual link
+                    interfaces = []
+                    name = 'SonataService.' + serv_id + '.' + \
+                            vnf['id'] + '.' + vl['id']
+                    for ref in refs:
+                        interfaces.extend(tools.get_du_cp_from_ref(ref, vnfd))
+                    tools.add_network_to_cp(name, interfaces)
+                    vims[vnf['vim_uuid']]['virtual_links'].append({'id': name, 
+                                                         'access': True,
+                                                         'vl_id': vl['id']})                                        
+
+        # Go over all interfaces. If they have no network yet, create one and
+        # give them a fip. If they have a network and are mgmt, give them a fip
+        for vnf in vnfs:
+            vnfd = vnf['vnfd']
+            if 'virtual_deployment_units' in vnfd.keys():
+                dus = vnfd['virtual_deployment_units']
+            else: 
+                dus = vnfd['cloudnative_deployment_units']
+            for du in dus:
+                for cp in du['connection_points']:
+                    for vnf_vl in vnfd['virtual_links']:
+                        vnf_refs = vnf_vl['connection_points_reference']
+                        if du['id'].split('-')[0] + ':' + cp['id'] in vnf_refs:
+                            for ref in vnf_refs:
+                                if ':' not in ref:
+                                    for vnf_cp in vnfd['connection_points']:
+                                        if vnf_cp['id'] == ref:
+                                            if vnf_cp['type'] in \
+                                               ['mgmt', 'management']:
+                                                cp['fip'] = True
+                    if 'network_id' not in cp.keys():
+                        for vl in vnfd['virtual_links']:
+                            refs = vl['connection_points_reference']
+                            if du['id'].split('-')[0] + ':' + cp['id'] in refs:
+                                break
+                        name = 'SonataService.' + serv_id + '.' + \
+                                vnf['id'] + '.' + vl['id']
+                        cp['network_id'] = name
+                        cp['fip'] = True
+                        vim_vnf = vims[vnf['vim_uuid']]['virtual_links']
+                        vim_vnf.append({'id': name, 
+                                       'access': True,
+                                       'vl_id': vl['id']})                                        
+
+        # Add the vnf images
+        for vnf in vnfs:
+            vim_uuid = vnf['vim_uuid']
+            vnfd = vnf['vnfd']
+            if 'virtual_deployment_units' in vnfd.keys():
+                dus = vnfd['virtual_deployment_units']
+                for du in dus:
+                    url = du['vm_image']
+                    vm_uuid = tools.generate_image_uuid(du, vnfd)
+                    content = {'image_uuid': vm_uuid, 'image_url': url}
+                    if 'vm_image_md5' in du.keys():
+                        content['image_md5'] = du['vm_image_md5']
+                    vims[vim_uuid]['vm_images'].append(content)
+            else: 
+                dus = vnfd['cloudnative_deployment_units']
+                for du in dus:
+                    url = du['image']
+                    content = {'image_url': url}                        
+                    vims[vim_uuid]['vm_images'].append(content)
+
         # Create the VIM list
-        IA_mapping['vim_list'] = []
+        IA_mapping['vim_list'] = [vims[x] for x in vims]
 
-        # Add the vnfs
-        for function in self.services[serv_id]['function']:
-            vim_uuid = function['vim_uuid']
-            if 'deployed' not in function.keys() and vim_uuid not in used_vims:
-                new_vim = True
-                for vim in IA_mapping['vim_list']:
-                    if vim['uuid'] == vim_uuid:
-                        new_vim = False
-                        index = IA_mapping['vim_list'].index(vim)
+        return IA_mapping, vnfs
 
-                if new_vim:
-                    IA_mapping['vim_list'].append({'uuid': vim_uuid,
-                                                   'vm_images': []})
-                    index = len(IA_mapping['vim_list']) - 1
+        msg = ": new PoPs to be used: " + str(IA_mapping['vim_list'])
+        LOG.info("Service " + serv_id + msg)
 
-                if 'virtual_deployment_units' in function['vnfd']:
-                    for vdu in function['vnfd']['virtual_deployment_units']:
-                        url = vdu['vm_image']
-                        vm_uuid = tools.generate_image_uuid(vdu, function['vnfd'])
+        # Add correlation id to the ledger for future reference
+        corr_id = str(uuid.uuid4())
+        self.services[serv_id]['act_corr_id'] = corr_id
 
-                        content = {'image_uuid': vm_uuid, 'image_url': url}
+        # Send this mapping to the IA
+        self.manoconn.call_async(self.resp_prepare,
+                                 t.IA_PREPARE,
+                                 yaml.dump(IA_mapping),
+                                 correlation_id=corr_id)
 
-                        if 'vm_image_md5' in vdu.keys():
-                            content['image_md5'] = vdu['vm_image_md5']
-
-                        IA_mapping['vim_list'][index]['vm_images'].append(content)
-
-                if 'cloudnative_deployment_units' in function['vnfd']:
-                    for vdu in function['vnfd']['cloudnative_deployment_units']:
-                        url = vdu['image']
-                        content = {'image_url': url}                        
-                        IA_mapping['vim_list'][index]['vm_images'].append(content)
-
-
-        if len(IA_mapping['vim_list']) > 0:
-            msg = ": new PoPs to be used: " + str(IA_mapping['vim_list'])
-            LOG.info("Service " + serv_id + msg)
-
-            # Add correlation id to the ledger for future reference
-            corr_id = str(uuid.uuid4())
-            self.services[serv_id]['act_corr_id'] = corr_id
-
-            # Send this mapping to the IA
-            self.manoconn.call_async(self.resp_prepare,
-                                     t.IA_PREPARE,
-                                     yaml.dump(IA_mapping),
-                                     correlation_id=corr_id)
-
-            # Pause the chain of tasks to wait for response
-            self.services[serv_id]['pause_chain'] = True
+        # Pause the chain of tasks to wait for response
+        self.services[serv_id]['pause_chain'] = True
 
     def vnf_remove(self, serv_id):
         """
