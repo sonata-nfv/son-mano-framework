@@ -486,6 +486,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         add_schedule.append('ia_prepare')
         add_schedule.append('vnf_deploy')
+        add_schedule.append('vnfs_generic_envs')
         add_schedule.append('vnfs_start')
         add_schedule.append('vnf_chain')
         add_schedule.append('store_nsr')
@@ -1730,6 +1731,54 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         self.services[serv_id]['pause_chain'] = True
 
+
+    def vnfs_generic_envs(self, serv_id):
+        """
+        This method generates the generic_envs for the CNFs.
+        """
+
+        vnfs = self.services[serv_id]['function']
+        g_envs = {}
+        for vnf in vnfs:
+            vnfd = vnf['vnfd']
+            vnfr = vnf['vnfr']
+            vnf_t = vnfd['name'] + '_' + vnfd['vendor'] + '_' + vnfd['version']
+            if 'cloudnative_deployment_units' in vnfr:
+                for cdu in vnfr['cloudnative_deployment_units']:
+                    if 'load_balancer_ip' in cdu.keys():
+                        floating_ip = cdu['load_balancer_ip']['ip']
+                        break
+                for cp in vnfd['connection_points']:
+                    g_envs[vnf_t + '_' + cp['id'] + '_fp'] = floating_ip
+                    g_envs[vnf_t + '_' + cp['id'] + '_port'] = cp['port']
+                    g_envs[vnf_t + '_' + cp['id'] + 'type'] = 'container'
+            if 'virtual_deployment_units' in vnfr:
+                for vdu in vnfr['virtual_deployment_units']:
+                    for cp in vdu['connection_points']:
+                        for vl in vnfd['virtual_links']:
+                            ref = vl['connection_points_reference']
+                            ref_int = [x for x in ref if ':' not in x]
+                            if len(ref) == len(ref_int):
+                                pass
+                            elif vdu['id'] + ':' + cp['id'] in ref:
+                                tag = vnf_t + '_' + vdu['id'] + '_' + cp['id']
+                                interface = cp['interface']
+                                g_envs[tag + '_ip'] = interface['address']
+                                g_envs[tag + '_type'] = 'vm'
+                            else:
+                                pass
+
+        for vnf in vnfs:
+            vnfd = vnf['vnfd']
+            if 'cloudnative_deployment_units' in vnfd:
+                list_g_envs = []
+                for cdu in vnfd['cloudnative_deployment_units']:
+                    list_g_envs.append({'cdu_id': cdu['id'],
+                                       'envs': g_envs})
+                vnf['generic_envs'] = list_g_envs
+
+        return
+
     def vnfs_start(self, serv_id):
         """
         This method gives a trigger to the FLM for each VNF that needs
@@ -1821,6 +1870,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
                         data = {'vnfr': vnf['vnfr'], 'vnfd': vnf['vnfd']}
 
                     payload['data'] = data
+
+                if 'generic_envs' in vnf.keys():
+                    payload['data']['generic_envs'] = vnf['generic_envs']
 
                 corr_id = str(uuid.uuid4())
                 self.services[serv_id]['act_corr_id'].append(corr_id)
