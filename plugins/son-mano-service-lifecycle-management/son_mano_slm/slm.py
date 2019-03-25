@@ -1749,7 +1749,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                         floating_ip = cdu['load_balancer_ip']['floating_ip']
                         break
                 for cp in vnfd['connection_points']:
-                    g_envs[vnf_t + '_' + cp['id'] + '_fp'] = floating_ip
+                    g_envs[vnf_t + '_' + cp['id'] + '_ip'] = floating_ip
                     g_envs[vnf_t + '_' + cp['id'] + '_port'] = cp['port']
                     g_envs[vnf_t + '_' + cp['id'] + '_type'] = 'container'
             if 'virtual_deployment_units' in vnfr:
@@ -1761,7 +1761,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                             if len(ref) == len(ref_int):
                                 pass
                             elif vdu['id'] + ':' + cp['id'] in ref:
-                                tag = vnf_t + '_' + vdu['id'] + '_' + cp['id']
+                                tag = vnf_t + '_' + cp['id']
                                 interface = cp['interface']
                                 g_envs[tag + '_ip'] = interface['address']
                                 g_envs[tag + '_type'] = 'vm'
