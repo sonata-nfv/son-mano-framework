@@ -1087,7 +1087,11 @@ class FunctionLifecycleManager(ManoBasePlugin):
                         if 'envs' not in function.keys():
                             function['envs'] = response['envs']
                         else:
-                            function['envs'].extend(response['envs'])
+                            for cdu1 in response['envs']:
+                                for cdu2 in function['envs']:
+                                    if cdu1['cdu_id'] == cdu2['cdu_id']:
+                                        cdu2['envs'].extend(cdu1['envs'])
+                                        break
                         if 'func_ia_configure' not in function['schedule']:
                             function['schedule'].insert(0, 'func_ia_configure')
                     else:
