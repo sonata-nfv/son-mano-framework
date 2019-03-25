@@ -357,7 +357,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
         # Start the chain of tasks
         self.start_next_task(func_id)
 
-        return self.functions[func_id]['schedule']
+        return
 
     def function_instance_config(self, ch, method, properties, payload):
         """
@@ -406,7 +406,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
         # Start the chain of tasks
         self.start_next_task(func_id)
 
-        return self.functions[func_id]['schedule']
+        return
 
     def function_instance_stop(self, ch, method, properties, payload):
         """
@@ -450,7 +450,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
         # Start the chain of tasks
         self.start_next_task(func_id)
 
-        return self.functions[func_id]['schedule']
+        return
 
     def function_instance_scale(self, ch, method, properties, payload):
         """
