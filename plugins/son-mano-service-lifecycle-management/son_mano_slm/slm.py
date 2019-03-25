@@ -1751,10 +1751,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 for cp in vnfd['connection_points']:
                     g_envs[vnf_t + '_' + cp['id'] + '_fp'] = floating_ip
                     g_envs[vnf_t + '_' + cp['id'] + '_port'] = cp['port']
-                    g_envs[vnf_t + '_' + cp['id'] + 'type'] = 'container'
+                    g_envs[vnf_t + '_' + cp['id'] + '_type'] = 'container'
             if 'virtual_deployment_units' in vnfr:
                 for vdu in vnfr['virtual_deployment_units']:
-                    for cp in vdu['connection_points']:
+                    for cp in vdu['vnfc_instance'][0]['connection_points']:
                         for vl in vnfd['virtual_links']:
                             ref = vl['connection_points_reference']
                             ref_int = [x for x in ref if ':' not in x]
