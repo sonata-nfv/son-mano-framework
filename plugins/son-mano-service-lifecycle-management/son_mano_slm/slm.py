@@ -1746,7 +1746,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             if 'cloudnative_deployment_units' in vnfr:
                 for cdu in vnfr['cloudnative_deployment_units']:
                     if 'load_balancer_ip' in cdu.keys():
-                        floating_ip = cdu['load_balancer_ip']['ip']
+                        floating_ip = cdu['load_balancer_ip']['floating_ip']
                         break
                 for cp in vnfd['connection_points']:
                     g_envs[vnf_t + '_' + cp['id'] + '_fp'] = floating_ip
@@ -1767,6 +1767,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
                                 g_envs[tag + '_type'] = 'vm'
                             else:
                                 pass
+
+        msg = ': Generic envs: ' + str(g_envs)
+        LOG.info("Service " + serv_id + msg)
 
         for vnf in vnfs:
             vnfd = vnf['vnfd']
