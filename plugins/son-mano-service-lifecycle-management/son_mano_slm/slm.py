@@ -3317,7 +3317,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         content = {'nsd': NSD,
                    'functions': functions,
-                   'topology': {'vims': topology, 'wims': []},
+                   'topology': {'vims': topology['vim_list'], 'wims': []},
                    'serv_id': serv_id,
                    'operator_policies': operator_policies,
                    'customer_policies': customer_policies,
