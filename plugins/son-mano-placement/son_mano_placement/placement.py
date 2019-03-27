@@ -234,8 +234,8 @@ class PlacementPlugin(ManoBasePlugin):
                 new_wim['vim_1'] = pair['node_1']
                 new_wim['vim_2'] = pair['node_2']
                 new_wim['id'] = wim['uuid']
-                new_wim['bandwidth'] = pair['bandwidth']
-                new_wim['latency'] = pair['latency']
+                new_wim['bandwidth'] = int(pair['bandwidth'])
+                new_wim['latency'] = int(pair['latency'])
                 wims.append(new_wim)
 
         LOG.info(serv_id + ': list of wims ' + str(wims))
