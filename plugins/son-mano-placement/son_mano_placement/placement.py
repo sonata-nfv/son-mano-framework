@@ -158,7 +158,7 @@ class PlacementPlugin(ManoBasePlugin):
         LOG.info("topo:" + yaml.dump(content['topology']))
 
         serv_id = content['serv_id']
-        input_vims = content['topology']['vims']
+        input_vims = content['topology']['vims']['vim_list']
         input_wims = content['topology']['wims']
         nsd = content['nsd']
         vnfs = content['functions']
