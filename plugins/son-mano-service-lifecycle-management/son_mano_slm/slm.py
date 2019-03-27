@@ -1106,7 +1106,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Continue with the scheduled tasks if done
         if self.services[serv_id]['topo_responses'] == 0:
-            LOG.info(yaml.dumps(self.services[serv_id]['infrastructure']))
+            LOG.info(yaml.dump(self.services[serv_id]['infrastructure']))
             self.start_next_task(serv_id)
 
     def policy_faker(self, ch, method, prop, payload):

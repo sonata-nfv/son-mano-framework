@@ -155,7 +155,7 @@ class PlacementPlugin(ManoBasePlugin):
 
         content = yaml.load(payload)
         LOG.info("Placement request for service: " + content['serv_id'])
-        LOG.info("topo:" + yaml.dumps(content['topology']))
+        LOG.info("topo:" + yaml.dump(content['topology']))
 
         serv_id = content['serv_id']
         input_vims = content['topology']['vims']
