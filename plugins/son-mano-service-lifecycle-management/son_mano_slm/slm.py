@@ -1093,14 +1093,21 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Retrieve the service uuid
         serv_id = tools.servid_from_corrid(self.services, prop.correlation_id)
 
-        LOG.info("Service " + serv_id + ": Topology received from IA.")
-        LOG.debug("Requested info on topology: " + str(message))
+        if type(message) == dict:
+            LOG.info("Service " + serv_id + ": VIM topology received from IA.")
+            self.services[serv_id]['infrastructure']['vims'] = message
 
-        # Add topology to ledger
-        self.services[serv_id]['infrastructure']['topology'] = message
+        if type(message) == list:
+            LOG.info("Service " + serv_id + ": WIM topology received from IA.")
+            self.services[serv_id]['infrastructure']['wims'] = message
 
-        # Continue with the scheduled tasks
-        self.start_next_task(serv_id)
+        # Deduct from the number of topo responses to expect
+        self.services[serv_id]['topo_responses'] -= 1
+
+        # Continue with the scheduled tasks if done
+        if self.services[serv_id]['topo_responses'] == 0:
+            LOG.info(yaml.dumps(self.services[serv_id]['infrastructure']))
+            self.start_next_task(serv_id)
 
     def policy_faker(self, ch, method, prop, payload):
 
@@ -1466,19 +1473,33 @@ class ServiceLifecycleManager(ManoBasePlugin):
         :param serv_id: The instance uuid of the service
         """
 
-        # Generate correlation_id for the call, for future reference
-        corr_id = str(uuid.uuid4())
-        self.services[serv_id]['act_corr_id'] = corr_id
+        # Generate correlation_id for the VIM call, for future reference
+        corr_id_vim = str(uuid.uuid4())
 
-        self.manoconn.call_async(self.resp_topo,
-                                 t.IA_TOPO,
-                                 None,
-                                 correlation_id=corr_id)
+        # Generate correlation_id for the WIM call, for future reference
+        corr_id_wim = str(uuid.uuid4())
+
+        self.services[serv_id]['act_corr_id'] = [corr_id_vim, corr_id_wim]
 
         # Pause the chain of tasks to wait for response
         self.services[serv_id]['pause_chain'] = True
 
-        LOG.info("Service " + serv_id + ": Topology requested from IA.")
+        # Make sure MANO waits for both responses
+        self.services[serv_id]['topo_responses'] = 2
+
+        self.manoconn.call_async(self.resp_topo,
+                                 t.IA_VIM_LIST,
+                                 None,
+                                 correlation_id=corr_id_vim)
+
+        LOG.info("Service " + serv_id + ": VIM topology requested from IA.")
+
+        self.manoconn.call_async(self.resp_topo,
+                                 t.IA_WIM_LIST,
+                                 None,
+                                 correlation_id=corr_id_wim)
+
+        LOG.info("Service " + serv_id + ": WIM topology requested from IA.")
 
     def request_policies(self, serv_id):
         """
@@ -2010,7 +2031,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             return self.SLM_mapping(serv_id)
         # build message for placement SSM
         nsd = self.services[serv_id]['service']['nsd']
-        top = self.services[serv_id]['infrastructure']['topology']
+        top = self.services[serv_id]['infrastructure']['vims']
 
         vnfds = []
         for function in self.services[serv_id]['function']:
@@ -3309,7 +3330,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['act_corr_id'] = corr_id
 
         LOG.info("Service " + serv_id + ": Calculating the placement")
-        topology = self.services[serv_id]['infrastructure']['topology']
+        topology = {}
+        topology['vims'] = self.services[serv_id]['infrastructure']['vims']
+        topology['wims'] = self.services[serv_id]['infrastructure']['wims']
         NSD = self.services[serv_id]['service']['nsd']
         functions = self.services[serv_id]['function']
         operator_policies = self.services[serv_id]['operator_policies']

@@ -69,6 +69,8 @@ WC_UPDATE = "*.instances.update"
 # With infrastructure adaptor
 IA_DEPLOY = 'infrastructure.function.deploy'
 IA_REMOVE = 'infrastructure.service.remove'
+IA_VIM_LIST = 'infrastructure.management.compute.list'
+IA_WIM_LIST = 'infrastructure.management.wan.list'
 IA_TOPO = 'infrastructure.management.compute.list'
 IA_PREPARE = 'infrastructure.service.prepare'
 IA_CONF_CHAIN = 'infrastructure.service.chain.configure'
