@@ -652,3 +652,97 @@ def build_monitoring_message(service, functions, userdata):
                             message['rules'].append(r)
 
     return message
+
+
+def map_refs_on_du_cps(refs, nsd, vnfs):
+    """
+    This method returns a list of du cps, that map on the cp references in the
+    refs input.
+    """
+    cps = []
+    for ref in refs:
+        if ':' in ref:
+            vnf_ref, cp_ref = ref.split(':')
+            for vnf_nsd in nsd['network_functions']:
+                if vnf_nsd['vnf_id'] == vnf_ref:
+                    for vnf in vnfs:
+                        vnfd = vnf['vnfd']
+                        if vnf_nsd['vnf_name'] == vnfd['name'] and \
+                           vnf_nsd['vnf_version'] == vnfd['version'] and \
+                           vnf_nsd['vnf_vendor'] == vnfd['vendor']:
+                            du_cp_list = map_vnf_cp_on_du_cps(cp_ref, vnfd)
+                            for du_cp in du_cp_list:
+                                du_cp['vnf_id'] = vnf['id']
+                                du_cp['vim_id'] = vnf['vim_uuid']
+                            cps.extend(du_cp_list)
+                    break
+    return cps
+
+def find_ip_from_ref(ref, nsd, vnfs):
+    """
+    find ip associated to a ref
+    """
+    cp = map_refs_on_du_cps([ref], nsd, vnfs)[0]
+
+    for vnf in vnfs:
+        if vnf['id'] == cp['vnf_id']:
+            if 'virtual_deployment_units' in vnf['vnfr'].keys():
+                vdus = vnf['vnfr']['virtual_deployment_units']
+                for vdu in vdus:
+                    if vdu['id'] == cp['du_id']:
+                        vnfc = vdu['vnfc_instance'][0]
+                        for cp_loc in vnfc['connection_points']:
+                            if cp_loc['id'] == cp['cp_id']:
+                                return cp_loc['interface']['address']
+            if 'cloudnative_deployment_units' in vnf['vnfr'].keys():
+                vdus = vnf['vnfr']['cloudnative_deployment_units']
+                for vdu in vdus:
+                    if vdu['id'] == cp['du_id']:
+                        return cp_loc['load_balancer_ip']['floating_ip']
+
+    return None
+
+def map_vnf_cp_on_du_cps(cp_ref, vnfd):
+    """
+    This method returns a map from a vnf cp onto the du connection points.
+    The return content is a list of dictionaries. Each entry has three keys:
+    the id of the du, the id of the cp and a pointer towards the cp section.
+    """
+    du_cps = []
+    for vl in vnfd['virtual_links']:
+        if cp_ref in vl['connection_points_reference']:
+            for du_cp_ref in vl['connection_points_reference']:
+                if du_cp_ref != cp_ref:
+                    du_cps.extend(get_du_cp_from_ref(du_cp_ref, vnfd))
+            break
+    return du_cps
+
+def get_du_cp_from_ref(du_cp_ref, vnfd):
+    du_cps = []
+    du_id, cp_id = du_cp_ref.split(':')
+    du_cps.append({'du_id': du_id, 'cp_id': cp_id})
+    if 'virtual_deployment_units' in vnfd.keys():
+        for du in vnfd['virtual_deployment_units']:
+            if du['id'].split('-')[0] == du_id:
+                for cp in du['connection_points']:
+                    if cp['id'] == cp_id:
+                        du_cps[-1]['ptr'] = cp
+    if 'cloudnative_deployment_units' in vnfd.keys():
+        for du in vnfd['cloudnative_deployment_units']:
+            if du['id'].split('-')[0] == du_id:
+                for cp in du['connection_points']:
+                    if cp['id'] == cp_id:
+                        du_cps[-1]['ptr'] = cp
+    return du_cps
+
+
+def add_network_to_cp(net_id, cp_interfaces, fip=False):
+    """
+    This method adds the network id to the du cps in the vnfds, and potentially
+    also the neccesity for a floating ip.
+    """
+    for cp in cp_interfaces:
+        cp['ptr']['network_id'] = net_id
+        if fip:
+            cp['ptr']['fip'] = true
+

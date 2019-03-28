@@ -486,6 +486,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         add_schedule.append('ia_prepare')
         add_schedule.append('vnf_deploy')
+        add_schedule.append('vnfs_generic_envs')
         add_schedule.append('vnfs_start')
         add_schedule.append('vnf_chain')
         add_schedule.append('store_nsr')
@@ -1092,14 +1093,21 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Retrieve the service uuid
         serv_id = tools.servid_from_corrid(self.services, prop.correlation_id)
 
-        LOG.info("Service " + serv_id + ": Topology received from IA.")
-        LOG.debug("Requested info on topology: " + str(message))
+        if type(message) == dict:
+            LOG.info("Service " + serv_id + ": VIM topology received from IA.")
+            self.services[serv_id]['infrastructure']['vims'] = message
 
-        # Add topology to ledger
-        self.services[serv_id]['infrastructure']['topology'] = message
+        if type(message) == list:
+            LOG.info("Service " + serv_id + ": WIM topology received from IA.")
+            self.services[serv_id]['infrastructure']['wims'] = message
 
-        # Continue with the scheduled tasks
-        self.start_next_task(serv_id)
+        # Deduct from the number of topo responses to expect
+        self.services[serv_id]['topo_responses'] -= 1
+
+        # Continue with the scheduled tasks if done
+        if self.services[serv_id]['topo_responses'] == 0:
+            LOG.info(yaml.dump(self.services[serv_id]['infrastructure']))
+            self.start_next_task(serv_id)
 
     def policy_faker(self, ch, method, prop, payload):
 
@@ -1465,19 +1473,33 @@ class ServiceLifecycleManager(ManoBasePlugin):
         :param serv_id: The instance uuid of the service
         """
 
-        # Generate correlation_id for the call, for future reference
-        corr_id = str(uuid.uuid4())
-        self.services[serv_id]['act_corr_id'] = corr_id
+        # Generate correlation_id for the VIM call, for future reference
+        corr_id_vim = str(uuid.uuid4())
 
-        self.manoconn.call_async(self.resp_topo,
-                                 t.IA_TOPO,
-                                 None,
-                                 correlation_id=corr_id)
+        # Generate correlation_id for the WIM call, for future reference
+        corr_id_wim = str(uuid.uuid4())
+
+        self.services[serv_id]['act_corr_id'] = [corr_id_vim, corr_id_wim]
 
         # Pause the chain of tasks to wait for response
         self.services[serv_id]['pause_chain'] = True
 
-        LOG.info("Service " + serv_id + ": Topology requested from IA.")
+        # Make sure MANO waits for both responses
+        self.services[serv_id]['topo_responses'] = 2
+
+        self.manoconn.call_async(self.resp_topo,
+                                 t.IA_VIM_LIST,
+                                 None,
+                                 correlation_id=corr_id_vim)
+
+        LOG.info("Service " + serv_id + ": VIM topology requested from IA.")
+
+        self.manoconn.call_async(self.resp_topo,
+                                 t.IA_WIM_LIST,
+                                 None,
+                                 correlation_id=corr_id_wim)
+
+        LOG.info("Service " + serv_id + ": WIM topology requested from IA.")
 
     def request_policies(self, serv_id):
         """
@@ -1512,74 +1534,144 @@ class ServiceLifecycleManager(ManoBasePlugin):
         msg = ": Requesting IA to prepare the infrastructure."
         LOG.info("Service " + serv_id + msg)
 
-        # Find the VIMs that already have a stack
-        used_vims = []
-        for function in self.services[serv_id]['function']:
-            if 'deployed' in function.keys():
-                used_vims.append(function['vim_uuid'])
-
-        msg = ": Already used PoPs: " + str(used_vims)
-        LOG.info("Service " + serv_id + msg)
-
+        nsd = self.services[serv_id]['service']['nsd']
+        vnfs = self.services[serv_id]['function']
         # Build mapping message for IA
         IA_mapping = {}
 
         # Add the service instance uuid
         IA_mapping['instance_id'] = serv_id
 
+        # Build used VIM dictionary
+        dus = self.services[serv_id]['service']['mapping']['du']
+        vims = {dus[x] : {'uuid': dus[x], 'virtual_links': [], \
+               'vm_images': []} for x in dus}
+
+        # Indentify which vls and interfaces should be mapped on an external
+        # network.
+        if 'external_networks' in self.services[serv_id]['service'].keys():
+            ext_nets = self.services[serv_id]['service']['external_networks']
+            for ext_net in ext_nets:
+                vl_id = ext_net['vl']
+                net_id = ext_net['id']
+                for vl in nsd['virtual_links']:
+                    if vl['id'] == vl_id:
+                        refs = vl['connection_points_reference']
+                        interfaces = tools.map_refs_on_du_cps(refs, nsd, vnfs)
+                        tools.add_network_to_cp(net_id, interfaces)
+                        break
+
+        # Identify which vls and interfaces should be mapped on a created
+        # internal network
+        for vl in nsd['virtual_links']:
+            refs = vl['connection_points_reference']
+            interfaces = tools.map_refs_on_du_cps(refs, nsd, vnfs)
+            #split interfaces per vim
+            vim_list = {}
+            for interface in interfaces:
+                if interface['vim_id'] not in vim_list.keys():
+                    vim_list[interface['vim_id']] = []
+                vim_list[interface['vim_id']].append(interface)
+            #if more than 1 interface maps on a vim, create a network
+            for vim_id in vim_list.keys():
+                interfaces = vim_list[vim_id]
+                if len(interfaces) > 1:
+                    network_name = 'SonataService.' + serv_id + '.' + vl['id']
+                    tools.add_network_to_cp(network_name, interfaces)
+                    vims[vim_id]['virtual_links'].append({'id': network_name, 
+                                                         'access': True,
+                                                         'vl_id': vl['id']})
+
+        # Identify the VNF internal virtual links between cdus and add them
+        for vnf in vnfs:
+            vnfd = vnf['vnfd']
+            for vl in vnfd['virtual_links']:
+                refs = vl['connection_points_reference']
+                refs_with_colon = [x for x in refs if ':' in x]
+                if refs == refs_with_colon:
+                    # You have identified an internal virtual link
+                    interfaces = []
+                    name = 'SonataService.' + serv_id + '.' + \
+                            vnf['id'] + '.' + vl['id']
+                    for ref in refs:
+                        interfaces.extend(tools.get_du_cp_from_ref(ref, vnfd))
+                    tools.add_network_to_cp(name, interfaces)
+                    vims[vnf['vim_uuid']]['virtual_links'].append({'id': name, 
+                                                         'access': True,
+                                                         'vl_id': vl['id']})                                        
+
+        # Go over all interfaces. If they have no network yet, create one and
+        # give them a fip. If they have a network and are mgmt, give them a fip
+        for vnf in vnfs:
+            vnfd = vnf['vnfd']
+            if 'virtual_deployment_units' in vnfd.keys():
+                dus = vnfd['virtual_deployment_units']
+            else: 
+                dus = vnfd['cloudnative_deployment_units']
+            for du in dus:
+                for cp in du['connection_points']:
+                    for vnf_vl in vnfd['virtual_links']:
+                        vnf_refs = vnf_vl['connection_points_reference']
+                        if du['id'].split('-')[0] + ':' + cp['id'] in vnf_refs:
+                            for ref in vnf_refs:
+                                if ':' not in ref:
+                                    for vnf_cp in vnfd['connection_points']:
+                                        if vnf_cp['id'] == ref:
+                                            if vnf_cp['type'] in \
+                                               ['mgmt', 'management']:
+                                                cp['fip'] = True
+                    if 'network_id' not in cp.keys():
+                        for vl in vnfd['virtual_links']:
+                            refs = vl['connection_points_reference']
+                            if du['id'].split('-')[0] + ':' + cp['id'] in refs:
+                                break
+                        name = 'SonataService.' + serv_id + '.' + \
+                                vnf['id'] + '.' + vl['id']
+                        cp['network_id'] = name
+                        cp['fip'] = True
+                        vim_vnf = vims[vnf['vim_uuid']]['virtual_links']
+                        vim_vnf.append({'id': name, 
+                                       'access': True,
+                                       'vl_id': vl['id']})                                        
+
+        # Add the vnf images
+        for vnf in vnfs:
+            vim_uuid = vnf['vim_uuid']
+            vnfd = vnf['vnfd']
+            if 'virtual_deployment_units' in vnfd.keys():
+                dus = vnfd['virtual_deployment_units']
+                for du in dus:
+                    url = du['vm_image']
+                    vm_uuid = tools.generate_image_uuid(du, vnfd)
+                    content = {'image_uuid': vm_uuid, 'image_url': url}
+                    if 'vm_image_md5' in du.keys():
+                        content['image_md5'] = du['vm_image_md5']
+                    vims[vim_uuid]['vm_images'].append(content)
+            else: 
+                dus = vnfd['cloudnative_deployment_units']
+                for du in dus:
+                    url = du['image']
+                    content = {'image_url': url}                        
+                    vims[vim_uuid]['vm_images'].append(content)
+
         # Create the VIM list
-        IA_mapping['vim_list'] = []
+        IA_mapping['vim_list'] = [vims[x] for x in vims]
 
-        # Add the vnfs
-        for function in self.services[serv_id]['function']:
-            vim_uuid = function['vim_uuid']
-            if 'deployed' not in function.keys() and vim_uuid not in used_vims:
-                new_vim = True
-                for vim in IA_mapping['vim_list']:
-                    if vim['uuid'] == vim_uuid:
-                        new_vim = False
-                        index = IA_mapping['vim_list'].index(vim)
+        msg = ": new PoPs to be used: " + str(IA_mapping['vim_list'])
+        LOG.info("Service " + serv_id + msg)
 
-                if new_vim:
-                    IA_mapping['vim_list'].append({'uuid': vim_uuid,
-                                                   'vm_images': []})
-                    index = len(IA_mapping['vim_list']) - 1
+        # Add correlation id to the ledger for future reference
+        corr_id = str(uuid.uuid4())
+        self.services[serv_id]['act_corr_id'] = corr_id
 
-                if 'virtual_deployment_units' in function['vnfd']:
-                    for vdu in function['vnfd']['virtual_deployment_units']:
-                        url = vdu['vm_image']
-                        vm_uuid = tools.generate_image_uuid(vdu, function['vnfd'])
+        # Send this mapping to the IA
+        self.manoconn.call_async(self.resp_prepare,
+                                 t.IA_PREPARE,
+                                 yaml.dump(IA_mapping),
+                                 correlation_id=corr_id)
 
-                        content = {'image_uuid': vm_uuid, 'image_url': url}
-
-                        if 'vm_image_md5' in vdu.keys():
-                            content['image_md5'] = vdu['vm_image_md5']
-
-                        IA_mapping['vim_list'][index]['vm_images'].append(content)
-
-                if 'cloudnative_deployment_units' in function['vnfd']:
-                    for vdu in function['vnfd']['cloudnative_deployment_units']:
-                        url = vdu['image']
-                        content = {'image_url': url}                        
-                        IA_mapping['vim_list'][index]['vm_images'].append(content)
-
-
-        if len(IA_mapping['vim_list']) > 0:
-            msg = ": new PoPs to be used: " + str(IA_mapping['vim_list'])
-            LOG.info("Service " + serv_id + msg)
-
-            # Add correlation id to the ledger for future reference
-            corr_id = str(uuid.uuid4())
-            self.services[serv_id]['act_corr_id'] = corr_id
-
-            # Send this mapping to the IA
-            self.manoconn.call_async(self.resp_prepare,
-                                     t.IA_PREPARE,
-                                     yaml.dump(IA_mapping),
-                                     correlation_id=corr_id)
-
-            # Pause the chain of tasks to wait for response
-            self.services[serv_id]['pause_chain'] = True
+        # Pause the chain of tasks to wait for response
+        self.services[serv_id]['pause_chain'] = True
 
     def vnf_remove(self, serv_id):
         """
@@ -1659,6 +1751,57 @@ class ServiceLifecycleManager(ManoBasePlugin):
                                          correlation_id=corr_id)
 
         self.services[serv_id]['pause_chain'] = True
+
+
+    def vnfs_generic_envs(self, serv_id):
+        """
+        This method generates the generic_envs for the CNFs.
+        """
+
+        vnfs = self.services[serv_id]['function']
+        g_envs = {}
+        for vnf in vnfs:
+            vnfd = vnf['vnfd']
+            vnfr = vnf['vnfr']
+            vnf_t = vnfd['name'] + '_' + vnfd['vendor'] + '_' + vnfd['version']
+            if 'cloudnative_deployment_units' in vnfr:
+                for cdu in vnfr['cloudnative_deployment_units']:
+                    if 'load_balancer_ip' in cdu.keys():
+                        floating_ip = cdu['load_balancer_ip']['floating_ip']
+                        break
+                for cp in vnfd['connection_points']:
+                    g_envs[vnf_t + '_' + cp['id'] + '_ip'] = floating_ip
+                    g_envs[vnf_t + '_' + cp['id'] + '_port'] = cp['port']
+                    g_envs[vnf_t + '_' + cp['id'] + '_type'] = 'container'
+            if 'virtual_deployment_units' in vnfr:
+                for vdu in vnfr['virtual_deployment_units']:
+                    for cp in vdu['vnfc_instance'][0]['connection_points']:
+                        for vl in vnfd['virtual_links']:
+                            ref = vl['connection_points_reference']
+                            ref_int = [x for x in ref if ':' not in x]
+                            if len(ref) == len(ref_int):
+                                pass
+                            elif vdu['id'] + ':' + cp['id'] in ref:
+                                tag = vnf_t + '_' + cp['id']
+                                interface = cp['interface']
+                                g_envs[tag + '_ip'] = interface['address']
+                                g_envs[tag + '_type'] = 'vm'
+                            else:
+                                pass
+
+        msg = ': Generic envs: ' + str(g_envs)
+        LOG.info("Service " + serv_id + msg)
+
+        for vnf in vnfs:
+            vnfd = vnf['vnfd']
+            if 'cloudnative_deployment_units' in vnfd:
+                list_g_envs = []
+                for cdu in vnfd['cloudnative_deployment_units']:
+                    list_g_envs.append({'cdu_id': cdu['id'],
+                                       'envs': g_envs})
+                vnf['generic_envs'] = list_g_envs
+
+        return
 
     def vnfs_start(self, serv_id):
         """
@@ -1751,6 +1894,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
                         data = {'vnfr': vnf['vnfr'], 'vnfd': vnf['vnfd']}
 
                     payload['data'] = data
+
+                if 'generic_envs' in vnf.keys():
+                    payload['data']['generic_envs'] = vnf['generic_envs']
 
                 corr_id = str(uuid.uuid4())
                 self.services[serv_id]['act_corr_id'].append(corr_id)
@@ -1885,7 +2031,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             return self.SLM_mapping(serv_id)
         # build message for placement SSM
         nsd = self.services[serv_id]['service']['nsd']
-        top = self.services[serv_id]['infrastructure']['topology']
+        top = self.services[serv_id]['infrastructure']['vims']
 
         vnfds = []
         for function in self.services[serv_id]['function']:
@@ -2266,14 +2412,27 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         LOG.info("Service " + serv_id + ": Requesting IA to terminate service")
 
-        corr_id = str(uuid.uuid4())
-        self.services[serv_id]['act_corr_id'] = corr_id
+        functions = self.services[serv_id]['function']
+        self.services[serv_id]['vims_to_resp'] = 0
 
-        payload = json.dumps({'instance_uuid': serv_id})
-        self.manoconn.call_async(self.IA_termination_response,
-                                 t.IA_REMOVE,
-                                 payload,
-                                 correlation_id=corr_id)
+        self.services[serv_id]['act_corr_id'] = []
+
+        vims_completed = []
+
+        for vnf in functions:
+            vim_id = vnf['vim_uuid']
+            if vim_id not in vims_completed:
+                corr_id = str(uuid.uuid4())
+                vims_completed.append(vim_id)
+                self.services[serv_id]['act_corr_id'] = corr_id
+                self.services[serv_id]['vims_to_resp'] += 1
+
+                payload = json.dumps({'instance_uuid': serv_id,
+                                      'vim_uuid': vim_id})
+                self.manoconn.call_async(self.IA_termination_response,
+                                         t.IA_REMOVE,
+                                         payload,
+                                         correlation_id=corr_id)
 
         # Pause the chain of tasks to wait for response
         self.services[serv_id]['pause_chain'] = True
@@ -2299,7 +2458,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
             self.error_handling(serv_id, t.GK_KILL, error)
             return
 
-        self.start_next_task(serv_id)
+        self.services[serv_id]['vims_to_resp'] -= 1
+        if self.services[serv_id]['vims_to_resp'] == 0:
+            self.start_next_task(serv_id)
 
     def terminate_ssms(self, serv_id, require_resp=False):
         """
@@ -2498,49 +2659,63 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
 
         LOG.info("Service " + serv_id + ": WAN Configuration")
-        corr_id = str(uuid.uuid4())
-        self.services[serv_id]['act_corr_id'] = corr_id
+
+        self.services[serv_id]['vls_to_resp'] = 0
+
+        self.services[serv_id]['act_corr_id'] = []
 
         nsd = self.services[serv_id]['service']['nsd']
-        vim_list = self.services[serv_id]['service']['ordered_vim_list']
-        LOG.info("Service " + serv_id + ": vim list: " + str(vim_list))
+        vnfs = self.services[serv_id]['function']
+        vl_map = self.services[serv_id]['service']['mapping']['vl']
 
-        if 'forwarding_graphs' in nsd.keys() > 1:
-            message = {}
-            message['service_instance_id'] = serv_id
+        for vl in nsd['virtual_links']:
+            if vl['id'] in vl_map.keys():
+                LOG.info("Service " + serv_id + ": VL for WAN identified")
+                message = {}
+                message['service_instance_id'] = serv_id
+                message['wim_uuid'] = vl_map[vl['id']]['wim']
+                message['bidirectional'] = True
+                if 'qos_requirements' in vl.keys():
+                    message['qos'] = vl['qos_requirements']
 
-            # Add egress and ingress fields
-            message['nap'] = {}
-            nap_empty = True
+                message['ingress'] = {}
+                print(vl_map)
+                first_node = vl_map[vl['id']]['nodes'][0]
+                message['ingress']['location'] = first_node
+                message['egress'] = {}
+                sec_node = vl_map[vl['id']]['nodes'][1]
+                message['egress']['location'] = sec_node
 
-            if self.services[serv_id]['ingress'] is not None:
-                message['nap']['ingresses'] = self.services[serv_id]['ingress']
-                nap_empty = False
-            if self.services[serv_id]['egress'] is not None:
-                message['nap']['egresses'] = self.services[serv_id]['egress']
-                nap_empty = False
+                ref = vl['connection_points_reference'][0]
+                if ':' not in ref:
+                    nap = self.services[serv_id]['ingress'][0]
+                    message['ingress']['nap'] = nap
+                else:
+                    ip = tools.find_ip_from_ref(ref, nsd, vnfs)
+                    message['ingress']['nap'] = ip
 
-            # Check if `nap` is empty
-            if nap_empty:
-                message.pop('nap')
+                ref = vl['connection_points_reference'][1]
+                if ':' not in ref:
+                    nap = self.services[serv_id]['egress'][0]
+                    message['egress']['nap'] = nap
+                else:
+                    ip = tools.find_ip_from_ref(ref, nsd, vnfs)
+                    message['egress']['nap'] = ip
 
-            # Create ordered vim_list
-            ordered_vim = []
-            vim_list = self.services[serv_id]['service']['ordered_vim_list']
-            for vim in vim_list:
-                ordered_vim.append({'uuid': vim, 'order': vim_list.index(vim)})
+                msg = ": message for WAN: " + str(message)
+                LOG.info("Service " + serv_id + msg)
 
-            message['vim_list'] = ordered_vim
+                corr_id = str(uuid.uuid4())
+                self.services[serv_id]['act_corr_id'].append(corr_id)
+                self.services[serv_id]['vls_to_resp'] += 1
 
-            self.manoconn.call_async(self.wan_configure_response,
-                                     t.IA_CONF_WAN,
-                                     yaml.dump(message),
-                                     correlation_id=corr_id)
+                # Pause the chain of tasks to wait for response
+                self.services[serv_id]['pause_chain'] = True
 
-            # # Pause the chain of tasks to wait for response
-            self.services[serv_id]['pause_chain'] = True
-        else:
-            LOG.info("Service " + serv_id + ": No WAN required")
+                self.manoconn.call_async(self.wan_configure_response,
+                                         t.IA_CONF_WAN,
+                                         yaml.dump(message),
+                                         correlation_id=corr_id)
 
 
     def wan_configure_response(self, ch, method, prop, payload):
@@ -2559,7 +2734,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
             LOG.info('Error occured during WAN: ' + str(error))
             self.error_handling(serv_id, t.GK_CREATE, error)
 
-        self.start_next_task(serv_id)
+        self.services[serv_id]['vls_to_resp'] -= 1
+
+        if self.services[serv_id]['vls_to_resp'] == 0:
+            self.start_next_task(serv_id)
 
     def wan_deconfigure(self, serv_id):
         """
@@ -2864,6 +3042,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Create counter for vnfs
         self.services[serv_id]['vnfs_to_resp'] = 0
+        self.services[serv_id]['vims_to_resp'] = 0
 
         # Create the chain pause and kill flag
         self.services[serv_id]['pause_chain'] = False
@@ -2952,6 +3131,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['infrastructure'] = {}
         self.services[serv_id]['task_log'] = []
         self.services[serv_id]['vnfs_to_resp'] = 0
+        self.services[serv_id]['vims_to_resp'] = 0
         self.services[serv_id]['pause_chain'] = False
         self.services[serv_id]['error'] = None
         self.services[serv_id]['ip_mapping'] = []
@@ -3167,7 +3347,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['act_corr_id'] = corr_id
 
         LOG.info("Service " + serv_id + ": Calculating the placement")
-        topology = self.services[serv_id]['infrastructure']['topology']
+        topology = {}
+        topology['vims'] = self.services[serv_id]['infrastructure']['vims']
+        topology['wims'] = self.services[serv_id]['infrastructure']['wims']
         NSD = self.services[serv_id]['service']['nsd']
         functions = self.services[serv_id]['function']
         operator_policies = self.services[serv_id]['operator_policies']
@@ -3175,7 +3357,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         content = {'nsd': NSD,
                    'functions': functions,
-                   'topology': {'vims': topology, 'wims': []},
+                   'topology': topology,
                    'serv_id': serv_id,
                    'operator_policies': operator_policies,
                    'customer_policies': customer_policies,

@@ -330,27 +330,26 @@ class FunctionLifecycleManager(ManoBasePlugin):
         # recreate the ledger
         self.recreate_ledger(message, corr_id, func_id, t.VNF_START)
 
-        # Check if VNFD defines a start FSM, if not, no action can be taken
-        if 'start' not in self.functions[func_id]['fsm'].keys():
-            msg = ": No start FSM provided, start event ignored."
-            LOG.info("Function " + func_id + msg)
-
-            self.functions[func_id]['message'] = msg
-            self.respond_to_request(func_id)
-
-            del self.functions[func_id]
-            return
-
-        # If a start FSM is present, continu with workflow
-        # add the payload for the FSM
+        # extract the payload for the start event
         self.functions[func_id]['start'] = message['data']
+
+        # Set default response message 
+        msg =": No start FSM or generic envs provided, start event ignored."
+        self.functions[func_id]['message'] = str(func_id) +  msg
 
         # Schedule the tasks that the FLM should do for this request.
         add_schedule = []
 
-        add_schedule.append("trigger_start_fsm")
-        add_schedule.append("respond_to_request")
+        # Check if VNFD defines a start FSM
+        if 'start' in self.functions[func_id]['fsm'].keys():
+            add_schedule.append("trigger_start_fsm")
 
+        # Check if generic envs where provided
+        if 'generic_envs' in message['data'].keys():
+            self.functions[func_id]['envs'] = message['data']['generic_envs']
+            add_schedule.append("func_ia_configure")
+
+        add_schedule.append("respond_to_request")
         self.functions[func_id]['schedule'].extend(add_schedule)
 
         msg = ": New start request received."
@@ -358,18 +357,18 @@ class FunctionLifecycleManager(ManoBasePlugin):
         # Start the chain of tasks
         self.start_next_task(func_id)
 
-        return self.functions[func_id]['schedule']
+        return
 
     def function_instance_config(self, ch, method, properties, payload):
         """
         This method starts the vnf config workflow
         """
 
-        # Don't trigger on self created messages
+       # Don't trigger on self created messages
         if self.name == properties.app_id:
             return
 
-        LOG.info("Function instance config request received.")
+        LOG.info("Function instance configure request received.")
         message = yaml.load(payload)
 
         # Extract the correlation id
@@ -380,41 +379,41 @@ class FunctionLifecycleManager(ManoBasePlugin):
         # recreate the ledger
         self.recreate_ledger(message, corr_id, func_id, t.VNF_CONFIG)
 
-        # Check if VNFD defines a start FSM, if not, no action can be taken
-        if 'configure' not in self.functions[func_id]['fsm'].keys():
-            msg = ": No config FSM provided, config event ignored."
-            LOG.info("Function " + func_id + msg)
-
-            self.functions[func_id]['message'] = msg
-            self.respond_to_request(func_id)
-
-            del self.functions[func_id]
-            return
-
-        # add the payload for the FSM
+        # extract the payload for the configure event
         self.functions[func_id]['configure'] = message['data']
+
+        # Set default response message 
+        msg =": No config FSM or generic envs provided, config event ignored."
+        self.functions[func_id]['message'] = str(func_id) +  msg
 
         # Schedule the tasks that the FLM should do for this request.
         add_schedule = []
 
-        add_schedule.append("trigger_configure_fsm")
-        add_schedule.append("respond_to_request")
+        # Check if VNFD defines a config FSM
+        if 'configure' in self.functions[func_id]['fsm'].keys():
+            add_schedule.append("trigger_configure_fsm")
 
+        # Check if generic envs where provided
+        if 'generic_envs' in message['data'].keys():
+            self.functions[func_id]['envs'] = message['data']['generic_envs']
+            add_schedule.append("func_ia_configure")
+
+        add_schedule.append("respond_to_request")
         self.functions[func_id]['schedule'].extend(add_schedule)
 
-        msg = ": New config request received."
+        msg = ": New configure request received."
         LOG.info("Function " + func_id + msg)
         # Start the chain of tasks
         self.start_next_task(func_id)
 
-        return self.functions[func_id]['schedule']
+        return
 
     def function_instance_stop(self, ch, method, properties, payload):
         """
         This method starts the vnf stop workflow
         """
 
-        # Don't trigger on self created messages
+       # Don't trigger on self created messages
         if self.name == properties.app_id:
             return
 
@@ -429,26 +428,21 @@ class FunctionLifecycleManager(ManoBasePlugin):
         # recreate the ledger
         self.recreate_ledger(message, corr_id, func_id, t.VNF_STOP)
 
-        # Check if VNFD defines a stop FSM, if not, no action can be taken
-        if 'stop' not in self.functions[func_id]['fsm'].keys():
-            msg = ": No stop FSM provided, start event ignored."
-            LOG.info("Function " + func_id + msg)
-
-            self.functions[func_id]['message'] = msg
-            self.respond_to_request(func_id)
-
-            del self.functions[func_id]
-            return
-
-        # add the payload for the FSM
+        # extract the payload for the stop event
         self.functions[func_id]['stop'] = message['data']
+
+        # Set default response message 
+        msg =": No stop FSM provided, stop event ignored."
+        self.functions[func_id]['message'] = str(func_id) +  msg
 
         # Schedule the tasks that the FLM should do for this request.
         add_schedule = []
 
-        add_schedule.append("trigger_stop_fsm")
-        add_schedule.append("respond_to_request")
+        # Check if VNFD defines a stop FSM
+        if 'stop' in self.functions[func_id]['fsm'].keys():
+            add_schedule.append("trigger_stop_fsm")
 
+        add_schedule.append("respond_to_request")
         self.functions[func_id]['schedule'].extend(add_schedule)
 
         msg = ": New stop request received."
@@ -456,7 +450,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
         # Start the chain of tasks
         self.start_next_task(func_id)
 
-        return self.functions[func_id]['schedule']
+        return
 
     def function_instance_scale(self, ch, method, properties, payload):
         """
@@ -1083,14 +1077,25 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         if response['status'] == "COMPLETED":
             LOG.info("FSM finished successfully")
+            self.functions[func_id]['message'] = "FSM finished successfully"
             if 'envs' in response.keys():
                 if function['type'] is not 'container':
                     msg = 'type is not container, ignoring envs from fsm'
                     LOG.info("Function " + func_id + msg)
                 else:
                     if type(response['envs']) == list:
-                        function['envs'] = response['envs']
-                        function['schedule'].insert(0, 'func_ia_configure')
+                        if 'envs' not in function.keys():
+                            function['envs'] = response['envs']
+                        else:
+                            for cdu1 in response['envs']:
+                                for cdu2 in function['envs']:
+                                    if cdu1['cdu_id'] == cdu2['cdu_id']:
+                                        new = cdu2['envs'].copy()
+                                        new.update(cdu1['envs'])
+                                        cdu2['envs'] = new
+                                        break
+                        if 'func_ia_configure' not in function['schedule']:
+                            function['schedule'].insert(0, 'func_ia_configure')
                     else:
                         message = 'envs is not a list'
                         function["error"] = message
@@ -1154,6 +1159,8 @@ class FunctionLifecycleManager(ManoBasePlugin):
             function["error"] = response['message']
             self.flm_error(func_id)
             return
+
+        self.functions[func_id]['message'] = "Env injection successful"
 
         self.start_next_task(func_id)
 

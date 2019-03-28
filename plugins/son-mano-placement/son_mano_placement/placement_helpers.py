@@ -383,19 +383,19 @@ def map_ref_on_id(ref, nsd, vnfds, eps):
             for ep in eps:
                 if ep['type'] == 'ingress':
                     return ep['id']
-        if len(eps) == 3 and cp_i == 1:
+        if len(cps) == 3 and cp_i == 1:
             for ep in eps:
                 if ep['type'] == 'ingress':
                     return ep['id']
-        if len(eps) == 3 and cp_i == 2:
+        if len(cps) == 3 and cp_i == 2:
             for ep in eps:
                 if ep['type'] == 'egress':
                     return ep['id']
-        if len(eps) == 2 and cp_i == 0:
+        if len(cps) == 2 and cp_i == 0:
             for ep in eps:
                 if ep['type'] == 'ingress':
                     return ep['id']
-        if len(eps) == 2 and cp_i == 1:
+        if len(cps) == 2 and cp_i == 1:
             for ep in eps:
                 if ep['type'] == 'egress':
                     return ep['id']

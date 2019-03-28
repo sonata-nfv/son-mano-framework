@@ -378,49 +378,49 @@ class testSlmFunctionality(unittest.TestCase):
 ###############################################################
 #TEST4: Test resp_topo
 ###############################################################
-    def test_resp_topo(self):
-        """
-        This method tests the resp_topo method.
-        """
+    # def test_resp_topo(self):
+    #     """
+    #     This method tests the resp_topo method.
+    #     """
 
-        #Setup
-        #Create topology message
-        first = {'vim_uuid':str(uuid.uuid4()), 'memory_used':5, 'memory_total':12, 'core_used':4, 'core_total':6}
-        second = {'vim_uuid':str(uuid.uuid4()), 'memory_used':3, 'memory_total':5, 'core_used':4, 'core_total':5}
-        third = {'vim_uuid':str(uuid.uuid4()), 'memory_used':6, 'memory_total':7, 'core_used':2, 'core_total':12}
-        topology_message = [first, second, third]
-        payload = yaml.dump(topology_message)
+    #     #Setup
+    #     #Create topology message
+    #     first = {'vim_uuid':str(uuid.uuid4()), 'memory_used':5, 'memory_total':12, 'core_used':4, 'core_total':6}
+    #     second = {'vim_uuid':str(uuid.uuid4()), 'memory_used':3, 'memory_total':5, 'core_used':4, 'core_total':5}
+    #     third = {'vim_uuid':str(uuid.uuid4()), 'memory_used':6, 'memory_total':7, 'core_used':2, 'core_total':12}
+    #     topology_message = [first, second, third]
+    #     payload = yaml.dump(topology_message)
 
-        #Create ledger
-        service_dict = {}
-        service_id = str(uuid.uuid4())
-        corr_id = str(uuid.uuid4())
-        service_dict[service_id] = {'act_corr_id':corr_id,
-                                    'infrastructure': {'topology':None},
-                                    'schedule': ['get_ledger'],
-                                    'original_corr_id':corr_id,
-                                    'pause_chain': True,
-                                    'kill_chain': False}
+    #     #Create ledger
+    #     service_dict = {}
+    #     service_id = str(uuid.uuid4())
+    #     corr_id = str(uuid.uuid4())
+    #     service_dict[service_id] = {'act_corr_id':corr_id,
+    #                                 'infrastructure': {'topology':None},
+    #                                 'schedule': ['get_ledger'],
+    #                                 'original_corr_id':corr_id,
+    #                                 'pause_chain': True,
+    #                                 'kill_chain': False}
 
-        self.slm_proc.set_services(service_dict)
+    #     self.slm_proc.set_services(service_dict)
 
-        #Create properties
-        topic = "infrastructure.management.compute.list"
-        prop_dict = {'reply_to': topic, 
-                     'correlation_id': corr_id,
-                     'app_id': 'InfrastructureAdaptor'}
+    #     #Create properties
+    #     topic = "infrastructure.management.compute.list"
+    #     prop_dict = {'reply_to': topic, 
+    #                  'correlation_id': corr_id,
+    #                  'app_id': 'InfrastructureAdaptor'}
 
-        properties = namedtuple('properties', prop_dict.keys())(*prop_dict.values())
+    #     properties = namedtuple('properties', prop_dict.keys())(*prop_dict.values())
 
-        #Run method
-        self.slm_proc.resp_topo('foo', 'bar', properties, payload)
+    #     #Run method
+    #     self.slm_proc.resp_topo('foo', 'bar', properties, payload)
 
-        #Check result
-        result = self.slm_proc.get_services()
+    #     #Check result
+    #     result = self.slm_proc.get_services()
 
-        self.assertEqual(topology_message,
-                         result[service_id]['infrastructure']['topology'],
-                         msg="Dictionaries are not equal")
+    #     self.assertEqual(topology_message,
+    #                      result[service_id]['infrastructure']['topology'],
+    #                      msg="Dictionaries are not equal")
 
 ###############################################################
 #TEST5: Test resp_vnf_depl
@@ -759,50 +759,50 @@ class testSlmFunctionality(unittest.TestCase):
 ###############################################################
 #TEST8: test request_topology
 ###############################################################
-    def test_request_topology(self):
-        """
-        This method tests the request_topology method.
-        """
+    # def test_request_topology(self):
+    #     """
+    #     This method tests the request_topology method.
+    #     """
 
-        #Check result SUBTEST 1
-        def on_request_topology_subtest1(ch, mthd, prop, payload):
+    #     #Check result SUBTEST 1
+    #     def on_request_topology_subtest1(ch, mthd, prop, payload):
 
-            self.assertEqual(payload,
-                             "{}",
-                             msg="Payload is not empty")
+    #         self.assertEqual(payload,
+    #                          "{}",
+    #                          msg="Payload is not empty")
 
-            self.firstEventFinished()
+    #         self.firstEventFinished()
 
-        #SUBTEST1: Trigger request_topology
-        #Setup
-        #Create the ledger
-        self.wait_for_first_event.clear()
-        service_dict = {}
-        service_id = str(uuid.uuid4())
-        corr_id = str(uuid.uuid4())
-        service_dict[service_id] = {'schedule': ['get_ledger'],
-                                    'original_corr_id':corr_id,
-                                    'pause_chain': True,
-                                    'kill_chain': False,
-                                    'status': 'FOO',
-                                    'error': 'BAR',
-                                    'infrastructure':{}}
+    #     #SUBTEST1: Trigger request_topology
+    #     #Setup
+    #     #Create the ledger
+    #     self.wait_for_first_event.clear()
+    #     service_dict = {}
+    #     service_id = str(uuid.uuid4())
+    #     corr_id = str(uuid.uuid4())
+    #     service_dict[service_id] = {'schedule': ['get_ledger'],
+    #                                 'original_corr_id':corr_id,
+    #                                 'pause_chain': True,
+    #                                 'kill_chain': False,
+    #                                 'status': 'FOO',
+    #                                 'error': 'BAR',
+    #                                 'infrastructure':{}}
 
-        #Set the ledger
-        self.slm_proc.set_services(service_dict)
+    #     #Set the ledger
+    #     self.slm_proc.set_services(service_dict)
 
-        #Spy the message bus
-        self.manoconn_spy.subscribe(on_request_topology_subtest1, 
-                                    'infrastructure.management.compute.list')
+    #     #Spy the message bus
+    #     self.manoconn_spy.subscribe(on_request_topology_subtest1, 
+    #                                 'infrastructure.management.compute.list')
 
-        #Wait until subscription is completed
-        time.sleep(0.1)
+    #     #Wait until subscription is completed
+    #     time.sleep(0.1)
 
-        #Run the method
-        self.slm_proc.request_topology(service_id)
+    #     #Run the method
+    #     self.slm_proc.request_topology(service_id)
 
-        #Wait for the test to finish
-        self.waitForFirstEvent(timeout=5)
+    #     #Wait for the test to finish
+    #     self.waitForFirstEvent(timeout=5)
 
 ###############################################################
 #TEST9: test ia_prepare
