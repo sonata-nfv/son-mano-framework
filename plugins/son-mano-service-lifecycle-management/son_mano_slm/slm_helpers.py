@@ -689,7 +689,7 @@ def find_ip_from_ref(ref, nsd, vnfs):
             if 'virtual_deployment_units' in vnf['vnfr'].keys():
                 vdus = vnf['vnfr']['virtual_deployment_units']
                 for vdu in vdus:
-                    if vdu['id'] = cp['du_id']:
+                    if vdu['id'] == cp['du_id']:
                         vnfc = vdu['vnfc_instance'][0]
                         for cp_loc in vnfc['connection_points']:
                             if cp_loc['id'] == cp['cp_id']:
@@ -697,7 +697,7 @@ def find_ip_from_ref(ref, nsd, vnfs):
             if 'cloudnative_deployment_units' in vnf['vnfr'].keys():
                 vdus = vnf['vnfr']['cloudnative_deployment_units']
                 for vdu in vdus:
-                    if vdu['id'] = cp['du_id']:
+                    if vdu['id'] == cp['du_id']:
                         return cp_loc['load_balancer_ip']['floating_ip']
 
     return None
