@@ -208,7 +208,8 @@ class PlacementPlugin(ManoBasePlugin):
                         new_du['vim'] = vnf['vim_uuid']
                     dus.append(new_du)
 
-        LOG.info(serv_id + ': list of dus ' + str(dus))
+#        LOG.info(serv_id + ': list of dus ' + str(dus))
+        print(yaml.dump(dus))
 
         # Build vim list
         vims = []
@@ -224,7 +225,8 @@ class PlacementPlugin(ManoBasePlugin):
             new_vim['bandwidth'] = 1000
             vims.append(new_vim)
 
-        LOG.info(serv_id + ': list of vims ' + str(vims))
+#        LOG.info(serv_id + ': list of vims ' + str(vims))
+        print(yaml.dump(vims))
 
         # Build wim list
         wims = []
@@ -238,25 +240,35 @@ class PlacementPlugin(ManoBasePlugin):
                 new_wim['latency'] = int(pair['latency'])
                 wims.append(new_wim)
 
-        LOG.info(serv_id + ': list of wims ' + str(wims))
+#        LOG.info(serv_id + ': list of wims ' + str(wims))
+        print(yaml.dump(wims))
+
         # build endpoint list
         eps = []
         if ingress is not None:
             for ep in ingress:
-                if 'endpoint' in ep.keys():
+                if 'location' in ep.keys():
                     new_ep = {}
                     new_ep['type'] = 'ingress'
-                    new_ep['id'] = ep['endpoint']
+                    new_ep['id'] = ep['location']
+                    new_ep['wims'] = []
+                    for wim in wims:
+                        if new_ep['id'] in [wim['vim_1'], wim['vim_2']]:
+                            new_ep['wims'].append(wim['id'])
                     eps.append(new_ep)
         if egress is not None:
             for ep in egress:
-                if 'endpoint' in ep.keys():
+                if 'location' in ep.keys():
                     new_ep = {}
                     new_ep['type'] = 'egress'
-                    new_ep['id'] = ep['endpoint']
+                    new_ep['id'] = ep['location']
+                    for wim in wims:
+                        if new_ep['id'] in [wim['vim_1'], wim['vim_2']]:
+                            new_ep['wims'].append(wim['id'])
                     eps.append(new_ep)
 
-        LOG.info(serv_id + ': list of eps ' + str(eps))
+#        LOG.info(serv_id + ': list of eps ' + str(eps))
+        print(yaml.dump(eps))
 
         # build virtual link list that require qos considerations
         vls = []
@@ -268,12 +280,14 @@ class PlacementPlugin(ManoBasePlugin):
                 new_vl['id'] = nsd_vl['id']
                 new_vl['nodes'] = []
                 for ref in nsd_vl['connection_points_reference']:
+                    print(ref)
                     node_id = tools.map_ref_on_id(ref, nsd, vnfds, eps)
+                    print(node_id)
                     new_vl['nodes'].append(node_id)
 
                 qos_req = nsd_vl['qos_requirements']
-                if 'minimum_bandwidth' in qos_req.keys():
-                    new_vl['bandwidth'] = int(qos_req['minimum_bandwidth'])
+                if 'bandwidth' in qos_req.keys():
+                    new_vl['bandwidth'] = int(qos_req['bandwidth'])
                 else:
                     new_vl['bandwidth'] = 0
                 if 'latency' in qos_req.keys():
@@ -310,7 +324,8 @@ class PlacementPlugin(ManoBasePlugin):
                                     break
                     vls.append(new_vl)
 
-        LOG.info(serv_id + ': list of vls ' + str(vls))
+#        LOG.info(serv_id + ': list of vls ' + str(vls))
+        print(yaml.dump(vls))
 
         # build constraint dictionary
         const = {}
@@ -366,7 +381,17 @@ class PlacementPlugin(ManoBasePlugin):
                 vim_wim_id = res[0]['vls'][vl['id']]
                 for wim in wims:
                     if wim['id'] == vim_wim_id:
-                        vls_map[vl['id']] = vim_wim_id
+                        vls_map[vl['id']] = {}
+                        vls_map[vl['id']]['wim'] = vim_wim_id
+                        vls_map[vl['id']]['nodes'] = []
+                        for node in vl['nodes']:
+                            for ep in eps:
+                                if ep['id'] == node:
+                                    vls_map[vl['id']]['nodes'].append(node)
+                            for du in dus:
+                                if du['id'] == node:
+                                    vim = response['mapping']['du']['node']
+                                    vls_map[vl['id']]['nodes'].append(vim)
                         break
 
             # Add virtual links that have no qos requirements but coincide with
@@ -384,7 +409,17 @@ class PlacementPlugin(ManoBasePlugin):
                     for wim in wims:
                         if wim['vim_1'] in vim_or_ep and \
                            wim['vim_2'] in vim_or_ep:
-                            vls_map[nsd_vl['id']] = wim['id']
+                            vls_map[vl['id']] = {}
+                            vls_map[vl['id']]['wim'] = wim['id']
+                            vls_map[vl['id']]['nodes'] = []
+                            for node in vl['nodes']:
+                                for ep in eps:
+                                    if ep['id'] == node:
+                                        vls_map[vl['id']]['nodes'].append(node)
+                                for du in dus:
+                                    if du['id'] == node:
+                                        vim = response['mapping']['du']['node']
+                                        vls_map[vl['id']]['nodes'].append(vim)
                             break
 
             response['mapping']['vl'] = vls_map
@@ -392,6 +427,7 @@ class PlacementPlugin(ManoBasePlugin):
         LOG.info(str(response))
         topic = 'mano.service.place'
 
+        print(yaml.dump(response))
         self.manoconn.notify(topic,
                              yaml.dump(response),
                              correlation_id=prop.correlation_id)
@@ -456,6 +492,7 @@ class PlacementPlugin(ManoBasePlugin):
 
         c = range(len(eps))
         var_eps = [(x + offset_eps_1, x + offset_eps_2) for x in c]
+        print(var_eps)
 
         dec_var = var_dus + var_vls + var_eps
 
@@ -617,17 +654,25 @@ class PlacementPlugin(ManoBasePlugin):
             x2_i = -1
             for du in dus:
                 if du['id'] == vl['nodes'][0]:
+                    print("node1")
                     x1_i = dus.index(du)
                 if du['id'] == vl['nodes'][1]:
+                    print("node2")
                     x2_i = dus.index(du)
 
+            print(vim_wim)
             for wim in vim_wim:
                 wim_i = vim_wim.index(wim)
 
                 if x1_i == -1:
+                    print("ep1")
                     for ep in eps:
                         if ep['id'] == vl['nodes'][0]:
+                            print('ep hit')
+                            print(wim['id'])
+                            print(ep['wims'])
                             if wim['id'] in ep['wims']:
+                                print('ep hit hit')
                                 sum_1 = 1
                             else:
                                 sum_1 = 0
@@ -650,14 +695,14 @@ class PlacementPlugin(ManoBasePlugin):
         # Solve the problem
         lpProblem.solve()
 
-        # for var in variables:
-        #     if variables[var].varValue == 1.0:
-        #         print(variables[var].varValue)
-        #         print(variables[var].cat)
-        #         print(variables[var].name)
+        for var in variables:
+            if variables[var].varValue == 1.0:
+                print(variables[var].varValue)
+                print(variables[var].cat)
+                print(variables[var].name)
 
-        # print(lpProblem)
-        # print(lpProblem.status)
+        print(lpProblem)
+        print(lpProblem.status)
 
         # processing the result
         result = {}

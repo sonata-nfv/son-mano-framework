@@ -678,6 +678,31 @@ def map_refs_on_du_cps(refs, nsd, vnfs):
                     break
     return cps
 
+def find_ip_from_ref(ref, nsd, vnfs):
+    """
+    find ip associated to a ref
+    """
+    cp = map_refs_on_du_cps([ref], nsd, vnfs)[0]
+
+    for vnf in vnfs:
+        if vnf['id'] == cp['vnf_id']:
+            if 'virtual_deployment_units' in vnf['vnfr'].keys():
+                vdus = vnf['vnfr']['virtual_deployment_units']
+                for vdu in vdus:
+                    if vdu['id'] = cp['du_id']:
+                        vnfc = vdu['vnfc_instance'][0]
+                        for cp_loc in vnfc['connection_points']:
+                            if cp_loc['id'] == cp['cp_id']:
+                                return cp_loc['interface']['address']
+            if 'cloudnative_deployment_units' in vnf['vnfr'].keys():
+                vdus = vnf['vnfr']['cloudnative_deployment_units']
+                for vdu in vdus:
+                    if vdu['id'] = cp['du_id']:
+                        return cp_loc['load_balancer_ip']['floating_ip']
+
+    return None
+
+
 
 def map_vnf_cp_on_du_cps(cp_ref, vnfd):
     """

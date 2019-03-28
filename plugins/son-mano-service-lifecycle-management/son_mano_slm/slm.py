@@ -2663,46 +2663,52 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['act_corr_id'] = corr_id
 
         nsd = self.services[serv_id]['service']['nsd']
-        vim_list = self.services[serv_id]['service']['ordered_vim_list']
-        LOG.info("Service " + serv_id + ": vim list: " + str(vim_list))
+        vnfs = self.services[serv_id]['function']
+        vl_map = self.servics[serv_id]['mapping']['vl']
 
-        if 'forwarding_graphs' in nsd.keys() > 1:
-            message = {}
-            message['service_instance_id'] = serv_id
+        for vl in nsd['virtual_links']:
+            if vl['id'] in vl_map.keys():
+                LOG.info("Service " + serv_id + ": VL for WAN identified")
+                message = {}
+                message['service_instance_id'] = serv_id
+                message['wim_uuid'] = vl_map[vl['id']]['wim']
+                message['bidirectional'] = True
+                if 'qos_requirements' in vl.keys():
+                    message['qos'] = vl['qos_requirements']
 
-            # Add egress and ingress fields
-            message['nap'] = {}
-            nap_empty = True
+                message['ingress'] = {}
+                first_node = vl_map[vl['id']]['wim']['nodes'][0]
+                message['ingress']['location'] = first_node
+                message['egress'] = {}
+                sec_node = vl_map[vl['id']]['wim']['nodes'][1]
+                message['egress']['location'] = sec_node
 
-            if self.services[serv_id]['ingress'] is not None:
-                message['nap']['ingresses'] = self.services[serv_id]['ingress']
-                nap_empty = False
-            if self.services[serv_id]['egress'] is not None:
-                message['nap']['egresses'] = self.services[serv_id]['egress']
-                nap_empty = False
+                ref = vl['connection_points_reference'][0]
+                if ':' not in ref:
+                    nap = self.services[serv_id]['ingress'][0]
+                    message['ingress']['nap'] = nap
+                else:
+                    ip = tools.find_ip_from_ref(ref, nsd, vnfs)
+                    message['ingress']['nap'] = ip
 
-            # Check if `nap` is empty
-            if nap_empty:
-                message.pop('nap')
+                ref = vl['connection_points_reference'][1]
+                if ':' not in ref:
+                    nap = self.services[serv_id]['egress'][0]
+                    message['egress']['nap'] = nap
+                else:
+                    ip = tools.find_ip_from_ref(ref, nsd, vnfs)
+                    message['egress']['nap'] = ip
 
-            # Create ordered vim_list
-            ordered_vim = []
-            vim_list = self.services[serv_id]['service']['ordered_vim_list']
-            for vim in vim_list:
-                ordered_vim.append({'uuid': vim, 'order': vim_list.index(vim)})
+                msg = ": message for WAN: " + str(message)
+                LOG.info("Service " + serv_id + msg)
 
-            message['vim_list'] = ordered_vim
+                self.manoconn.call_async(self.wan_configure_response,
+                                         t.IA_CONF_WAN,
+                                         yaml.dump(message),
+                                         correlation_id=corr_id)
 
-            self.manoconn.call_async(self.wan_configure_response,
-                                     t.IA_CONF_WAN,
-                                     yaml.dump(message),
-                                     correlation_id=corr_id)
-
-            # # Pause the chain of tasks to wait for response
-            self.services[serv_id]['pause_chain'] = True
-        else:
-            LOG.info("Service " + serv_id + ": No WAN required")
-
+                # # Pause the chain of tasks to wait for response
+                self.services[serv_id]['pause_chain'] = True
 
     def wan_configure_response(self, ch, method, prop, payload):
         """
