@@ -2658,13 +2658,17 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method configures the WAN of a service
         """
 
+        self.manoconn.call_async(self.wan_configure_response,
+                                 'test.test',
+                                 yaml.dump(self.services[serv_id]))
+
         LOG.info("Service " + serv_id + ": WAN Configuration")
         corr_id = str(uuid.uuid4())
         self.services[serv_id]['act_corr_id'] = corr_id
 
         nsd = self.services[serv_id]['service']['nsd']
         vnfs = self.services[serv_id]['function']
-        vl_map = self.services[serv_id]['mapping']['vl']
+        vl_map = self.services[serv_id]['service']['mapping']['vl']
 
         for vl in nsd['virtual_links']:
             if vl['id'] in vl_map.keys():
