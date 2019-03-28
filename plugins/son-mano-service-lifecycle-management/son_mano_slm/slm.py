@@ -2664,7 +2664,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         nsd = self.services[serv_id]['service']['nsd']
         vnfs = self.services[serv_id]['function']
-        vl_map = self.servics[serv_id]['mapping']['vl']
+        vl_map = self.services[serv_id]['mapping']['vl']
 
         for vl in nsd['virtual_links']:
             if vl['id'] in vl_map.keys():
