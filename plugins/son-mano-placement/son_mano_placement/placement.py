@@ -82,11 +82,11 @@ class PlacementPlugin(ManoBasePlugin):
         ver = "0.1-dev"
         des = "This is the Placement plugin"
 
-        super(self.__class__, self).__init__(version=ver,
-                                             description=des,
-                                             auto_register=auto_register,
-                                             wait_for_registration=wait_for_registration,
-                                             start_running=start_running)
+        # super(self.__class__, self).__init__(version=ver,
+        #                                      description=des,
+        #                                      auto_register=auto_register,
+        #                                      wait_for_registration=wait_for_registration,
+        #                                      start_running=start_running)
 
     def __del__(self):
         """
@@ -150,8 +150,8 @@ class PlacementPlugin(ManoBasePlugin):
         This method handles a placement request
         """
 
-        if prop.app_id == self.name:
-            return
+        # if prop.app_id == self.name:
+        #     return
 
         content = yaml.load(payload)
         LOG.info("Placement request for service: " + content['serv_id'])
@@ -372,6 +372,7 @@ class PlacementPlugin(ManoBasePlugin):
                         break
             response['mapping']['du'] = dus_map
 
+            print(dus_map)
             # For now, we ignore vls that are on vims. We only return those
             # that are on wims
             vls_map = {}
@@ -388,7 +389,7 @@ class PlacementPlugin(ManoBasePlugin):
                                     vls_map[vl['id']]['nodes'].append(node)
                             for du in dus:
                                 if du['id'] == node:
-                                    vim = response['mapping']['du']['node']
+                                    vim = response['mapping']['du'][du['nf_id']]
                                     vls_map[vl['id']]['nodes'].append(vim)
                         break
 
