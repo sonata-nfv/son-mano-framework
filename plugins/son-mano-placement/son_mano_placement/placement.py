@@ -416,7 +416,7 @@ class PlacementPlugin(ManoBasePlugin):
                                         vls_map[vl['id']]['nodes'].append(node)
                                 for du in dus:
                                     if du['id'] == node:
-                                        vim = response['mapping']['du']['node']
+                                        vim = response['mapping']['du'][du['nf_id']]
                                         vls_map[vl['id']]['nodes'].append(vim)
                             break
 

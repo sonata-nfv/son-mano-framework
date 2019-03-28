@@ -702,8 +702,6 @@ def find_ip_from_ref(ref, nsd, vnfs):
 
     return None
 
-
-
 def map_vnf_cp_on_du_cps(cp_ref, vnfd):
     """
     This method returns a map from a vnf cp onto the du connection points.

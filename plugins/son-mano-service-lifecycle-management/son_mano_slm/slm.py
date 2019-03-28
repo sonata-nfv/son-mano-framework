@@ -2658,13 +2658,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method configures the WAN of a service
         """
 
-        self.manoconn.call_async(self.wan_configure_response,
-                                 'test.test',
-                                 yaml.dump(self.services[serv_id]))
-
         LOG.info("Service " + serv_id + ": WAN Configuration")
-        corr_id = str(uuid.uuid4())
-        self.services[serv_id]['act_corr_id'] = corr_id
+
+        self.services[serv_id]['vls_to_resp'] = 0
+
+        self.services[serv_id]['act_corr_id'] = []
 
         nsd = self.services[serv_id]['service']['nsd']
         vnfs = self.services[serv_id]['function']
@@ -2681,10 +2679,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     message['qos'] = vl['qos_requirements']
 
                 message['ingress'] = {}
-                first_node = vl_map[vl['id']]['wim']['nodes'][0]
+                print(vl_map)
+                first_node = vl_map[vl['id']]['nodes'][0]
                 message['ingress']['location'] = first_node
                 message['egress'] = {}
-                sec_node = vl_map[vl['id']]['wim']['nodes'][1]
+                sec_node = vl_map[vl['id']]['nodes'][1]
                 message['egress']['location'] = sec_node
 
                 ref = vl['connection_points_reference'][0]
@@ -2706,13 +2705,18 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 msg = ": message for WAN: " + str(message)
                 LOG.info("Service " + serv_id + msg)
 
+                corr_id = str(uuid.uuid4())
+                self.services[serv_id]['act_corr_id'].append(corr_id)
+                self.services[serv_id]['vls_to_resp'] += 1
+
+                # Pause the chain of tasks to wait for response
+                self.services[serv_id]['pause_chain'] = True
+
                 self.manoconn.call_async(self.wan_configure_response,
                                          t.IA_CONF_WAN,
                                          yaml.dump(message),
                                          correlation_id=corr_id)
 
-                # # Pause the chain of tasks to wait for response
-                self.services[serv_id]['pause_chain'] = True
 
     def wan_configure_response(self, ch, method, prop, payload):
         """
@@ -2730,7 +2734,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
             LOG.info('Error occured during WAN: ' + str(error))
             self.error_handling(serv_id, t.GK_CREATE, error)
 
-        self.start_next_task(serv_id)
+        self.services[serv_id]['vls_to_resp'] -= 1
+
+        if self.services[serv_id]['vls_to_resp'] == 0:
+            self.start_next_task(serv_id)
 
     def wan_deconfigure(self, serv_id):
         """
