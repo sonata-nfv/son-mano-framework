@@ -2671,51 +2671,51 @@ class ServiceLifecycleManager(ManoBasePlugin):
         for vl in nsd['virtual_links']:
             if vl['id'] in vl_map.keys():
                 LOG.info("Service " + serv_id + ": VL for WAN identified")
-                message = {}
-                message['service_instance_id'] = serv_id
-                message['wim_uuid'] = vl_map[vl['id']]['wim']
-                message['bidirectional'] = True
-                if 'qos_requirements' in vl.keys():
-                    message['qos'] = vl['qos_requirements']
+                for vl_for_wim in vl_map[vl['id']]:
+                    message = {}
+                    message['service_instance_id'] = serv_id
+                    message['wim_uuid'] = vl_for_wim['wim']
+                    message['bidirectional'] = True
+                    if 'qos_requirements' in vl.keys():
+                        message['qos'] = vl['qos_requirements']
 
-                message['ingress'] = {}
-                print(vl_map)
-                first_node = vl_map[vl['id']]['nodes'][0]
-                message['ingress']['location'] = first_node
-                message['egress'] = {}
-                sec_node = vl_map[vl['id']]['nodes'][1]
-                message['egress']['location'] = sec_node
+                    message['ingress'] = {}
+                    first_node = vl_for_wim['nodes'][0]
+                    message['ingress']['location'] = first_node
+                    message['egress'] = {}
+                    sec_node = vl_for_wim['nodes'][1]
+                    message['egress']['location'] = sec_node
 
-                ref = vl['connection_points_reference'][0]
-                if ':' not in ref:
-                    nap = self.services[serv_id]['ingress'][0]
-                    message['ingress']['nap'] = nap
-                else:
-                    ip = tools.find_ip_from_ref(ref, nsd, vnfs)
-                    message['ingress']['nap'] = ip
+                    ref = vl_for_wim['refs'][0]
+                    if ':' not in ref:
+                        nap = self.services[serv_id]['ingress'][0]
+                        message['ingress']['nap'] = nap
+                    else:
+                        ip = tools.find_ip_from_ref(ref, nsd, vnfs)
+                        message['ingress']['nap'] = ip
 
-                ref = vl['connection_points_reference'][1]
-                if ':' not in ref:
-                    nap = self.services[serv_id]['egress'][0]
-                    message['egress']['nap'] = nap
-                else:
-                    ip = tools.find_ip_from_ref(ref, nsd, vnfs)
-                    message['egress']['nap'] = ip
+                    ref = vl_for_wim['refs'][1]
+                    if ':' not in ref:
+                        nap = self.services[serv_id]['egress'][0]
+                        message['egress']['nap'] = nap
+                    else:
+                        ip = tools.find_ip_from_ref(ref, nsd, vnfs)
+                        message['egress']['nap'] = ip
 
-                msg = ": message for WAN: " + str(message)
-                LOG.info("Service " + serv_id + msg)
+                    msg = ": message for WAN: " + str(message)
+                    LOG.info("Service " + serv_id + msg)
 
-                corr_id = str(uuid.uuid4())
-                self.services[serv_id]['act_corr_id'].append(corr_id)
-                self.services[serv_id]['vls_to_resp'] += 1
+                    corr_id = str(uuid.uuid4())
+                    self.services[serv_id]['act_corr_id'].append(corr_id)
+                    self.services[serv_id]['vls_to_resp'] += 1
 
-                # Pause the chain of tasks to wait for response
-                self.services[serv_id]['pause_chain'] = True
+                    # Pause the chain of tasks to wait for response
+                    self.services[serv_id]['pause_chain'] = True
 
-                self.manoconn.call_async(self.wan_configure_response,
-                                         t.IA_CONF_WAN,
-                                         yaml.dump(message),
-                                         correlation_id=corr_id)
+                    self.manoconn.call_async(self.wan_configure_response,
+                                             t.IA_CONF_WAN,
+                                             yaml.dump(message),
+                                             correlation_id=corr_id)
 
 
     def wan_configure_response(self, ch, method, prop, payload):

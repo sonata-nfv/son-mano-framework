@@ -276,23 +276,34 @@ class PlacementPlugin(ManoBasePlugin):
         nsd_vls = nsd['virtual_links']
         for nsd_vl in nsd_vls:
             if 'qos_requirements' in nsd_vl.keys():
-                new_vl = {}
-                new_vl['id'] = nsd_vl['id']
-                new_vl['nodes'] = []
-                for ref in nsd_vl['connection_points_reference']:
-                    node_id = tools.map_ref_on_id(ref, nsd, vnfds, eps)
-                    new_vl['nodes'].append(node_id)
-
                 qos_req = nsd_vl['qos_requirements']
-                if 'bandwidth' in qos_req.keys():
-                    new_vl['bandwidth'] = int(qos_req['bandwidth'])
-                else:
-                    new_vl['bandwidth'] = 0
-                if 'latency' in qos_req.keys():
-                    new_vl['latency'] = int(qos_req['latency'])
-                else:
-                    new_vl['latency'] = 1000
-                vls.append(new_vl)
+
+                all_nodes = []
+                refs = nsd_vl['connection_points_reference']
+                for ref in refs:
+                    node_id = tools.map_ref_on_id(ref, nsd, vnfds, eps)
+                    all_nodes.append(node_id)
+                len_nodes = len(all_nodes)
+                for i in range(len_nodes):
+                    for j in range(len_nodes):
+                        if i < j:
+                            new_vl = {}
+                            identifier = '_' + str(i)  + '_' + str(j)
+                            new_vl['id'] = nsd_vl['id'] + identifier
+                            new_vl['refs'] = [refs[i], refs[j]]
+                            new_vl['nodes'] = []
+                            new_vl['nodes'].append(all_nodes[i])
+                            new_vl['nodes'].append(all_nodes[j])
+
+                            if 'bandwidth' in qos_req.keys():
+                                new_vl['bandwidth'] = int(qos_req['bandwidth'])
+                            else:
+                                new_vl['bandwidth'] = 0
+                            if 'latency' in qos_req.keys():
+                                new_vl['latency'] = int(qos_req['latency'])
+                            else:
+                                new_vl['latency'] = 1000
+                            vls.append(new_vl)
         # add vls coming from vnfds, between deployment units
         for vnf in vnfs:
             for vl in vnf['vnfd']['virtual_links']:
@@ -379,25 +390,31 @@ class PlacementPlugin(ManoBasePlugin):
                 vim_wim_id = res[0]['vls'][vl['id']]
                 for wim in wims:
                     if wim['id'] == vim_wim_id:
-                        vls_map[vl['id']] = {}
-                        vls_map[vl['id']]['wim'] = vim_wim_id
-                        vls_map[vl['id']]['nodes'] = []
+                        orig_id = vl['id'].split('_')[0]
+                        if orig_id not in vls_map.keys():                            
+                            vls_map[orig_id] = []
+                        new_vl = {}
+                        new_vl['wim'] = vim_wim_id
+                        new_vl['refs'] = vl['refs']
+                        new_vl['nodes'] = []
                         for node in vl['nodes']:
                             for ep in eps:
                                 if ep['id'] == node:
-                                    vls_map[vl['id']]['nodes'].append(node)
+                                    new_vl['nodes'].append(node)
                             for du in dus:
                                 if du['id'] == node:
                                     vim = response['mapping']['du'][du['nf_id']]
-                                    vls_map[vl['id']]['nodes'].append(vim)
+                                    new_vl['nodes'].append(vim)
+                        vls_map[orig_id].append(new_vl)
                         break
 
             # Add virtual links that have no qos requirements but coincide with
             # WIMs to the list
-            for nsd_vl in nsd_vls:
-                if 'qos_requirements' not in nsd_vl.keys():
+            for vl in nsd_vls:
+                if 'qos_requirements' not in vl.keys():
                     vim_or_ep = []
-                    for ref in nsd_vl['connection_points_reference']:
+                    refs = vl['connection_points_reference']
+                    for ref in refs:
                         node_id = tools.map_ref_on_id(ref, nsd, vnfds, eps)
                         if ':' in ref:
                             vim_id = res[0]['dus'][node_id]
@@ -405,19 +422,19 @@ class PlacementPlugin(ManoBasePlugin):
                         else:
                             vim_or_ep.append(node_id)
                     for wim in wims:
-                        if wim['vim_1'] in vim_or_ep and \
-                           wim['vim_2'] in vim_or_ep:
-                            vls_map[vl['id']] = {}
-                            vls_map[vl['id']]['wim'] = wim['id']
-                            vls_map[vl['id']]['nodes'] = []
-                            for node in vl['nodes']:
-                                for ep in eps:
-                                    if ep['id'] == node:
-                                        vls_map[vl['id']]['nodes'].append(node)
-                                for du in dus:
-                                    if du['id'] == node:
-                                        vim = response['mapping']['du'][du['nf_id']]
-                                        vls_map[vl['id']]['nodes'].append(vim)
+                        coll = [wim['vim_1'], wim['vim_2']]
+                        if set(vim_or_ep) <= set(coll) and \
+                           len(set(vim_or_ep)) > 1:
+                            vls_map[vl['id']] = []
+                            for i in range(len(vim_or_ep)):
+                                for j in range(len(vim_or_ep)):
+                                    if i < j:
+                                        new_vl = {}
+                                        new_vl['wim'] = wim['id']
+                                        nodes = [vim_or_ep[i], vim_or_ep[j]]
+                                        new_vl['nodes'] = nodes
+                                        new_vl['refs'] = [refs[i], refs[j]]
+                                        vls_map[vl['id']].append(new_vl)
                             break
 
             response['mapping']['vl'] = vls_map
@@ -425,7 +442,7 @@ class PlacementPlugin(ManoBasePlugin):
         LOG.info(str(response))
         topic = 'mano.service.place'
 
-#        print(yaml.dump(response))
+        # print(yaml.dump(response))
         self.manoconn.notify(topic,
                              yaml.dump(response),
                              correlation_id=prop.correlation_id)
