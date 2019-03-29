@@ -231,14 +231,15 @@ class PlacementPlugin(ManoBasePlugin):
         # Build wim list
         wims = []
         for wim in input_wims:
-            for pair in wim['qos']:
-                new_wim = {}
-                new_wim['vim_1'] = pair['node_1']
-                new_wim['vim_2'] = pair['node_2']
-                new_wim['id'] = wim['uuid']
-                new_wim['bandwidth'] = int(pair['bandwidth'])
-                new_wim['latency'] = int(pair['latency'])
-                wims.append(new_wim)
+            if 'qos' in wim.keys():
+                for pair in wim['qos']:
+                    new_wim = {}
+                    new_wim['vim_1'] = pair['node_1']
+                    new_wim['vim_2'] = pair['node_2']
+                    new_wim['id'] = wim['uuid']
+                    new_wim['bandwidth'] = int(pair['bandwidth'])
+                    new_wim['latency'] = int(pair['latency'])
+                    wims.append(new_wim)
 
         LOG.info(serv_id + ': list of wims ' + str(wims))
         # print(yaml.dump(wims))
