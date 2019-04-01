@@ -399,6 +399,5 @@ def map_ref_on_id(ref, nsd, vnfds, eps):
             for ep in eps:
                 if ep['type'] == 'egress':
                     return ep['id']
-            return eps[0]['id']
 
     return None
