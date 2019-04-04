@@ -142,6 +142,7 @@ def build_vnfr(ia_vnfr, vnfd):
     # vnfd base fields
     vnfr['descriptor_version'] = ia_vnfr['descriptor_version']
     vnfr['id'] = ia_vnfr['id']
+    vnfr['name'] = vnfd.get("name")
     # Building the vnfr makes it the first version of this vnfr.
     vnfr['version'] = '1'
     vnfr['status'] = ia_vnfr['status']
