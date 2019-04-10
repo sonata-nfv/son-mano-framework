@@ -1609,6 +1609,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
             else: 
                 dus = vnfd['cloudnative_deployment_units']
             for du in dus:
+                if not du.get['connection_points']:
+                    continue
                 for cp in du['connection_points']:
                     for vnf_vl in vnfd['virtual_links']:
                         vnf_refs = vnf_vl['connection_points_reference']
