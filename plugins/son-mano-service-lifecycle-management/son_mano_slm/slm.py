@@ -2688,7 +2688,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
                     ref = vl_for_wim['refs'][0]
                     if ':' not in ref:
-                        nap = self.services[serv_id]['ingress'][0]
+                        nap = self.services[serv_id]['ingress'][0]['nap']
                         message['ingress']['nap'] = nap
                     else:
                         ip = tools.find_ip_from_ref(ref, nsd, vnfs)
@@ -2696,7 +2696,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
                     ref = vl_for_wim['refs'][1]
                     if ':' not in ref:
-                        nap = self.services[serv_id]['egress'][0]
+                        nap = self.services[serv_id]['egress'][0]['nap']
                         message['egress']['nap'] = nap
                     else:
                         ip = tools.find_ip_from_ref(ref, nsd, vnfs)
