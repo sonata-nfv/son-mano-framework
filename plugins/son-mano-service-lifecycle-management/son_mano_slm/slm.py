@@ -170,9 +170,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # The topic on which update requests are posted.
         self.manoconn.subscribe(self.service_update, t.GK_UPDATE)
 
-        # The topic on which plugin status info is shared
-        self.manoconn.subscribe(self.plugin_status, t.PL_STATUS)
-
         # The topic on which monitoring information is received
         self.manoconn.subscribe(self.monitoring_feedback, t.MON_RECEIVE)
 
@@ -352,48 +349,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
 ####################
 # SLM input - output
 ####################
-
-    def plugin_status(self, ch, method, properties, payload):
-        """
-        This method is called when the plugin manager broadcasts new
-        information on the plugins.
-        """
-        # TODO: needs unit testing
-
-        message = yaml.load(payload)
-
-        # If the plugin configuration has changed, it needs to be checked
-        # whether the number of SLMs has changed.
-        self.update_slm_configuration(message['plugin_dict'])
-
-    def slm_down(self):
-        """
-        This method is called when this SLM notices that another SLM
-        has gone missing. This SLM needs to determine whether it should
-        take over unfinished tasks from this SLM.
-        """
-        # TODO: needs unit testing
-
-        for serv_id in self.slm_config['tasks_other_slm'].keys():
-
-            tasks_other_slm = self.slm_config['tasks_other_slm']
-            # TODO: only take over when ID's match
-            LOG.info('SLM down, taking over requests')
-            self.services[serv_id] = tasks_other_slm[serv_id]
-
-            if 'schedule' not in self.services[serv_id].keys():
-                del self.services[serv_id]
-                ch = self.tasks_other_slm[serv_id]['ch']
-                method = tasks_other_slm[serv_id]['method']
-                properties = tasks_other_slm[serv_id]['properties']
-                payload = tasks_other_slm[serv_id]['payload']
-
-                self.service_instance_create(ch, method, properties, payload)
-
-            else:
-                self.start_next_task(serv_id)
-
-        self.slm_config['tasks_other_slm'] = {}
 
     def service_instance_create(self, ch, method, properties, payload):
         """
@@ -3415,10 +3370,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
         (decided during instantation) or the placement plugin.
         """
         LOG.info(serv_id)
-        LOG.info(self.services[serv_id])
+        LOG.info(yaml.dump(self.services[serv_id]))
 
         service = self.services[serv_id]['service']
-        functions = self.services[serv_id]['functions']
+        functions = self.services[serv_id]['function']
 
         # Build the mapping template
         mapping = {}
