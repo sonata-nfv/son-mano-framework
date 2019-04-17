@@ -166,6 +166,7 @@ class PlacementPlugin(ManoBasePlugin):
         cu_pol = content['customer_policies']
         ingress = content['nap']['ingresses']
         egress = content['nap']['egresses']
+        pre_map = content['predefined_mapping']
 
         # Translating payload into inputs for or placement process
 
@@ -187,9 +188,10 @@ class PlacementPlugin(ManoBasePlugin):
                     new_du['ram'] = 0
                     new_du['id'] = cdu['id']
                     new_du['nf_id'] = vnf['id']
-                    if 'deployed' in vnf.keys():
+                    vim = pre_map['function'][vnf['id']]['vim_id']
+                    if vim is not None:
                         new_du['needs_placement'] = False
-                        new_du['vim'] = vnf['vim_uuid']
+                        new_du['vim'] = vim
                     dus.append(new_du)
             if 'virtual_deployment_units' in desc.keys():
                 vdus = desc['virtual_deployment_units']
@@ -203,9 +205,10 @@ class PlacementPlugin(ManoBasePlugin):
                         new_du['ram'] = new_du['ram'] / 1024.0
                     new_du['id'] = vdu['id']
                     new_du['nf_id'] = vnf['id']
-                    if 'deployed' in vnf.keys():
+                    vim = pre_map['function'][vnf['id']]['vim_id']
+                    if vim is not None:
                         new_du['needs_placement'] = False
-                        new_du['vim'] = vnf['vim_uuid']
+                        new_du['vim'] = vim
                     dus.append(new_du)
 
         LOG.info(serv_id + ': list of dus ' + str(dus))
@@ -304,6 +307,14 @@ class PlacementPlugin(ManoBasePlugin):
                                 new_vl['latency'] = int(qos_req['latency'])
                             else:
                                 new_vl['latency'] = 1000
+                            if nsd_vl['id'] in pre_map['service']['vl'].keys():
+                                pre_vl = pre_map['service']['vl']
+                                new_vl['needs_placement'] = False
+                                if 'vim_id' in pre_vl.keys():
+                                    new_vl['vim_wim'] = pre_vl['vim_id']
+                                if 'wim_id' in pre_vl.keys():
+                                    new_vl['vim_wim'] = pre_vl['wim_id']
+
                             vls.append(new_vl)
         # add vls coming from vnfds, between deployment units
         for vnf in vnfs:
@@ -332,6 +343,13 @@ class PlacementPlugin(ManoBasePlugin):
                                 if vdu['id'].startswith(ref.split(':')[0]):
                                     new_vl['nodes'].append(vdu['id'])
                                     break
+                    if vl['id'] in pre_map['function'][vnf['id']]['vl'].keys():
+                        pre_vl = pre_map['function'][vnf['id']]['vl']
+                        new_vl['needs_placement'] = False
+                        if 'vim_id' in pre_vl.keys():
+                            new_vl['vim_wim'] = pre_vl['vim_id']
+                        if 'wim_id' in pre_vl.keys():
+                            new_vl['vim_wim'] = pre_vl['wim_id']
                     vls.append(new_vl)
 
         LOG.info(serv_id + ': list of vls ' + str(vls))
@@ -577,7 +595,7 @@ class PlacementPlugin(ManoBasePlugin):
                 lpProblem +=  cpu_total <= vim['core_total']
                 lpProblem +=  ram_total <= vim['memory_total']
 
-        # Every VNF in need of placement should be assigned to exactly 1 PoP
+        # Every VNF should be assigned to exactly 1 PoP
         for du in dus:
             du_i = dus.index(du)
             sum_du = sum(variables[x] for x in var_dus if x[0] == du_i)
@@ -587,7 +605,7 @@ class PlacementPlugin(ManoBasePlugin):
                     used_vim = du['vim']
                     for vim in vims:
                         vim_i = vims.index(vim)
-                        if vim['vim_uuid'] == used_vim:
+                        if vim['id'] == used_vim:
                             lpProblem += variables[(du_i, vim_i)] == 1
                             break
 
@@ -633,8 +651,20 @@ class PlacementPlugin(ManoBasePlugin):
             sum_vl = sum(variables[x] for x in var_vls if x[0] == vl_i)
             lpProblem += sum_vl == 1
 
-        # Resources of physical links can't be overconsumed
+        # Preplaced virtual links should not be placed elsewhere
         vim_wim = vims + wims
+        for vl in vls:
+            if 'placement_needed' in vl.keys():
+                if not vl['placement_needed']:
+                    vl_i = vls.index(vl) + offset_vls
+                    used_vim_wim = vl['vim_wim']
+                    for wim in vim_wim:
+                        vim_wim_i = vims.index(vim)
+                        if wim['id'] == used_vim_wim:
+                            lpProblem += variables[(vl_i, vim_wim_i)] == 1
+                            break
+
+        # Resources of physical links can't be overconsumed
         for wim in vim_wim:
             wim_i = vim_wim.index(wim)
             # Handle latency

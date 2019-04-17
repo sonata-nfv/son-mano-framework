@@ -475,6 +475,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         if 'task' in self.services[serv_id]['service']['ssm'].keys():
             add_schedule.append('trigger_task_ssm')
 
+        add_schedule.append('consolidate_predefined_mapping')
         add_schedule.append('request_topology')
         add_schedule.append('request_policies')
 
@@ -1543,7 +1544,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         IA_mapping['instance_id'] = serv_id
 
         # Build used VIM dictionary
-        dus = self.services[serv_id]['service']['mapping']['du']
+        dus = self.services[serv_id]['calculated_mapping']['du']
         vims = {dus[x] : {'uuid': dus[x], 'virtual_links': [], \
                'vm_images': []} for x in dus}
 
@@ -2668,7 +2669,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         nsd = self.services[serv_id]['service']['nsd']
         vnfs = self.services[serv_id]['function']
-        vl_map = self.services[serv_id]['service']['mapping']['vl']
+        vl_map = self.services[serv_id]['calculated_mapping']['vl']
 
         for vl in nsd['virtual_links']:
             if vl['id'] in vl_map.keys():
@@ -3336,13 +3337,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['error'] = None
         return
 
-#        except Exception as e:
-#            tracebackString = traceback.format_exc(e)
-#            self.services[serv_id]['traceback'] = tracebackString
-
     def SLM_mapping(self, serv_id):
         """
-        This method is used if the SLM is responsible for the placement.
+        This method is used if the MANO is responsible for the placement.
 
         :param serv_id: The instance uuid of the service
         """
@@ -3357,6 +3354,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         functions = self.services[serv_id]['function']
         operator_policies = self.services[serv_id]['operator_policies']
         customer_policies = self.services[serv_id]['customer_policies']
+        predefined_mapping = self.services[serv_id]['predefined_mapping']
 
         content = {'nsd': NSD,
                    'functions': functions,
@@ -3364,7 +3362,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
                    'serv_id': serv_id,
                    'operator_policies': operator_policies,
                    'customer_policies': customer_policies,
-                   'vnf_single_pop': True}
+                   'vnf_single_pop': True,
+                   'predefined_mapping': predefined_mapping}
 
         content['nap'] = {}
         content['nap']['ingresses'] = self.services[serv_id]['ingress']
@@ -3402,86 +3401,116 @@ class ServiceLifecycleManager(ManoBasePlugin):
             # Add mapping to ledger
             LOG.info("Service " + serv_id + ": Placement completed")
             LOG.debug("Calculated SLM placement: " + str(mapping))
-            self.services[serv_id]['service']['mapping'] = mapping
+            self.services[serv_id]['calculated_mapping'] = mapping
             for function in self.services[serv_id]['function']:
                 vnf_id = function['id']
                 function['vim_uuid'] = mapping['du'][vnf_id]
 
-        # Check if the placement does not contain any loops
-        vim_list = tools.get_ordered_vim_list(self.services[serv_id])
-
-        if vim_list is None:
-            msg = 'Placement contains loop, improve Placement Plugin'
-            # the placement contains loops
-            self.error_handling(serv_id,
-                                t.GK_CREATE,
-                                msg)
-
-            return
-        else:
-            LOG.info("Service " + serv_id + ": VIM list ordered")
-            self.services[serv_id]['service']['ordered_vim_list'] = vim_list
-
         self.start_next_task(serv_id)
 
-    def update_slm_configuration(self, plugin_dict):
+    def consolidate_predefined_mapping(self, serv_id):
         """
-        This method checks if an SLM was added or removed from the
-        pool of SLMs. If it was, this method updates the configuration
-        of the SLM.
-
-        :param plugin_dict: Dictionary of plugins registered in plugin manager
+        This method combines the various mapping inputs in a final mapping.
+        Input can come from the user (in the instantiation request), records 
+        (decided during instantation) or the placement plugin.
         """
+        LOG.info(serv_id)
+        LOG.info(self.services[serv_id])
 
-        active_slms = []
+        service = self.services[serv_id]['service']
+        functions = self.services[serv_id]['functions']
 
-        # Substract information on the different SLMs from the dict
-        for plugin_uuid in plugin_dict.keys():
-            if plugin_dict[plugin_uuid]['name'] == self.name:
-                active_slms.append(plugin_uuid)
+        # Build the mapping template
+        mapping = {}
+        mapping['service'] = {'vl': {}}
+        mapping['function'] = {}
 
-        # Check if the list of active SLMs is identical to the known list
-        active_slms.sort()
-#        print('########')
-#        print(active_slms)
-#        print(self.known_slms)
-        if active_slms == self.known_slms:
-            # No action te be taken
-            return
-        else:
-            if self.uuid is None:
-                for slm_uuid in active_slms:
-                    if slm_uuid not in self.known_slms:
-                        self.uuid = slm_uuid
-            self.slm_config['old_slm_rank'] = self.slm_config['slm_rank']
-            self.slm_config['old_slm_total'] = self.slm_config['slm_total']
-            self.slm_config['slm_rank'] = active_slms.index(str(self.uuid))
-            self.slm_config['slm_total'] = len(active_slms)
-            down = False
-            if len(active_slms) < len(self.known_slms):
-                down = True
+        for vnf in self.services[serv_id]['function']:
+            mapping['function'][vnf['id']] = {'vim_id': None, 'vl': {}}
 
-            self.known_slms = active_slms
-            # Buffer incoming requests
-#            self.bufferAllRequests = True
-            # Wait some time to allow different SLMs to get on the same pages
-#            time.sleep(self.deltaTnew)
-            # Start handling the buffered requests in the new regime
-#            self.bufferOldRequests = True
-#            self.bufferAllRequests = False
+        # if this service was already deployed, and this method is called from
+        # a workflow updating the service (scaling, migration, termination), 
+        # mapping information should be first obtained from the records.
+        if 'nsr' in self.services[serv_id].keys():
+            nsr = self.services[serv_id]['nsr']
+            for vl in nsr['virtual_links']:
+                desc = vl['descriptor_reference']
+                mapping['service']['vl'][desc] = {}
+                mapping['service']['vl'][desc]['id'] = vl['id']
+                if 'vim_id' in vl.keys():
+                    mapping['service']['vl'][desc]['vim_id'] = vl['vim_id']
+                if 'wim_id' in vl.keys():
+                    mapping['service']['vl'][desc]['vim_id'] = vl['wim_id']
 
-#            for req in self.new_reqs:
-#                task = self.thrd_pool.submit(req['mthd'], req['arguments'])
+        for vnf in self.services[serv_id]['function']:
+            if 'vnfr' in vnf.keys():
+                vnf_map = mapping['function'][vnf['id']]
+                vnfr = vnf['vnfr']
+                if 'virtual_deployment_units' in vnfr.keys():
+                    vdu = vnfr['virtual_deployment_units'][0]
+                    vim_id = vdu['vnfc_instance'][0]['vim_id']
+                else:
+                    cdu = vnfr['cloudnative_deployment_units'][0]
+                    vim_id = cdu['vim_id']
+                vnf_map['vim_id'] = vim_id
+                for vl in vnfr['virtual_links']:
+                    desc = vl['descriptor_reference']
+                    vnf_map['vl'][desc] = {}
+                    vnf_map[desc]['id'] = vl['id']
+                    vnf_map['vl'][desc]['vim_id'] = vl['vim_id']
 
-#            time.sleep(self.deltaTold)
-            # Start handling the buffered requests from the old regime
-#            self.bufferOldRequests = False
+        msg = ": mapping after records: " + yaml.dump(mapping)
+        LOG.info("Service " + serv_id + msg)
+        # Fill out any mapping information received from the inst request.
+        for vnf_input in service['input_mapping']['vnfs']:
+            vim_id = vnf_input['vim_id']
+            nsd = service['nsd']
+            for vnf_nsd in nsd['network_functions']:
+                if vnf_nsd['vnf_id'] == vnf_input['vnf_id']:
+                    for vnf in functions:
+                        if mapping['function'][vnf['id']]['vim_id'] != None:
+                            continue
+                        vnfd = vnf['vnfd']
+                        if vnf_nsd['vnf_name'] == vnfd['name'] and \
+                           vnf_nsd['vnf_vendor'] == vnfd['vendor'] and \
+                           vnf_nsd['vnf_version'] == vnfd['version']:
+                            mapping['function'][vnf['id']]['vim_id'] = vim_id
+                            break
 
-#            for req in self.old_reqs:
-#                task = self.thrd_pool.submit(req['mthd'], req['arguments'])
+        for vl_input in service['input_mapping']['vls']:
+            mapping['service']['vl'][vl['vl_id']]['id'] = vl_input['external_net']
+            mapping['service']['vl'][vl['vl_id']]['vim_id'] = vl_input['vim_id']
 
-            if down:
-                self.slm_down()
+        msg = ": mapping after user input: " + yaml.dump(mapping)
+        LOG.info("Service " + serv_id + msg)
+
+        # Check if the placement step is still needed, if not, remove it from 
+        # the schedule
+        placement_needed = False
+        for vl in service['nsd']['virtual_links']:
+            if 'qos_requirements' in vl.keys():
+                if vl['id'] not in mapping['service']['vl'].keys():
+                    placement_needed = True
+                    break
+
+        for vnf_id in mapping['function'].keys():
+            if mapping['function'][vnf_id]['vim_id'] is None:
+                placement_needed = True
+                break
+
+        if not placement_needed:
+            LOG.info("Service " + serv_id + ": Placement plugin not needed")
+            schedule = self.services[serv_id]['schedule']
+            for x in ['request_topology', 'request_policies', \
+                      'request_SLM_mapping', 'req_placement_from_ssm']:
+                try:
+                    schedule.remove(x)
+                except:
+                    pass
+
+        self.services[serv_id]['predefined_mapping'] = mapping
+
+        return
 
     def roll_back_instantiation(self, serv_id):
         """
