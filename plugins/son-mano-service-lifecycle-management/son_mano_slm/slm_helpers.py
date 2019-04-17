@@ -276,7 +276,7 @@ def get_ordered_vim_list(payload, which_graph=0):
     """
 
     def find_vim_based_on_vnf_id(vnf_id):
-        for vnf in payload['service']['nsd']['network_functions']:
+        for vnf in payload['nsd']['network_functions']:
             if vnf['vnf_id'] == vnf_id:
                 for func in payload['function']:
                     if vnf['vnf_version'] == func['vnfd']['version']:
@@ -288,7 +288,7 @@ def get_ordered_vim_list(payload, which_graph=0):
 
     nodes = {}
 
-    nsd = payload['service']['nsd']
+    nsd = payload['nsd']
     vim_list = []
 
     if 'forwarding_graphs' in nsd.keys():
