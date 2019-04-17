@@ -52,10 +52,10 @@ try:
 except:
     import slm_helpers as tools
 
-try:
-    from son_mano_slm import slm_topics as t
-except:
-    import slm_topics as t
+# try:
+#     from son_mano_slm import slm_topics as t
+# except:
+#     import slm_topics as t
 
 LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=True)
 
@@ -82,61 +82,35 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Create the ledger that saves state
         self.services = {}
 
-        # The frequency of state sharing events
-        self.state_share_frequency = 1
+        # self.publickey = None
+        # self.token = None
+        # self.password = '1234'
+        # self.clientId = 'son-slm'
 
-        # Create a configuration dict that contains config info of SLM
-        # Setting the number of SLMs and the rank of this SLM
-        self.slm_config = {}
-        self.slm_config['slm_rank'] = 0
-        self.slm_config['slm_total'] = 1
-        self.slm_config['old_slm_rank'] = 0
-        self.slm_config['old_slm_total'] = 1
-        self.slm_config['tasks_other_slm'] = {}
+        # self.thrd_pool = pool.ThreadPoolExecutor(max_workers=10)
 
-        self.publickey = None
-        self.token = None
-        self.password = '1234'
-        self.clientId = 'son-slm'
+        # self.ssm_connections = {}
+        # self.ssm_user = 'specific-management'
+        # self.ssm_pass = 'sonata'
+        # base = 'amqp://' + self.ssm_user + ':' + self.ssm_pass
+        # broker = os.environ.get("broker_host").split("@")[-1].split("/")[0]
+        # self.ssm_url_base = base + '@' + broker + '/'
 
-        # Create the list of known other SLMs
-        self.known_slms = []
+        # # The following can be removed once transition is done
+        # self.service_requests_being_handled = {}
+        # self.service_updates_being_handled = {}
 
-        self.thrd_pool = pool.ThreadPoolExecutor(max_workers=10)
+        # # call super class (will automatically connect to
+        # # broker and register the SLM to the plugin manger)
+        # ver = "0.1-dev"
+        # des = "This is the SLM plugin"
 
-        # Create some flags that will be used for SLM management
-        self.bufferAllRequests = False
-        self.bufferOldRequests = False
-        self.deltaTnew = 1
-        self.deltaTold = 1
-
-        self.old_reqs = {}
-        self.new_reqs = {}
-
-        self.flm_ledger = {}
-
-        self.ssm_connections = {}
-        self.ssm_user = 'specific-management'
-        self.ssm_pass = 'sonata'
-        base = 'amqp://' + self.ssm_user + ':' + self.ssm_pass
-        broker = os.environ.get("broker_host").split("@")[-1].split("/")[0]
-        self.ssm_url_base = base + '@' + broker + '/'
-
-        # The following can be removed once transition is done
-        self.service_requests_being_handled = {}
-        self.service_updates_being_handled = {}
-
-        # call super class (will automatically connect to
-        # broker and register the SLM to the plugin manger)
-        ver = "0.1-dev"
-        des = "This is the SLM plugin"
-
-        wait_reg = wait_for_registration
-        super(self.__class__, self).__init__(version=ver,
-                                             description=des,
-                                             auto_register=auto_register,
-                                             wait_for_registration=wait_reg,
-                                             start_running=start_running)
+        # wait_reg = wait_for_registration
+        # super(self.__class__, self).__init__(version=ver,
+        #                                      description=des,
+        #                                      auto_register=auto_register,
+        #                                      wait_for_registration=wait_reg,
+        #                                      start_running=start_running)
 
     def __del__(self):
         """
@@ -322,16 +296,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
             # Push the next task to the threadingpool
             task = self.thrd_pool.submit(next_task, serv_id)
 
-            # Log the result of the task, for future reference
-#            new_log = [next_task, task.result()]
-#            self.services[serv_id]['task_log'].append(new_log)
-
             # Log if a task fails
             if task.exception() is not None:
                 print(task.result())
-
-#            if tasknumber % (1 / self.state_share_frequency) == 0:
-#                self.slm_share('IN PROGRESS', self.services[serv_id])
 
             # When the task is done, the next task should be started if no flag
             # is set to pause the chain.
@@ -2990,9 +2957,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Create the service schedule
         self.services[serv_id]['schedule'] = []
 
-        # Create a log for the task results
-        self.services[serv_id]['task_log'] = []
-
         # Create the SSM dict if SSMs are defined in NSD
         ssm_dict = tools.get_sm_from_descriptor(payload['NSD'])
         self.services[serv_id]['service']['ssm'] = ssm_dict
@@ -3027,7 +2991,15 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Add user data to ledger
         self.services[serv_id]['user_data'] = payload['user_data']
 
-        LOG.info("User data: " + str(payload['user_data']))
+        # Add user defined mapping input to ledger
+        self.services[serv_id]['input_mapping'] = {'vnfs':[], 'vls':[]}
+        int_map = self.services[serv_id]['input_mapping']
+        if 'mapping' in payload.keys():
+            ext_map = payload['mapping']
+            if 'network_functions' in ext_map.keys():
+                int_map['vnfs'] = ext_map['network_functions']
+            if 'virtual_links' in ext_map.keys():
+                int_map['vls'] = ext_map['virtual_links']
 
         # Add keys to ledger
         try:
@@ -3088,7 +3060,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['schedule'] = []
         self.services[serv_id]['kill_chain'] = False
         self.services[serv_id]['infrastructure'] = {}
-        self.services[serv_id]['task_log'] = []
         self.services[serv_id]['vnfs_to_resp'] = 0
         self.services[serv_id]['vims_to_resp'] = 0
         self.services[serv_id]['pause_chain'] = False
