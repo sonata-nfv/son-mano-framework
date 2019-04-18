@@ -470,7 +470,7 @@ class PlacementPlugin(ManoBasePlugin):
                                 vls_map[vl['id']] = []
                                 new_vl = {}
                                 new_vl['vim_id'] = vim['id']
-                                new_vl['refs'] = vl['refs']
+                                new_vl['refs'] = refs
                                 vls_map[vl['id']].append(new_vl)
                                 break
 
