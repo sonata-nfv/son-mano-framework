@@ -446,8 +446,10 @@ class PlacementPlugin(ManoBasePlugin):
                         if ':' in ref:
                             vim_id = res[0]['dus'][node_id]
                             vim_or_ep.append(vim_id)
-                        else:
+                        elif ref not in ['mgmt', 'management']:
                             vim_or_ep.append(node_id)
+                        else:
+                            pass
                     for wim in wims:
                         coll = [wim['vim_1'], wim['vim_2']]
                         if set(vim_or_ep) <= set(coll) and \

@@ -1584,25 +1584,28 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #                                'access': True,
         #                                'vl_id': vl['id']})                                        
 
-        # # Add the vnf images
-        # for vnf in vnfs:
-        #     vim_uuid = vnf['vim_uuid']
-        #     vnfd = vnf['vnfd']
-        #     if 'virtual_deployment_units' in vnfd.keys():
-        #         dus = vnfd['virtual_deployment_units']
-        #         for du in dus:
-        #             url = du['vm_image']
-        #             vm_uuid = tools.generate_image_uuid(du, vnfd)
-        #             content = {'image_uuid': vm_uuid, 'image_url': url}
-        #             if 'vm_image_md5' in du.keys():
-        #                 content['image_md5'] = du['vm_image_md5']
-        #             vims[vim_uuid]['vm_images'].append(content)
-        #     else: 
-        #         dus = vnfd['cloudnative_deployment_units']
-        #         for du in dus:
-        #             url = du['image']
-        #             content = {'image_url': url}                        
-        #             vims[vim_uuid]['vm_images'].append(content)
+        # Add the vnf images
+        for vnf_id in mapping['function'].keys():
+            vim_id = mapping['function'][vnf_id]
+            for vnf in self.services['function']:
+                if not vnf['id'] == vnf_id:
+                    continue
+                vnfd = vnf['vnfd']
+                if 'virtual_deployment_units' in vnfd.keys():
+                    dus = vnfd['virtual_deployment_units']
+                    for du in dus:
+                        url = du['vm_image']
+                        vm_uuid = tools.generate_image_uuid(du, vnfd)
+                        content = {'image_uuid': vm_uuid, 'image_url': url}
+                        if 'vm_image_md5' in du.keys():
+                            content['image_md5'] = du['vm_image_md5']
+                        vims[vim_id]['vm_images'].append(content)
+                else: 
+                    dus = vnfd['cloudnative_deployment_units']
+                    for du in dus:
+                        url = du['image']
+                        content = {'image_url': url}                        
+                        vims[vim_id]['vm_images'].append(content)
 
         # Create the VIM list
         message['vim_list'] = [vims[x] for x in vims]
@@ -3352,9 +3355,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
             LOG.info("Service " + serv_id + ": Placement completed")
             LOG.debug("Calculated SLM placement: " + str(mapping))
             self.services[serv_id]['calculated_mapping'] = mapping
-            for function in self.services[serv_id]['function']:
-                vnf_id = function['id']
-                function['vim_uuid'] = mapping['du'][vnf_id]
 
         LOG.info(yaml.dump(self.services[serv_id]['calculated_mapping']))
         LOG.info(yaml.dump(self.services[serv_id]['predefined_mapping']))
@@ -3422,7 +3422,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     vnf_map['vl'][vl['id']]['vim_id'] = vnf_map['vim_id']
                     vnf_map['vl'][vl['id']]['new'] = True
 
-        msg = ": Final mapping" + yaml.dump(mapping)
+        msg = ": Final mapping " + yaml.dump(mapping)
         LOG.info("Service " + serv_id + msg)
         return
 
