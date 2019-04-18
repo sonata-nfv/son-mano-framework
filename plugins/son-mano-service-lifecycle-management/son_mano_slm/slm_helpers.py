@@ -668,7 +668,7 @@ def append_networkid_to_cp(vnfd, vls):
         for cp in du['connection_points']:
             for vl in vnfd['virtual_links']:
                 refs = vl['connection_points_reference']
-                if du['id'] + ':' + cp['id'] in refs:
+                if du['id'][:-37] + ':' + cp['id'] in refs:
                     vl_id = vl['id']
                     break
             cp['network_id'] = vls[vl_id]['id']

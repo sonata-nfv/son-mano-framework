@@ -1668,6 +1668,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method triggeres the deployment of all the vnfs.
         """
 
+        LOG.info(yaml.dump(self.services[serv_id]))
         msg = ": Deploying VNFs"
         LOG.info("Service " + serv_id + msg)
 
