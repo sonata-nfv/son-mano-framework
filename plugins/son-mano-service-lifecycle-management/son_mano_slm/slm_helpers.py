@@ -654,6 +654,41 @@ def build_monitoring_message(service, functions, userdata):
     return message
 
 
+def vnfd_vl_maps_on_nsd_vl(nsd, vnfd, vl):
+    """
+    This method returns whether a vnfd vl maps on an nsd vl
+    """
+
+    name = vnfd['name']
+    version = vnfd['version']
+    vendor = vnfd['vendor']
+
+    res_cp = None
+
+    for cp in vl['connection_points_reference']:
+        if ':' not in cp:
+            res_cp = cp
+            break
+
+    if res_cp is None:
+        return False, None
+
+    vnf_id = None
+    for vnf in nsd['network_functions']:
+        if vnf['vnf_name'] == name & vnf['vnf_vendor'] == vendor & \
+           vnf['vnf_version'] == version:
+           vnf_id = vnf['vnf_id']
+
+    if vnf_id is None:
+        return False, None
+
+    for nsd_vl in nsd['virtual_links']:
+        if vnf_id + ':' + res_cp in nsd_vl['connection_points_reference']:
+            return True, nsd_vl['id']
+
+    return False, None
+
+
 def map_refs_on_du_cps(refs, nsd, vnfs):
     """
     This method returns a list of du cps, that map on the cp references in the
