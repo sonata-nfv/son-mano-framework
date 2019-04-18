@@ -653,6 +653,27 @@ def build_monitoring_message(service, functions, userdata):
 
     return message
 
+def append_networkid_to_cp(vnfd, vls):
+    """
+    This method adds network ids to the connection points in the vnfd
+    """
+
+    dus = []
+    if 'virtual_deployment_units' in vnfd.keys():
+        dus = vnfd['virtual_deployment_units']
+    if 'cloudnative_deployment_units' in vnfd.keys():
+        dus = vnfd['cloudnative_deployment_units']
+
+    for du in dus:
+        for cp in du['connection_points']:
+            for vl in vnfd['virtual_links']:
+                refs = vl['connection_points_reference']
+                if du['id'] + ':' + cp['id'] in refs:
+                    vl_id = vl['id']
+                    break
+            cp['network_id'] = vls[vl_id]['id']
+
+    return vnfd
 
 def vnfd_vl_maps_on_nsd_vl(nsd, vnfd, vl):
     """

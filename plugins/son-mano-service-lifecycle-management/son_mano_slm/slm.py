@@ -1672,25 +1672,26 @@ class ServiceLifecycleManager(ManoBasePlugin):
         LOG.info("Service " + serv_id + msg)
 
         functions = self.services[serv_id]['function']
+        mapping = self.services[serv_id]['mapping']['function']
         self.services[serv_id]['vnfs_to_resp'] = 0
 
         self.services[serv_id]['act_corr_id'] = []
 
-        # msg = ": " + yaml.dump(functions, default_flow_style=False)
-        # LOG.info("Service " + serv_id + msg)
-
         for function in functions:
 
-            if 'deployed' not in function.keys():
+            if mapping[function['id']]['new']:
                 vnf_to_dep = self.services[serv_id]['vnfs_to_resp']
                 self.services[serv_id]['vnfs_to_resp'] = vnf_to_dep + 1
                 corr_id = str(uuid.uuid4())
                 self.services[serv_id]['act_corr_id'].append(corr_id)
 
+                tools.append_networkid_to_cp(function['vnfd'],
+                                             mapping[function['id']]['vl'])
+
                 message = {}
                 message['vnfd'] = function['vnfd']
                 message['id'] = function['id']
-                message['vim_uuid'] = function['vim_uuid']
+                message['vim_uuid'] = mapping[function['id']]['vim_id']
                 message['serv_id'] = serv_id
                 message['public_key'] = self.services[serv_id]['public_key']
                 message['private_key'] = self.services[serv_id]['private_key']
