@@ -675,7 +675,7 @@ def vnfd_vl_maps_on_nsd_vl(nsd, vnfd, vl):
 
     vnf_id = None
     for vnf in nsd['network_functions']:
-        if vnf['vnf_name'] == name & vnf['vnf_vendor'] == vendor & \
+        if vnf['vnf_name'] == name and vnf['vnf_vendor'] == vendor and \
            vnf['vnf_version'] == version:
            vnf_id = vnf['vnf_id']
 
