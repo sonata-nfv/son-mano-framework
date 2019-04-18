@@ -402,18 +402,26 @@ class PlacementPlugin(ManoBasePlugin):
                         break
             response['mapping']['du'] = dus_map
 
-            # For now, we ignore vls that are on vims. We only return those
-            # that are on wims
             vls_map = {}
             for vl in vls:
                 vim_wim_id = res[0]['vls'][vl['id']]
+                for vim in vims:
+                    if vim['id'] == vim_wim_id:
+                        orig_id = vl['id'].split('_')[0]
+                        if orig_id not in vls_map.keys():                            
+                            vls_map[orig_id] = []
+                        new_vl = {}
+                        new_vl['vim_id'] = vim_wim_id
+                        new_vl['refs'] = vl['refs']
+                        vls_map[orig_id].append(new_vl)
+                        break
                 for wim in wims:
                     if wim['id'] == vim_wim_id:
                         orig_id = vl['id'].split('_')[0]
                         if orig_id not in vls_map.keys():                            
                             vls_map[orig_id] = []
                         new_vl = {}
-                        new_vl['wim'] = vim_wim_id
+                        new_vl['wim_id'] = vim_wim_id
                         new_vl['refs'] = vl['refs']
                         new_vl['nodes'] = []
                         for node in vl['nodes']:
@@ -428,7 +436,7 @@ class PlacementPlugin(ManoBasePlugin):
                         break
 
             # Add virtual links that have no qos requirements but coincide with
-            # WIMs to the list
+            # VIMs or WIMs to the list
             for vl in nsd_vls:
                 if 'qos_requirements' not in vl.keys():
                     vim_or_ep = []
@@ -449,12 +457,23 @@ class PlacementPlugin(ManoBasePlugin):
                                 for j in range(len(vim_or_ep)):
                                     if i < j:
                                         new_vl = {}
-                                        new_vl['wim'] = wim['id']
+                                        new_vl['wim_id'] = wim['id']
                                         nodes = [vim_or_ep[i], vim_or_ep[j]]
                                         new_vl['nodes'] = nodes
                                         new_vl['refs'] = [refs[i], refs[j]]
                                         vls_map[vl['id']].append(new_vl)
                             break
+                    if vl['id'] not in vls_map.keys():
+                        for vim in vims:
+                            if len(set(vim_or_ep)) == 1 and \
+                               vim_or_ep[0] == vim['id']:
+                                vls_map[vl['id']] = []
+                                new_vl = {}
+                                new_vl['vim_id'] = vim['id']
+                                new_vl['refs'] = vl['refs']
+                                vls_map[vl['id']].append(new_vl)
+                                break
+
 
             response['mapping']['vl'] = vls_map
 

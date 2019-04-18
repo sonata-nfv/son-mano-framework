@@ -46,15 +46,15 @@ from sonmanobase.plugin import ManoBasePlugin
 from sonmanobase.logger import TangoLogger
 import sonmanobase.messaging as messaging
 
-try:
-    from son_mano_slm import slm_helpers as tools
-except:
-    import slm_helpers as tools
+# try:
+#     from son_mano_slm import slm_helpers as tools
+# except:
+import slm_helpers as tools
 
-try:
-    from son_mano_slm import slm_topics as t
-except:
-    import slm_topics as t
+# try:
+#     from son_mano_slm import slm_topics as t
+# except:
+#     import slm_topics as t
 
 LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=True)
 
@@ -81,35 +81,35 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Create the ledger that saves state
         self.services = {}
 
-        self.publickey = None
-        self.token = None
-        self.password = '1234'
-        self.clientId = 'son-slm'
+        # self.publickey = None
+        # self.token = None
+        # self.password = '1234'
+        # self.clientId = 'son-slm'
 
-        self.thrd_pool = pool.ThreadPoolExecutor(max_workers=10)
+        # self.thrd_pool = pool.ThreadPoolExecutor(max_workers=10)
 
-        self.ssm_connections = {}
-        self.ssm_user = 'specific-management'
-        self.ssm_pass = 'sonata'
-        base = 'amqp://' + self.ssm_user + ':' + self.ssm_pass
-        broker = os.environ.get("broker_host").split("@")[-1].split("/")[0]
-        self.ssm_url_base = base + '@' + broker + '/'
+        # self.ssm_connections = {}
+        # self.ssm_user = 'specific-management'
+        # self.ssm_pass = 'sonata'
+        # base = 'amqp://' + self.ssm_user + ':' + self.ssm_pass
+        # broker = os.environ.get("broker_host").split("@")[-1].split("/")[0]
+        # self.ssm_url_base = base + '@' + broker + '/'
 
-        # The following can be removed once transition is done
-        self.service_requests_being_handled = {}
-        self.service_updates_being_handled = {}
+        # # The following can be removed once transition is done
+        # self.service_requests_being_handled = {}
+        # self.service_updates_being_handled = {}
 
-        # call super class (will automatically connect to
-        # broker and register the SLM to the plugin manger)
-        ver = "0.1-dev"
-        des = "This is the SLM plugin"
+        # # call super class (will automatically connect to
+        # # broker and register the SLM to the plugin manger)
+        # ver = "0.1-dev"
+        # des = "This is the SLM plugin"
 
-        wait_reg = wait_for_registration
-        super(self.__class__, self).__init__(version=ver,
-                                             description=des,
-                                             auto_register=auto_register,
-                                             wait_for_registration=wait_reg,
-                                             start_running=start_running)
+        # wait_reg = wait_for_registration
+        # super(self.__class__, self).__init__(version=ver,
+        #                                      description=des,
+        #                                      auto_register=auto_register,
+        #                                      wait_for_registration=wait_reg,
+        #                                      start_running=start_running)
 
     def __del__(self):
         """
@@ -3387,7 +3387,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 if 'vim_id' in vl.keys():
                     mapping['service']['vl'][vl_id]['vim_id'] = vl['vim_id'] 
                 if 'wim_id' in vl.keys():
-                    mapping['service']['vl'][vl_id]['id'] = vl['wim_id']
+                    mapping['service']['vl'][vl_id]['wim_id'] = vl['wim_id']
 
         self.services[serv_id]['mapping'] = mapping
 
@@ -3405,8 +3405,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     break
             for vl in vnfd['virtual_links']:
                 res = tools.vnfd_vl_maps_on_nsd_vl(nsd, vnfd, vl)
-                nsd_vl = mapping['service']['vl'][res[1]]
-                nsd_vl_on_vim = 'vim_id' in nsd_vl.keys()
+                nsd_vl_on_vim = False
+                if res[1] in mapping['service']['vl'].keys():
+                    nsd_vl = mapping['service']['vl'][res[1]]
+                    nsd_vl_on_vim = 'vim_id' in nsd_vl.keys()
                 if res[0] and nsd_vl_on_vim:
                     vnf_map['vl'][vl['id']] = {}
                     vnf_map['vl'][vl['id']]['id'] = nsd_vl['id']
