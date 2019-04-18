@@ -2620,14 +2620,14 @@ class ServiceLifecycleManager(ManoBasePlugin):
         nsd = self.services[serv_id]['nsd']
         vnfs = self.services[serv_id]['function']
 
-        vl_map = self.services[serv_id]['mapping']['vl']
+        vl_map = self.services[serv_id]['mapping']['service']['vl']
 
         for vl in nsd['virtual_links']:
             if vl['id'] in vl_map.keys():
                 if 'wim_id' not in vl_map[vl['id']].keys():
                     continue
                 LOG.info("Service " + serv_id + ": VL for WAN identified")
-                for vl_for_wim in vl_map[vl['id']]:
+                for vl_for_wim in vl_map[vl['id']]['pairs']:
                     message = {}
                     message['service_instance_id'] = serv_id
                     message['vl_id'] = vl['id']
