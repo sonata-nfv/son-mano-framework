@@ -1586,7 +1586,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Add the vnf images
         for vnf_id in mapping['function'].keys():
-            vim_id = mapping['function'][vnf_id]
+            vim_id = mapping['function'][vnf_id]['vim_id']
             for vnf in self.services[serv_id]['function']:
                 if not vnf['id'] == vnf_id:
                     continue
