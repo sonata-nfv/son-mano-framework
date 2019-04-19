@@ -212,6 +212,8 @@ def build_vnfr(ia_vnfr, vnfd):
                 if 'cloudnative_deployment_units' in vnfd.keys():
                     dus = vnfd['cloudnative_deployment_units']
                 for du in dus:
+                    if du['id'] is not cp_ref.split(':')[0]:
+                        continue
                     for cp in du['connection_points']:
                         if cp['id'] == cp_ref.split(':')[1]:
                             vl_id = cp['network_id']
