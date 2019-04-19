@@ -212,10 +212,18 @@ def build_vnfr(ia_vnfr, vnfd):
             for cp_ref in vl['connection_points_reference']:
                 if ':' not in cp_ref:
                     continue
+                print('###')
+                print(cp_ref)
+                print('###')
                 for du in dus:
-                    if du['id'] != cp_ref.split(':')[0]:
+                    print('###')
+                    print(du['id'])
+                    print('###')
+                    if du['id'][:-37] != cp_ref.split(':')[0]:
                         continue
                     for cp in du['connection_points']:
+                        print(cp['id'])
+                        print(cp_ref.split(':')[1])
                         if cp['id'] == cp_ref.split(':')[1]:
                             vl_id = cp['network_id']
                             break
@@ -231,6 +239,7 @@ def build_vnfr(ia_vnfr, vnfd):
     if 'lifecycle_events' in vnfd:
         vnfr['lifecycle_events'] = vnfd['lifecycle_events']
 
+    print(yaml.dump(vnfr))
     return vnfr
 
 
