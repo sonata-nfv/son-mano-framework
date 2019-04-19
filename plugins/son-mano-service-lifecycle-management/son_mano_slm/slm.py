@@ -1689,14 +1689,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 tools.append_networkid_to_cp(function['vnfd'],
                                              mapping[function['id']]['vl'])
 
-                for vl_m_key in mapping[function['id']]['vl'].keys():
-                    vl_m = mapping[function['id']]['vl'][vl_m_key]
-                    for vl_d in function['vnfd']['virtual_links']:
-                        if vl_m_key == vl_d['id']:
-                            vl_d['vim_id'] = mapping[function['id']]['vim_id']
-                            vl_d['descriptor_reference'] = vl_d['id']
-                            vl_d['id'] = vl_m['id']
-
                 message = {}
                 message['vnfd'] = function['vnfd']
                 message['id'] = function['id']
