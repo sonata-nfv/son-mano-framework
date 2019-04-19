@@ -200,6 +200,29 @@ def build_vnfr(ia_vnfr, vnfd):
         vnfr['connection_points'] = ia_vnfr['connection_points']
     if 'virtual_links' in vnfd:
         vnfr['virtual_links'] = vnfd['virtual_links']
+        for vl in vnfr['virtual_links']:
+            vl_id = None
+            vl['descriptor_reference'] = vl['id']
+            for cp_ref in vl['connection_points_reference']:
+                if ':' not in cp_ref:
+                    continue
+                if 'virtual_deployment_units' in vnfr.keys():
+                    vdus = vnfr['virtual_deployment_units']
+                    for vdu in vdus:
+                        for vnfc in vdu['vnfc_instance']:
+                            for cp in vnfc['connection_points']:
+                                if cp['id'] == cp_ref.split(':')[1]:
+                                    vl_id = cp['network_id']
+                                    break
+                if 'cloudnative_deployment_units' in vnfr.keys():
+                    cdus = vnfr['cloudnative_deployment_units']
+                    for cdu in cdus:
+                        for cp in cdu['connection_points']:
+                            if cp['id'] == cp_ref.split(':')[1]:
+                                vl_id = cp['network_id']
+                                break
+            if vl_id is not None:
+                vl['id'] = vl_id
 
     # TODO vnf_address ???
 
