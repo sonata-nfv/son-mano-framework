@@ -198,8 +198,8 @@ def build_vnfr(ia_vnfr, vnfd):
     # connection points && virtual links (optional)
     if 'connection_points' in ia_vnfr:
         vnfr['connection_points'] = ia_vnfr['connection_points']
-                dus = []
 
+    dus = []
     if 'virtual_deployment_units' in vnfd.keys():
         dus = vnfd['virtual_deployment_units']
     if 'cloudnative_deployment_units' in vnfd.keys():
