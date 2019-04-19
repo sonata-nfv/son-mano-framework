@@ -866,7 +866,9 @@ class FunctionLifecycleManager(ManoBasePlugin):
         # Build the record
         LOG.info(yaml.dump(function['ia_vnfr']))
         LOG.info(yaml.dump(function['vnfd']))
-        vnfr = tools.build_vnfr(function['ia_vnfr'], function['vnfd'])
+        vnfr = tools.build_vnfr(function['ia_vnfr'],
+                                function['vnfd'],
+                                function['vim_uuid'])
         self.functions[func_id]['vnfr'] = vnfr
         LOG.info(yaml.dump(vnfr))
 

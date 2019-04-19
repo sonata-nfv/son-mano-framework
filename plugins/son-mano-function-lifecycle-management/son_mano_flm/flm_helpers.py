@@ -131,7 +131,7 @@ def getRestData(base, path, expected_code=200, head=None):
         return{'error': '400', 'content': 'request timed out'}
 
 
-def build_vnfr(ia_vnfr, vnfd):
+def build_vnfr(ia_vnfr, vnfd, vim_id):
     """
     This method builds the VNFR. VNFRS are built from the stripped VNFRs
     returned by the Infrastructure Adaptor (IA), combining it with the
@@ -232,6 +232,7 @@ def build_vnfr(ia_vnfr, vnfd):
                 break
             if vl_id is not None:
                 vl['id'] = vl_id
+                vl['vim_id'] = vim_id
 
     # TODO vnf_address ???
 
