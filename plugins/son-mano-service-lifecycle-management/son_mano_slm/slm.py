@@ -3332,7 +3332,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         functions = self.services[serv_id]['function']
         operator_policies = self.services[serv_id]['operator_policies']
         customer_policies = self.services[serv_id]['customer_policies']
-        predefined_mapping = self.services[serv_id]['predefined_mapping']
+        predefined_mapping = self.services[serv_id]['mapping']
 
         content = {'nsd': NSD,
                    'functions': functions,
@@ -3382,7 +3382,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             self.services[serv_id]['calculated_mapping'] = mapping
 
         LOG.info(yaml.dump(self.services[serv_id]['calculated_mapping']))
-        LOG.info(yaml.dump(self.services[serv_id]['predefined_mapping']))
+        LOG.info(yaml.dump(self.services[serv_id]['mapping']))
         self.start_next_task(serv_id)
 
     def consolidate_mapping(self, serv_id):
@@ -3394,7 +3394,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         LOG.info(yaml.dump(self.services[serv_id]))
 
         calc_map = self.services[serv_id]['calculated_mapping']
-        pred_map = self.services[serv_id]['predefined_mapping']
+        pred_map = self.services[serv_id]['mapping']
 
         mapping = pred_map
 
@@ -3558,7 +3558,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 except:
                     pass
 
-        self.services[serv_id]['predefined_mapping'] = mapping
+        self.services[serv_id]['mapping'] = mapping
 
         return
 
