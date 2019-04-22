@@ -467,7 +467,8 @@ class PlacementPlugin(ManoBasePlugin):
                                         vls_map[vl['id']].append(new_vl)
                             break
                     if vl['id'] not in vls_map.keys():
-                        vim_or_ep.remove(None)
+                        if None in vim_or_ep:
+                            vim_or_ep.remove(None)
                         for vim in vims:
                             if len(set(vim_or_ep)) == 1 and \
                                vim_or_ep[0] == vim['id']:
