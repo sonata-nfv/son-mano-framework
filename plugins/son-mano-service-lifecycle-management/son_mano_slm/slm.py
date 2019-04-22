@@ -2713,7 +2713,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['vls_to_resp'] = 0
         self.services[serv_id]['act_corr_id'] = []
 
-        vls = self.services[serv_id]['mapping']['vl']
+        vls = self.services[serv_id]['mapping']['service']['vl']
 
         for vl_id in vls.keys():
             vl = vls[vl_id]
