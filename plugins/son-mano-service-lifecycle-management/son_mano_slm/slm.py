@@ -862,6 +862,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         if rec_success:
             if orig == 'GK':
                 add_schedule.append('contact_gk')
+            add_schedule.append('consolidate_predefined_mapping')
             add_schedule.append("stop_monitoring")
             add_schedule.append("wan_deconfigure")
             add_schedule.append("vnf_unchain")
@@ -2242,57 +2243,59 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method instructs the IA how to chain the functions together.
         """
 
-        nsd = self.services[serv_id]['nsd']
+        return
 
-        if 'forwarding_graphs' not in nsd:
-            msg = ": No fowarding graph, no chaining"
-            LOG.info("Service " + serv_id + msg)
-            return
+        # nsd = self.services[serv_id]['nsd']
 
-        corr_id = str(uuid.uuid4())
-        self.services[serv_id]['act_corr_id'] = corr_id
+        # if 'forwarding_graphs' not in nsd:
+        #     msg = ": No fowarding graph, no chaining"
+        #     LOG.info("Service " + serv_id + msg)
+        #     return
 
-        chain = {}
-        chain["service_instance_id"] = serv_id
-        chain["nsd"] = nsd
+        # corr_id = str(uuid.uuid4())
+        # self.services[serv_id]['act_corr_id'] = corr_id
 
-        vnfrs = []
-        vnfds = []
+        # chain = {}
+        # chain["service_instance_id"] = serv_id
+        # chain["nsd"] = nsd
 
-        for function in self.services[serv_id]['function']:
-            vnfrs.append(function['vnfr'])
+        # vnfrs = []
+        # vnfds = []
 
-            vnfd = function['vnfd']
-            vnfd['instance_uuid'] = function['id']
-            vnfds.append(vnfd)
+        # for function in self.services[serv_id]['function']:
+        #     vnfrs.append(function['vnfr'])
 
-        chain['vnfrs'] = vnfrs
-        chain['vnfds'] = vnfds
+        #     vnfd = function['vnfd']
+        #     vnfd['instance_uuid'] = function['id']
+        #     vnfds.append(vnfd)
 
-        # Add egress and ingress fields
-        chain['nap'] = {}
-        nap_empty = True
+        # chain['vnfrs'] = vnfrs
+        # chain['vnfds'] = vnfds
 
-        if self.services[serv_id]['ingress'] is not None:
-            chain['nap']['ingresses'] = self.services[serv_id]['ingress']
-            nap_empty = False
-        if self.services[serv_id]['egress'] is not None:
-            chain['nap']['egresses'] = self.services[serv_id]['egress']
-            nap_empty = False
+        # # Add egress and ingress fields
+        # chain['nap'] = {}
+        # nap_empty = True
 
-        # Check if `nap` is empty
-        if nap_empty:
-            chain.pop('nap')
+        # if self.services[serv_id]['ingress'] is not None:
+        #     chain['nap']['ingresses'] = self.services[serv_id]['ingress']
+        #     nap_empty = False
+        # if self.services[serv_id]['egress'] is not None:
+        #     chain['nap']['egresses'] = self.services[serv_id]['egress']
+        #     nap_empty = False
 
-        LOG.info(str(yaml.dump(chain, default_flow_style=False)))
-        self.manoconn.call_async(self.IA_chain_response,
-                                 t.IA_CONF_CHAIN,
-                                 yaml.dump(chain),
-                                 correlation_id=corr_id)
+        # # Check if `nap` is empty
+        # if nap_empty:
+        #     chain.pop('nap')
 
-        LOG.info("Service " + serv_id + ": Requested to chain the VNFs.")
-        # Pause the chain of tasks to wait for response
-        self.services[serv_id]['pause_chain'] = True
+        # LOG.info(str(yaml.dump(chain, default_flow_style=False)))
+        # self.manoconn.call_async(self.IA_chain_response,
+        #                          t.IA_CONF_CHAIN,
+        #                          yaml.dump(chain),
+        #                          correlation_id=corr_id)
+
+        # LOG.info("Service " + serv_id + ": Requested to chain the VNFs.")
+        # # Pause the chain of tasks to wait for response
+        # self.services[serv_id]['pause_chain'] = True
 
     def IA_chain_response(self, ch, method, prop, payload):
         """
@@ -2317,26 +2320,29 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         This method instructs the IA to unchain the functions in the service.
         """
-        nsd = self.services[serv_id]['nsd']
-        if 'forwarding_graphs' not in nsd:
-            msg = ": No forwarding graph, no unchaining"
-            LOG.info("Service " + serv_id + msg)
-            return
 
-        msg = ": Deconfiguring the chaining of the service"
-        LOG.info("Service " + serv_id + msg)
+        return
 
-        corr_id = str(uuid.uuid4())
-        self.services[serv_id]['act_corr_id'] = corr_id
+        # nsd = self.services[serv_id]['nsd']
+        # if 'forwarding_graphs' not in nsd:
+        #     msg = ": No forwarding graph, no unchaining"
+        #     LOG.info("Service " + serv_id + msg)
+        #     return
 
-        payload = json.dumps({'service_instance_id': serv_id})
-        self.manoconn.call_async(self.IA_unchain_response,
-                                 t.IA_DECONF_CHAIN,
-                                 payload,
-                                 correlation_id=corr_id)
+        # msg = ": Deconfiguring the chaining of the service"
+        # LOG.info("Service " + serv_id + msg)
 
-        # Pause the chain of tasks to wait for response
-        self.services[serv_id]['pause_chain'] = True
+        # corr_id = str(uuid.uuid4())
+        # self.services[serv_id]['act_corr_id'] = corr_id
+
+        # payload = json.dumps({'service_instance_id': serv_id})
+        # self.manoconn.call_async(self.IA_unchain_response,
+        #                          t.IA_DECONF_CHAIN,
+        #                          payload,
+        #                          correlation_id=corr_id)
+
+        # # Pause the chain of tasks to wait for response
+        # self.services[serv_id]['pause_chain'] = True
 
     def IA_unchain_response(self, ch, method, prop, payload):
         """
@@ -2702,23 +2708,35 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method will deconfigure the WAN
         """
 
-        nsd = self.services[serv_id]['nsd']
-        if 'forwarding_graphs' not in nsd:
-            msg = ": No forwarding graph, no wan deconfiguring"
-            LOG.info("Service " + serv_id + msg)
-            return
+        LOG.info("Service " + serv_id + ": WAN Deconfiguration")
 
-        LOG.info("Service " + serv_id + ": WAN Deonfiguration")
-        corr_id = str(uuid.uuid4())
-        self.services[serv_id]['act_corr_id'] = corr_id
+        self.services[serv_id]['vls_to_resp'] = 0
+        self.services[serv_id]['act_corr_id'] = []
 
-        message = {}
-        message['service_instance_id'] = serv_id
+        vls = self.services[serv_id]['mapping']['vl']
 
-        self.manoconn.call_async(self.wan_deconfigure_response,
-                                 t.IA_DECONF_WAN,
-                                 yaml.dump(message),
-                                 correlation_id=corr_id)
+        for vl_id in vls.keys():
+            vl = vls[vl_id]
+            if 'wim_id' in vl.keys():
+                message = {}
+                message['wim_uuid'] = vl['wim_id']
+                message['service_instance_id'] = serv_id
+                message['vl_id'] = vl['descriptor_reference']
+
+                msg = ": message for WAN: " + str(message)
+                LOG.info("Service " + serv_id + msg)
+
+                corr_id = str(uuid.uuid4())
+                self.services[serv_id]['act_corr_id'].append(corr_id)
+                self.services[serv_id]['vls_to_resp'] += 1
+
+                # Pause the chain of tasks to wait for response
+                self.services[serv_id]['pause_chain'] = True
+
+                self.manoconn.call_async(self.wan_deconfigure_response,
+                                         t.IA_DECONF_WAN,
+                                         yaml.dump(message),
+                                         correlation_id=corr_id)
 
     def wan_deconfigure_response(self, ch, method, prop, payload):
         """
@@ -2734,10 +2752,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         if message['message'] != '':
             error = message['message']
-            LOG.info('Error occured during deconfiguring WAN: ' + str(error))
-            self.error_handling(serv_id, t.GK_KILL, error)
+            LOG.info('Error occured during WAN: ' + str(error))
+            self.error_handling(serv_id, t.GK_CREATE, error)
 
-#        self.start_next_task(serv_id)
+        self.services[serv_id]['vls_to_resp'] -= 1
+
+        if self.services[serv_id]['vls_to_resp'] == 0:
+            self.start_next_task(serv_id)
 
     def stop_monitoring(self, serv_id):
         """
