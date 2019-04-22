@@ -2649,7 +2649,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                         nap = self.services[serv_id]['ingress'][0]['nap']
                         message['ingress']['nap'] = nap
                     else:
-                        ip = tools.find_ip_from_ref(ref, nsd, vnfs, mapping)
+                        ip = tools.find_ip_from_ref(ref, nsd, vnfs, vnf_map)
                         message['ingress']['nap'] = ip
 
                     ref = vl_for_wim['refs'][1]
@@ -2657,7 +2657,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                         nap = self.services[serv_id]['egress'][0]['nap']
                         message['egress']['nap'] = nap
                     else:
-                        ip = tools.find_ip_from_ref(ref, nsd, vnfs, mapping)
+                        ip = tools.find_ip_from_ref(ref, nsd, vnfs, vnf_map)
                         message['egress']['nap'] = ip
 
                     msg = ": message for WAN: " + str(message)
