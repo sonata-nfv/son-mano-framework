@@ -3130,6 +3130,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['user_data']['developer']['email'] = None
         self.services[serv_id]['user_data']['developer']['phone'] = None
         self.services[serv_id]['customer_policies'] = {}
+        self.services[serv_id]['input_mapping'] = {'vnfs':[], 'vls':[]}
 
         # Retrieve the service record based on the service instance id
         base = t.nsr_path + "/"
