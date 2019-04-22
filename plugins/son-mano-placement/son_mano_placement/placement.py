@@ -446,10 +446,11 @@ class PlacementPlugin(ManoBasePlugin):
                         if ':' in ref:
                             vim_id = res[0]['dus'][node_id]
                             vim_or_ep.append(vim_id)
-                        elif ref not in ['mgmt', 'management']:
-                            vim_or_ep.append(node_id)
+                        # elif ref not in ['mgmt', 'management']:
+                        #     vim_or_ep.append(node_id)
                         else:
-                            pass
+                            vim_or_ep.append(node_id)
+                            # pass
                     for wim in wims:
                         coll = [wim['vim_1'], wim['vim_2']]
                         if set(vim_or_ep) <= set(coll) and \
@@ -466,6 +467,7 @@ class PlacementPlugin(ManoBasePlugin):
                                         vls_map[vl['id']].append(new_vl)
                             break
                     if vl['id'] not in vls_map.keys():
+                        vim_or_ep.remove(None)
                         for vim in vims:
                             if len(set(vim_or_ep)) == 1 and \
                                vim_or_ep[0] == vim['id']:
