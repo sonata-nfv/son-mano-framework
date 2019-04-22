@@ -1473,8 +1473,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             if vl['new'] and 'vim_id' in vl.keys():
                 if vl['vim_id'] not in vims.keys():
                     vims[vl['vim_id']] = {'uuid': vl['vim_id'],
-                                          'virtual_links': [],
-                                          'vm_images': []}
+                                          'virtual_links': []}
                 vl_dict = {'id': vl['id'],
                            'access': True,
                            'vl_id': vl_desc_id}
@@ -1487,8 +1486,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 if vl['new'] and 'vim_id' in vl.keys():
                     if vl['vim_id'] not in vims.keys():
                         vims[vl['vim_id']] = {'uuid': vl['vim_id'],
-                                              'virtual_links': [],
-                                              'vm_images': []}
+                                              'virtual_links': []}
                     vl_dict = {'id': vl['id'],
                                'access': True,
                                'vl_id': vl_desc_id}
@@ -1585,27 +1583,27 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #                                'vl_id': vl['id']})                                        
 
         # Add the vnf images
-        for vnf_id in mapping['function'].keys():
-            vim_id = mapping['function'][vnf_id]['vim_id']
-            for vnf in self.services[serv_id]['function']:
-                if not vnf['id'] == vnf_id:
-                    continue
-                vnfd = vnf['vnfd']
-                if 'virtual_deployment_units' in vnfd.keys():
-                    dus = vnfd['virtual_deployment_units']
-                    for du in dus:
-                        url = du['vm_image']
-                        vm_uuid = tools.generate_image_uuid(du, vnfd)
-                        content = {'image_uuid': vm_uuid, 'image_url': url}
-                        if 'vm_image_md5' in du.keys():
-                            content['image_md5'] = du['vm_image_md5']
-                        vims[vim_id]['vm_images'].append(content)
-                else: 
-                    dus = vnfd['cloudnative_deployment_units']
-                    for du in dus:
-                        url = du['image']
-                        content = {'image_url': url}                        
-                        vims[vim_id]['vm_images'].append(content)
+        # for vnf_id in mapping['function'].keys():
+        #     vim_id = mapping['function'][vnf_id]['vim_id']
+        #     for vnf in self.services[serv_id]['function']:
+        #         if not vnf['id'] == vnf_id:
+        #             continue
+        #         vnfd = vnf['vnfd']
+        #         if 'virtual_deployment_units' in vnfd.keys():
+        #             dus = vnfd['virtual_deployment_units']
+        #             for du in dus:
+        #                 url = du['vm_image']
+        #                 vm_uuid = tools.generate_image_uuid(du, vnfd)
+        #                 content = {'image_uuid': vm_uuid, 'image_url': url}
+        #                 if 'vm_image_md5' in du.keys():
+        #                     content['image_md5'] = du['vm_image_md5']
+        #                 vims[vim_id]['vm_images'].append(content)
+        #         else: 
+        #             dus = vnfd['cloudnative_deployment_units']
+        #             for du in dus:
+        #                 url = du['image']
+        #                 content = {'image_url': url}                        
+        #                 vims[vim_id]['vm_images'].append(content)
 
         # Create the VIM list
         message['vim_list'] = [vims[x] for x in vims]
@@ -1619,7 +1617,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # Send this mapping to the IA
         self.manoconn.call_async(self.resp_prepare,
-                                 t.IA_PREPARE,
+                                 t.IA_CREATE_NETWORKS,
                                  yaml.dump(message),
                                  correlation_id=corr_id)
 
