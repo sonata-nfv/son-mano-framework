@@ -2621,6 +2621,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         vnfs = self.services[serv_id]['function']
 
         vl_map = self.services[serv_id]['mapping']['service']['vl']
+        vnf_map = self.services[serv_id]['mapping']['function']
 
         for vl in nsd['virtual_links']:
             if vl['id'] in vl_map.keys():
@@ -2648,7 +2649,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                         nap = self.services[serv_id]['ingress'][0]['nap']
                         message['ingress']['nap'] = nap
                     else:
-                        ip = tools.find_ip_from_ref(ref, nsd, vnfs)
+                        ip = tools.find_ip_from_ref(ref, nsd, vnfs, mapping)
                         message['ingress']['nap'] = ip
 
                     ref = vl_for_wim['refs'][1]
@@ -2656,7 +2657,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                         nap = self.services[serv_id]['egress'][0]['nap']
                         message['egress']['nap'] = nap
                     else:
-                        ip = tools.find_ip_from_ref(ref, nsd, vnfs)
+                        ip = tools.find_ip_from_ref(ref, nsd, vnfs, mapping)
                         message['egress']['nap'] = ip
 
                     msg = ": message for WAN: " + str(message)

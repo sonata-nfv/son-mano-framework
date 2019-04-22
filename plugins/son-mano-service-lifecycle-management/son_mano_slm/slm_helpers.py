@@ -710,7 +710,7 @@ def vnfd_vl_maps_on_nsd_vl(nsd, vnfd, vl):
     return False, None
 
 
-def map_refs_on_du_cps(refs, nsd, vnfs):
+def map_refs_on_du_cps(refs, nsd, vnfs, mapping):
     """
     This method returns a list of du cps, that map on the cp references in the
     refs input.
@@ -729,7 +729,7 @@ def map_refs_on_du_cps(refs, nsd, vnfs):
                             du_cp_list = map_vnf_cp_on_du_cps(cp_ref, vnfd)
                             for du_cp in du_cp_list:
                                 du_cp['vnf_id'] = vnf['id']
-                                du_cp['vim_id'] = vnf['vim_uuid']
+                                du_cp['vim_id'] = mapping[vnf['id']]['vim_id']
                             cps.extend(du_cp_list)
                     break
     return cps
@@ -738,7 +738,7 @@ def find_ip_from_ref(ref, nsd, vnfs):
     """
     find ip associated to a ref
     """
-    cp = map_refs_on_du_cps([ref], nsd, vnfs)[0]
+    cp = map_refs_on_du_cps([ref], nsd, vnfs, mapping)[0]
 
     for vnf in vnfs:
         if vnf['id'] == cp['vnf_id']:
