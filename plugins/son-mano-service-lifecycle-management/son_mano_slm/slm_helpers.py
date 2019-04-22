@@ -734,7 +734,7 @@ def map_refs_on_du_cps(refs, nsd, vnfs, mapping):
                     break
     return cps
 
-def find_ip_from_ref(ref, nsd, vnfs):
+def find_ip_from_ref(ref, nsd, vnfs, mapping):
     """
     find ip associated to a ref
     """
