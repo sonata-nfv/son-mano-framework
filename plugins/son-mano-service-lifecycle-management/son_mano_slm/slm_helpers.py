@@ -99,7 +99,7 @@ def replace_old_corr_id_by_new(dictionary, old_correlation_id):
     return new_correlation_id, dictionary
 
 
-def build_nsr(request_status, nsd, vnfr_ids, serv_id, sid=None, pid=None):
+def build_nsr(request_status, nsd, vnfr_ids, serv_id, vls, sid=None, pid=None):
     """
     This method builds the whole NSR from the payload (stripped nsr and vnfrs)
     returned by the Infrastructure Adaptor (IA).
@@ -139,10 +139,17 @@ def build_nsr(request_status, nsd, vnfr_ids, serv_id, sid=None, pid=None):
         nsr['virtual_links'] = []
         for virtual_link in nsd['virtual_links']:
             vlink = {}
-            vlink['id'] = virtual_link['id']
+            vlink['descriptor_reference'] = virtual_link['id']
             vlink['connectivity_type'] = virtual_link['connectivity_type']
             cpr = virtual_link['connection_points_reference']
             vlink['connection_points_reference'] = cpr
+            if virtual_link['id'] in vls.keys():
+                vlink['id'] = vls[virtual_link['id']]['id']
+                if 'vim_id' in vls[virtual_link['id']].keys():
+                    vlink['vim_id'] = vls[virtual_link['id']]['vim_id']
+                if 'wim_id' in vls[virtual_link['id']].keys():
+                    vlink['wim_id'] = vls[virtual_link['id']]['wim_id']
+
             nsr['virtual_links'].append(vlink)
 
     # forwarding graphs

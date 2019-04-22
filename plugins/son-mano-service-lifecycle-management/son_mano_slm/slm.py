@@ -2155,10 +2155,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
     def store_nsr(self, serv_id):
 
+        LOG.info(yaml.dump(self.services[serv_id]['mapping']))
         # TODO: get request_status from response from IA on chain
-        request_status = 'normal operation'
+        status = 'normal operation'
 
-        if request_status == 'normal operation':
+        if status == 'normal operation':
             LOG.info("Service " + serv_id + ": Update status of the VNFR")
             for function in self.services[serv_id]['function']:
                 function['vnfr']['status'] = "normal operation"
@@ -2199,7 +2200,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         sid = self.services[serv_id]['sla_id']
         pid = self.services[serv_id]['policy_id']
-        nsr = tools.build_nsr(request_status, nsd, vnfr_ids, serv_id, sid, pid)
+        vls = self.services[serv_id]['mapping']['service']['vl']
+        nsr = tools.build_nsr(status, nsd, vnfr_ids, serv_id, vls, sid, pid)
         LOG.debug("NSR to be stored: " + yaml.dump(nsr))
 
         error = None
