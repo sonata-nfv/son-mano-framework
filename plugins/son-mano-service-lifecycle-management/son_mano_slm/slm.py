@@ -3500,8 +3500,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 for vl in vnfr['virtual_links']:
                     desc = vl['descriptor_reference']
                     vnf_map['vl'][desc] = {}
-                    vnf_map[desc]['id'] = vl['id']
-                    vnf_map[desc]['new'] = False
+                    vnf_map['vl'][desc]['id'] = vl['id']
+                    vnf_map['vl'][desc]['new'] = False
                     vnf_map['vl'][desc]['vim_id'] = vl['vim_id']
 
         msg = ": mapping after records: " + yaml.dump(mapping)
