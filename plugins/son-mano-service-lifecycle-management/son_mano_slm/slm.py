@@ -2631,7 +2631,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     message = {}
                     message['service_instance_id'] = serv_id
                     message['vl_id'] = vl['id']
-                    message['wim_uuid'] = vl_for_wim['wim']
+                    message['wim_uuid'] = vl_map[vl['id']]['wim_id']
                     message['bidirectional'] = True
                     if 'qos_requirements' in vl.keys():
                         message['qos'] = vl['qos_requirements']
