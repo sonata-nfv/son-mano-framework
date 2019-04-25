@@ -3526,9 +3526,19 @@ class ServiceLifecycleManager(ManoBasePlugin):
                             break
 
         for vl_input in service['input_mapping']['vls']:
-            mapping['service']['vl'][vl['vl_id']]['id'] = vl_input['external_net']
-            mapping['service']['vl'][vl['vl_id']]['new'] = False
-            mapping['service']['vl'][vl['vl_id']]['vim_id'] = vl_input['vim_id']
+            vl = None
+            for vl_nsd in service['nsd']['virtual_links']:
+                if vl['id'] == vl_input['vl_id']:
+                    vl = nsd_vl
+                    break
+            if vl is None:
+                msg = ": vl_id (" + vl_input['vl_id'] + ") not in nsd, ignored"
+                LOG.info("Service " + serv_id + msg)
+                continue
+
+            mapping['service']['vl'][vl['id']]['id'] = vl_input['external_net']
+            mapping['service']['vl'][vl['id']]['new'] = False
+            mapping['service']['vl'][vl['id']]['vim_id'] = vl_input['vim_id']
 
         msg = ": mapping after user input: " + yaml.dump(mapping)
         LOG.info("Service " + serv_id + msg)
