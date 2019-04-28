@@ -676,7 +676,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
             content['vnfd'] = vnfd
             content['vim_uuid'] = None
             content['corr_id'] = corr_id
+            content['number_of_instances'] = 1
 
+            if 'number_of_instances' in message.keys():
+                content['number_of_instances'] = message['number_of_instances']
             if 'constraints' in message.keys():
                 if 'vim_id' in message['constraints'].keys():
                     content['vim_uuid'] = message['constraints']['vim_id']
@@ -775,9 +778,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         self.services[serv_id]['start_time'] = time.time()
         self.services[serv_id]['topic'] = t.MANO_SCALE
-        for vnf in self.services[serv_id]['function']:
-            vnf['start']['trigger'] = False
-            vnf['deployed'] = True
+        # for vnf in self.services[serv_id]['function']:
+        #     vnf['start']['trigger'] = False
+        #     vnf['deployed'] = True
 
         vnfd_to_add = payload['vnfd']
         vnf_id = str(uuid.uuid4())
@@ -790,23 +793,24 @@ class ServiceLifecycleManager(ManoBasePlugin):
                          'vim_uuid': payload['vim_uuid']}
 
         # If no VIM is provided, find the VIM of the same VNF
-        if payload['vim_uuid'] is None:
-            for vnf in self.services[serv_id]['function']:
-                if vnf['vnfd']['name'] == vnfd_to_add['name']:
-                    vdu = vnf['vnfr']['virtual_deployment_units'][0]
-                    vim_id = vdu['vnfc_instance'][0]['vim_id']
-                    vnf_base_dict['vim_uuid'] = vim_id
+        # if payload['vim_uuid'] is None:
+        #     for vnf in self.services[serv_id]['function']:
+        #         if vnf['vnfd']['name'] == vnfd_to_add['name']:
+        #             vdu = vnf['vnfr']['virtual_deployment_units'][0]
+        #             vim_id = vdu['vnfc_instance'][0]['vim_id']
+        #             vnf_base_dict['vim_uuid'] = vim_id
 
         # fix vdu_id
         for vdu in vnf_base_dict['vnfd']['virtual_deployment_units']:
             vdu['id'] = vdu['id'] + '-' + vnf_id
 
-        msg = ": VIM for new VNF: " + vnf_base_dict['vim_uuid']
-        LOG.info('Service ' + str(serv_id) + msg)
+        # msg = ": VIM for new VNF: " + vnf_base_dict['vim_uuid']
+        # LOG.info('Service ' + str(serv_id) + msg)
         self.services[serv_id]['function'].append(vnf_base_dict)
         self.services[serv_id]["current_workflow"] = 'addvnf'
 
         add_schedule = []
+        add_schedule.append('consolidate_predefined_mapping')
         add_schedule.append('request_topology')
         add_schedule.append('request_policies')
 
@@ -815,6 +819,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             add_schedule.append('req_placement_from_ssm')
         else:
             add_schedule.append('SLM_mapping')
+        add_schedule.append('consolidate_mapping')
         add_schedule.append('update_networks')
         add_schedule.append('vnf_deploy')
         add_schedule.append('vnfs_start')
@@ -1612,18 +1617,23 @@ class ServiceLifecycleManager(ManoBasePlugin):
         msg = ": new PoPs to be used: " + str(message['vim_list'])
         LOG.info("Service " + serv_id + msg)
 
-        # Add correlation id to the ledger for future reference
-        corr_id = str(uuid.uuid4())
-        self.services[serv_id]['act_corr_id'] = corr_id
+        if len(message['vim_list']) > 0:
+            # Add correlation id to the ledger for future reference
+            corr_id = str(uuid.uuid4())
+            self.services[serv_id]['act_corr_id'] = corr_id
 
-        # Send this mapping to the IA
-        self.manoconn.call_async(self.resp_prepare,
-                                 t.IA_CREATE_NETWORKS,
-                                 yaml.dump(message),
-                                 correlation_id=corr_id)
+            # Send this mapping to the IA
+            self.manoconn.call_async(self.resp_prepare,
+                                     t.IA_CREATE_NETWORKS,
+                                     yaml.dump(message),
+                                     correlation_id=corr_id)
 
-        # Pause the chain of tasks to wait for response
-        self.services[serv_id]['pause_chain'] = True
+            # Pause the chain of tasks to wait for response
+            self.services[serv_id]['pause_chain'] = True
+
+        else:
+            msg = ": no new networks needed"
+            LOG.info("Service " + serv_id + msg)
 
     def vnf_remove(self, serv_id):
         """
@@ -2635,6 +2645,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     continue
                 LOG.info("Service " + serv_id + ": VL for WAN identified")
                 for vl_for_wim in vl_map[vl['id']]['pairs']:
+                    if 'wim_id' not in vl_for_wim.keys():
+                        continue
                     message = {}
                     message['service_instance_id'] = serv_id
                     message['vl_id'] = vl['id']
@@ -2693,7 +2705,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         LOG.info("Service " + serv_id + ": WAN configure request completed.")
 
-        if message['message'] != '':
+        if message['request_status'] != 'COMPLETED':
             error = message['message']
             LOG.info('Error occured during WAN: ' + str(error))
             self.error_handling(serv_id, t.GK_CREATE, error)
@@ -2721,7 +2733,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 message = {}
                 message['wim_uuid'] = vl['wim_id']
                 message['service_instance_id'] = serv_id
-                message['vl_id'] = vl['descriptor_reference']
+                message['vl_id'] = vl_id
 
                 msg = ": message for WAN: " + str(message)
                 LOG.info("Service " + serv_id + msg)
@@ -2750,7 +2762,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         LOG.info("Service " + serv_id + ": WAN deconfigure request completed.")
 
-        if message['message'] != '':
+        if message['request_status'] != 'COMPLETED':
             error = message['message']
             LOG.info('Error occured during WAN: ' + str(error))
             self.error_handling(serv_id, t.GK_CREATE, error)
@@ -3436,7 +3448,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 if res[1] in mapping['service']['vl'].keys():
                     nsd_vl = mapping['service']['vl'][res[1]]
                     nsd_vl_on_vim = 'vim_id' in nsd_vl.keys()
-                if res[0] and nsd_vl_on_vim:
+                if res[0] and nsd_vl_on_vim and \
+                   nsd_vl['vim_id'] == vnf_map['vim_id']:
                     vnf_map['vl'][vl['id']] = {}
                     vnf_map['vl'][vl['id']]['id'] = nsd_vl['id']
                     vnf_map['vl'][vl['id']]['vim_id'] = vnf_map['vim_id']
@@ -3470,7 +3483,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         for vnf in self.services[serv_id]['function']:
             mapping['function'][vnf['id']] = {'vim_id': None,
                                               'vl': {},
-                                              'new': False}
+                                              'new': True}
 
         # if this service was already deployed, and this method is called from
         # a workflow updating the service (scaling, migration, termination), 
@@ -3498,6 +3511,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     cdu = vnfr['cloudnative_deployment_units'][0]
                     vim_id = cdu['vim_id']
                 vnf_map['vim_id'] = vim_id
+                vnf_map['new'] = False
                 for vl in vnfr['virtual_links']:
                     desc = vl['descriptor_reference']
                     vnf_map['vl'][desc] = {}
@@ -3528,14 +3542,20 @@ class ServiceLifecycleManager(ManoBasePlugin):
         for vl_input in service['input_mapping']['vls']:
             vl = None
             for vl_nsd in service['nsd']['virtual_links']:
-                if vl['id'] == vl_input['vl_id']:
-                    vl = nsd_vl
+                if vl_nsd['id'] == vl_input['vl_id']:
+                    vl = vl_nsd
                     break
             if vl is None:
                 msg = ": vl_id (" + vl_input['vl_id'] + ") not in nsd, ignored"
                 LOG.info("Service " + serv_id + msg)
                 continue
 
+            if vl['id'] in mapping['service']['vl'].keys():
+                msg = ": vl_id (" + vl_input['vl_id'] + ") already has mapping"
+                LOG.info("Service " + serv_id + msg)
+                continue
+
+            mapping['service']['vl'][vl['id']] = {}                
             mapping['service']['vl'][vl['id']]['id'] = vl_input['external_net']
             mapping['service']['vl'][vl['id']]['new'] = False
             mapping['service']['vl'][vl['id']]['vim_id'] = vl_input['vim_id']

@@ -36,6 +36,7 @@ import logging
 import threading
 import concurrent.futures as pool
 import uuid
+import traceback
 import time
 import os
 
@@ -167,7 +168,10 @@ class ManoBrokerConnection(object):
                 msg.properties[k] = None if v == "" else v
             properties = type('properties', (object,), msg.properties)
             # call cbf of subscription
-            cbf(ch, method, properties, body)
+            try:
+                cbf(ch, method, properties, body)
+            except BaseException as e:
+                LOG.error("Error in subscription thread: " + str(''.join(traceback.format_tb(e.__traceback__))))
             # ack the message to let broker know that message was delivered
             msg.ack()
 
@@ -191,8 +195,8 @@ class ManoBrokerConnection(object):
                 try:
                     # start consuming messages.
                     channel.start_consuming(to_tuple=False)
-                except BaseException:
-                    LOG.exception("Error in subscription thread:")
+                except BaseException as e:
+                    LOG.error("Error in subscription thread: " + str(''.join(traceback.format_tb(e.__traceback__))))
                     channel.close()
 
         # Attention: We crate an individual queue for each subscription to allow multiple subscriptions
@@ -415,6 +419,7 @@ class ManoBrokerRequestResponseConnection(ManoBrokerConnection):
             subscription_queue = "%s.%s.%s" % ("q", topic, queue_uuid)
 
             self.subscribe(self._on_call_async_response_received, topic, subscription_queue)
+            LOG.info("async call subscribing to: " + str(subscription_queue) + ' for corr_id ' + str(correlation_id))
             # keep track of request
             self._async_calls_response_topics[topic] = subscription_queue
         else:

@@ -1154,8 +1154,9 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         func_id = tools.funcid_from_corrid(self.functions, prop.correlation_id)
 
-        msg = 'Response received from IA on configure call'
+        msg = ': Response received from IA on configure call'
         LOG.info("Function " + func_id + msg)
+        LOG.info("Function " + func_id + ': corr_id ' + str(prop.correlation_id))
 
         if response['request_status'] == 'ERROR':
             msg = ': CNF configure event failed: ' + response['message']

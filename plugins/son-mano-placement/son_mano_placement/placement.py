@@ -190,7 +190,7 @@ class PlacementPlugin(ManoBasePlugin):
                     new_du['nf_id'] = vnf['id']
                     vim = pre_map['function'][vnf['id']]['vim_id']
                     if vim is not None:
-                        new_du['needs_placement'] = False
+                        new_du['placement_needed'] = False
                         new_du['vim'] = vim
                     dus.append(new_du)
             if 'virtual_deployment_units' in desc.keys():
@@ -207,7 +207,10 @@ class PlacementPlugin(ManoBasePlugin):
                     new_du['nf_id'] = vnf['id']
                     vim = pre_map['function'][vnf['id']]['vim_id']
                     if vim is not None:
-                        new_du['needs_placement'] = False
+                        if not pre_map['function'][vnf['id']]['new']:
+                            new_du['cpu'] = 0
+                            new_du['ram'] = 0
+                        new_du['placement_needed'] = False
                         new_du['vim'] = vim
                     dus.append(new_du)
 
@@ -276,18 +279,42 @@ class PlacementPlugin(ManoBasePlugin):
 
         # build virtual link list that require qos considerations
         vls = []
-        # add vls coming from the nsd
         nsd_vls = nsd['virtual_links']
+
+        # add vls coming from the nsd
         for nsd_vl in nsd_vls:
-            if 'qos_requirements' in nsd_vl.keys():
+            vl_id = nsd_vl['id']
+            refs = nsd_vl['connection_points_reference']
+
+            all_nodes = []
+            for ref in refs:
+                node_id = tools.map_ref_on_id(ref, nsd, vnfds, eps)
+                all_nodes.extend(node_id)
+            len_nodes = len(all_nodes)
+
+            if vl_id in pre_map['service']['vl'].keys():
+                vim_id = pre_map['service']['vl'][vl_id]['vim_id']
+                for i in range(len_nodes):
+                    for j in range(len_nodes):
+                        if i < j:
+                            new_vl = {}
+                            identifier = '_' + str(i)  + '_' + str(j)
+                            new_vl['id'] = nsd_vl['id'] + identifier
+                            new_vl['refs'] = [refs[i], refs[j]]
+                            new_vl['nodes'] = []
+                            new_vl['nodes'].append(all_nodes[i])
+                            new_vl['nodes'].append(all_nodes[j])
+
+                            new_vl['bandwidth'] = 0
+                            new_vl['latency'] = 1000
+                            new_vl['placement_needed'] = False
+                            new_vl['vim_wim'] = vim_id
+
+                            vls.append(new_vl)
+
+            elif 'qos_requirements' in nsd_vl.keys():
                 qos_req = nsd_vl['qos_requirements']
 
-                all_nodes = []
-                refs = nsd_vl['connection_points_reference']
-                for ref in refs:
-                    node_id = tools.map_ref_on_id(ref, nsd, vnfds, eps)
-                    all_nodes.append(node_id)
-                len_nodes = len(all_nodes)
                 for i in range(len_nodes):
                     for j in range(len_nodes):
                         if i < j:
@@ -309,7 +336,7 @@ class PlacementPlugin(ManoBasePlugin):
                                 new_vl['latency'] = 1000
                             if nsd_vl['id'] in pre_map['service']['vl'].keys():
                                 pre_vl = pre_map['service']['vl']
-                                new_vl['needs_placement'] = False
+                                new_vl['placement_needed'] = False
                                 if 'vim_id' in pre_vl.keys():
                                     new_vl['vim_wim'] = pre_vl['vim_id']
                                 if 'wim_id' in pre_vl.keys():
@@ -345,7 +372,7 @@ class PlacementPlugin(ManoBasePlugin):
                                     break
                     if vl['id'] in pre_map['function'][vnf['id']]['vl'].keys():
                         pre_vl = pre_map['function'][vnf['id']]['vl']
-                        new_vl['needs_placement'] = False
+                        new_vl['placement_needed'] = False
                         if 'vim_id' in pre_vl.keys():
                             new_vl['vim_wim'] = pre_vl['vim_id']
                         if 'wim_id' in pre_vl.keys():
@@ -438,19 +465,18 @@ class PlacementPlugin(ManoBasePlugin):
             # Add virtual links that have no qos requirements but coincide with
             # VIMs or WIMs to the list
             for vl in nsd_vls:
-                if 'qos_requirements' not in vl.keys():
+                if 'qos_requirements' not in vl.keys() \
+                   and vl['id'] not in pre_map['service']['vl'].keys():
                     vim_or_ep = []
                     refs = vl['connection_points_reference']
                     for ref in refs:
                         node_id = tools.map_ref_on_id(ref, nsd, vnfds, eps)
-                        if ':' in ref:
-                            vim_id = res[0]['dus'][node_id]
-                            vim_or_ep.append(vim_id)
-                        # elif ref not in ['mgmt', 'management']:
-                        #     vim_or_ep.append(node_id)
-                        else:
-                            vim_or_ep.append(node_id)
-                            # pass
+                        for node in node_id:
+                            if ':' in ref:
+                                vim_id = res[0]['dus'][node_id]
+                                vim_or_ep.append(vim_id)
+                            else:
+                                vim_or_ep.append(node)
                     for wim in wims:
                         coll = [wim['vim_1'], wim['vim_2']]
                         if set(vim_or_ep) <= set(coll) and \
@@ -467,18 +493,12 @@ class PlacementPlugin(ManoBasePlugin):
                                         vls_map[vl['id']].append(new_vl)
                             break
                     if vl['id'] not in vls_map.keys():
-                        if None in vim_or_ep:
-                            vim_or_ep.remove(None)
-                        for vim in vims:
-                            if len(set(vim_or_ep)) == 1 and \
-                               vim_or_ep[0] == vim['id']:
-                                vls_map[vl['id']] = []
-                                new_vl = {}
-                                new_vl['vim_id'] = vim['id']
-                                new_vl['refs'] = refs
-                                vls_map[vl['id']].append(new_vl)
-                                break
-
+                        vls_map[vl['id']] = []
+                        new_vl = {}
+                        new_vl['vim_id'] = vim_or_ep
+                        new_vl['refs'] = refs
+                        vls_map[vl['id']].append(new_vl)
+                        break
 
             response['mapping']['vl'] = vls_map
 
@@ -677,13 +697,14 @@ class PlacementPlugin(ManoBasePlugin):
 
         # Preplaced virtual links should not be placed elsewhere
         vim_wim = vims + wims
+#        LOG.info("vim_wim:" + yaml.dump(vim_wim))
         for vl in vls:
             if 'placement_needed' in vl.keys():
                 if not vl['placement_needed']:
                     vl_i = vls.index(vl) + offset_vls
                     used_vim_wim = vl['vim_wim']
                     for wim in vim_wim:
-                        vim_wim_i = vims.index(vim)
+                        vim_wim_i = vims.index(wim)
                         if wim['id'] == used_vim_wim:
                             lpProblem += variables[(vl_i, vim_wim_i)] == 1
                             break
@@ -732,22 +753,30 @@ class PlacementPlugin(ManoBasePlugin):
                 wim_i = vim_wim.index(wim)
 
                 if x1_i == -1:
-                    for ep in eps:
-                        if ep['id'] == vl['nodes'][0]:
-                            if wim['id'] in ep['wims']:
-                                sum_1 = 1
-                            else:
-                                sum_1 = 0
+                    if 'placement_needed' in vl.keys():
+                        if not vl['placement_needed']:
+                            sum_1 = 1
+                    else:
+                        for ep in eps:
+                            if ep['id'] == vl['nodes'][0]:
+                                if wim['id'] in ep['wims']:
+                                    sum_1 = 1
+                                else:
+                                    sum_1 = 0
                 else:
                     sum_1 = sum(variables[x] * adj_mat[wim_i][x[1]] \
                             for x in var_dus if x[0] == x1_i)
                 if x2_i == -1:
-                    for ep in eps:
-                        if ep['id'] == vl['nodes'][1]:
-                            if wim['id'] in ep['wims']:
-                                sum_2 = 1
-                            else:
-                                sum_2 = 0
+                    if 'placement_needed' in vl.keys():
+                        if not vl['placement_needed']:
+                            sum_2 = 1
+                    else:
+                        for ep in eps:
+                            if ep['id'] == vl['nodes'][1]:
+                                if wim['id'] in ep['wims']:
+                                    sum_2 = 1
+                                else:
+                                    sum_2 = 0
                 else:
                     sum_2 = sum(variables[x] * adj_mat[wim_i][x[1]] \
                             for x in var_dus if x[0] == x2_i)
@@ -759,12 +788,12 @@ class PlacementPlugin(ManoBasePlugin):
 
         # for var in variables:
         #     if variables[var].varValue == 1.0:
-        #         print(variables[var].varValue)
-        #         print(variables[var].cat)
-        #         print(variables[var].name)
+        #         LOG.info(variables[var].varValue)
+        #         LOG.info(variables[var].cat)
+        #         LOG.info(variables[var].name)
 
-        # print(lpProblem)
-        # print(lpProblem.status)
+        # LOG.info(lpProblem)
+        # LOG.info(lpProblem.status)
 
         # processing the result
         result = {}
