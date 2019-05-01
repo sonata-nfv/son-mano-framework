@@ -408,8 +408,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         add_schedule.append('vnfs_generic_envs')
         add_schedule.append('vnfs_start')
         add_schedule.append('vnf_chain')
-        add_schedule.append('store_nsr')
         add_schedule.append('wan_configure')
+        add_schedule.append('store_nsr')
         add_schedule.append('start_monitoring')
         add_schedule.append('inform_gk_instantiation')
 
@@ -889,6 +889,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['schedule'].extend(add_schedule)
 
         LOG.info("Termination workflow started for service " + str(serv_id))
+        LOG.info(yaml.dump(self.services[serv_id]['schedule']))
         # Start the chain of tasks
         self.start_next_task(serv_id)
 
@@ -1477,13 +1478,34 @@ class ServiceLifecycleManager(ManoBasePlugin):
         for vl_desc_id in mapping['service']['vl']:
             vl = mapping['service']['vl'][vl_desc_id]
             if vl['new'] and 'vim_id' in vl.keys():
-                if vl['vim_id'] not in vims.keys():
-                    vims[vl['vim_id']] = {'uuid': vl['vim_id'],
-                                          'virtual_links': []}
-                vl_dict = {'id': vl['id'],
-                           'access': True,
-                           'vl_id': vl_desc_id}
-                vims[vl['vim_id']]['virtual_links'].append(vl_dict)
+                for vim_id in vl['vim_id']:
+                    if vim_id not in vims.keys():
+                        vims[vim_id] = {'uuid': vim_id,
+                                              'virtual_links': []}
+                    vl_dict = {'id': vl['id'],
+                               'access': True,
+                               'vl_id': vl_desc_id}
+                    vims[vim_id]['virtual_links'].append(vl_dict)
+            if vl['new'] and 'wim_id' in vl.keys():
+                for vim_id in vl['vims']:
+                    if vim_id not in vims.keys():
+                        vims[vim_id] = {'uuid': vim_id,
+                                              'virtual_links': []}
+                    vl_dict = {'id': vl['id'],
+                               'access': True,
+                               'vl_id': vl_desc_id}
+                    vims[vim_id]['virtual_links'].append(vl_dict)
+            if 'update' in vl.keys():
+                if not vl['update']:
+                    continue
+                for vim_id in vl['added_vims']:
+                    if vim_id not in vims.keys():
+                        vims[vim_id] = {'uuid': vim_id,
+                                              'virtual_links': []}
+                    vl_dict = {'id': vl['id'],
+                               'access': True,
+                               'vl_id': vl_desc_id}
+                    vims[vim_id]['virtual_links'].append(vl_dict)
 
         for vnf_id in mapping['function']:
             vnf = mapping['function'][vnf_id]
@@ -1498,123 +1520,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
                                'vl_id': vl_desc_id}
                     vims[vl['vim_id']]['virtual_links'].append(vl_dict)
 
-        # Indentify which vls and interfaces should be mapped on an external
-        # network.
-        # TODO
-        # if 'external_networks' in self.services[serv_id].keys():
-        #     ext_nets = self.services[serv_id]['external_networks']
-        #     for ext_net in ext_nets:
-        #         vl_id = ext_net['vl']
-        #         net_id = ext_net['id']
-        #         for vl in nsd['virtual_links']:
-        #             if vl['id'] == vl_id:
-        #                 refs = vl['connection_points_reference']
-        #                 interfaces = tools.map_refs_on_du_cps(refs, nsd, vnfs)
-        #                 tools.add_network_to_cp(net_id, interfaces)
-        #                 break
-
-        # # Identify which vls and interfaces should be mapped on a created
-        # # internal network
-        # for vl in nsd['virtual_links']:
-        #     refs = vl['connection_points_reference']
-        #     interfaces = tools.map_refs_on_du_cps(refs, nsd, vnfs)
-        #     #split interfaces per vim
-        #     vim_list = {}
-        #     for interface in interfaces:
-        #         if interface['vim_id'] not in vim_list.keys():
-        #             vim_list[interface['vim_id']] = []
-        #         vim_list[interface['vim_id']].append(interface)
-        #     #if more than 1 interface maps on a vim, create a network
-        #     for vim_id in vim_list.keys():
-        #         interfaces = vim_list[vim_id]
-        #         if len(interfaces) > 1:
-        #             network_name = 'SonataService.' + serv_id + '.' + vl['id']
-        #             tools.add_network_to_cp(network_name, interfaces)
-        #             vims[vim_id]['virtual_links'].append({'id': network_name, 
-        #                                                  'access': True,
-        #                                                  'vl_id': vl['id']})
-
-        # # Identify the VNF internal virtual links between cdus and add them
-        # for vnf in vnfs:
-        #     vnfd = vnf['vnfd']
-        #     for vl in vnfd['virtual_links']:
-        #         refs = vl['connection_points_reference']
-        #         refs_with_colon = [x for x in refs if ':' in x]
-        #         if refs == refs_with_colon:
-        #             # You have identified an internal virtual link
-        #             interfaces = []
-        #             name = 'SonataService.' + serv_id + '.' + \
-        #                     vnf['id'] + '.' + vl['id']
-        #             for ref in refs:
-        #                 interfaces.extend(tools.get_du_cp_from_ref(ref, vnfd))
-        #             tools.add_network_to_cp(name, interfaces)
-        #             vims[vnf['vim_uuid']]['virtual_links'].append({'id': name, 
-        #                                                  'access': True,
-        #                                                  'vl_id': vl['id']})                                        
-
-        # # Go over all interfaces. If they have no network yet, create one and
-        # # give them a fip. If they have a network and are mgmt, give them a fip
-        # for vnf in vnfs:
-        #     vnfd = vnf['vnfd']
-        #     if 'virtual_deployment_units' in vnfd.keys():
-        #         dus = vnfd['virtual_deployment_units']
-        #     else: 
-        #         dus = vnfd['cloudnative_deployment_units']
-        #     for du in dus:
-        #         if 'connection_points' not in du.keys():
-        #             continue
-        #         for cp in du['connection_points']:
-        #             for vnf_vl in vnfd['virtual_links']:
-        #                 vnf_refs = vnf_vl['connection_points_reference']
-        #                 if du['id'].split('-')[0] + ':' + cp['id'] in vnf_refs:
-        #                     for ref in vnf_refs:
-        #                         if ':' not in ref:
-        #                             for vnf_cp in vnfd['connection_points']:
-        #                                 if vnf_cp['id'] == ref:
-        #                                     if vnf_cp['type'] in \
-        #                                        ['mgmt', 'management']:
-        #                                         cp['fip'] = True
-        #             if 'network_id' not in cp.keys():
-        #                 for vl in vnfd['virtual_links']:
-        #                     refs = vl['connection_points_reference']
-        #                     if du['id'].split('-')[0] + ':' + cp['id'] in refs:
-        #                         break
-        #                 name = 'SonataService.' + serv_id + '.' + \
-        #                         vnf['id'] + '.' + vl['id']
-        #                 cp['network_id'] = name
-        #                 cp['fip'] = True
-        #                 vim_vnf = vims[vnf['vim_uuid']]['virtual_links']
-        #                 vim_vnf.append({'id': name, 
-        #                                'access': True,
-        #                                'vl_id': vl['id']})                                        
-
-        # Add the vnf images
-        # for vnf_id in mapping['function'].keys():
-        #     vim_id = mapping['function'][vnf_id]['vim_id']
-        #     for vnf in self.services[serv_id]['function']:
-        #         if not vnf['id'] == vnf_id:
-        #             continue
-        #         vnfd = vnf['vnfd']
-        #         if 'virtual_deployment_units' in vnfd.keys():
-        #             dus = vnfd['virtual_deployment_units']
-        #             for du in dus:
-        #                 url = du['vm_image']
-        #                 vm_uuid = tools.generate_image_uuid(du, vnfd)
-        #                 content = {'image_uuid': vm_uuid, 'image_url': url}
-        #                 if 'vm_image_md5' in du.keys():
-        #                     content['image_md5'] = du['vm_image_md5']
-        #                 vims[vim_id]['vm_images'].append(content)
-        #         else: 
-        #             dus = vnfd['cloudnative_deployment_units']
-        #             for du in dus:
-        #                 url = du['image']
-        #                 content = {'image_url': url}                        
-        #                 vims[vim_id]['vm_images'].append(content)
-
         # Create the VIM list
         message['vim_list'] = [vims[x] for x in vims]
 
-        msg = ": new PoPs to be used: " + str(message['vim_list'])
+        msg = ": new PoPs to be used:\n" + yaml.dump(message['vim_list'])
         LOG.info("Service " + serv_id + msg)
 
         if len(message['vim_list']) > 0:
@@ -2211,7 +2120,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         pid = self.services[serv_id]['policy_id']
         vls = self.services[serv_id]['mapping']['service']['vl']
         nsr = tools.build_nsr(status, nsd, vnfr_ids, serv_id, vls, sid, pid)
-        LOG.debug("NSR to be stored: " + yaml.dump(nsr))
+        LOG.info("NSR to be stored: " + yaml.dump(nsr))
 
         error = None
 
@@ -2645,8 +2554,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     continue
                 LOG.info("Service " + serv_id + ": VL for WAN identified")
                 for vl_for_wim in vl_map[vl['id']]['pairs']:
-                    if 'wim_id' not in vl_for_wim.keys():
-                        continue
                     message = {}
                     message['service_instance_id'] = serv_id
                     message['vl_id'] = vl['id']
@@ -2655,28 +2562,40 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     if 'qos_requirements' in vl.keys():
                         message['qos'] = vl['qos_requirements']
 
-                    message['ingress'] = {}
-                    first_node = vl_for_wim['nodes'][0]
-                    message['ingress']['location'] = first_node
-                    message['egress'] = {}
-                    sec_node = vl_for_wim['nodes'][1]
-                    message['egress']['location'] = sec_node
-
+                    LOG.info(yaml.dump(vl_for_wim))
+                    vl_for_wim['naps'] = []
                     ref = vl_for_wim['refs'][0]
                     if ':' not in ref:
                         nap = self.services[serv_id]['ingress'][0]['nap']
-                        message['ingress']['nap'] = nap
                     else:
-                        ip = tools.find_ip_from_ref(ref, nsd, vnfs, vnf_map)
-                        message['ingress']['nap'] = ip
+                        nap = tools.find_ip_from_ref(ref.split('_')[0],
+                                                     nsd,
+                                                     vnfs,
+                                                     vnf_map,
+                                                     vnf_id=ref.split('_')[1][-36:])
+                    vl_for_wim['naps'].append(nap)
 
                     ref = vl_for_wim['refs'][1]
                     if ':' not in ref:
                         nap = self.services[serv_id]['egress'][0]['nap']
-                        message['egress']['nap'] = nap
                     else:
-                        ip = tools.find_ip_from_ref(ref, nsd, vnfs, vnf_map)
-                        message['egress']['nap'] = ip
+                        nap = tools.find_ip_from_ref(ref.split('_')[0],
+                                                     nsd,
+                                                     vnfs,
+                                                     vnf_map,
+                                                     vnf_id=ref.split('_')[1][-36:])
+                    vl_for_wim['naps'].append(nap)
+
+                    message['ingress'] = {}
+                    first_node = vl_for_wim['nodes'][0]
+                    first_nap = vl_for_wim['naps'][0]
+                    message['ingress']['location'] = first_node
+                    message['ingress']['nap'] = first_nap
+                    message['egress'] = {}
+                    sec_node = vl_for_wim['nodes'][1]
+                    sec_nap = vl_for_wim['naps'][1]
+                    message['egress']['location'] = sec_node
+                    message['egress']['nap'] = sec_nap
 
                     msg = ": message for WAN: " + str(message)
                     LOG.info("Service " + serv_id + msg)
@@ -3260,6 +3179,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             fsm_dict = tools.get_sm_from_descriptor(vnfd)
             vnf['fsm'] = fsm_dict
 
+        LOG.info(yaml.dump(self.services[serv_id]))
         return True
 
     def validate_deploy_request(self, serv_id):
@@ -3427,6 +3347,45 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 if 'wim_id' in vl[0].keys():
                     mapping['service']['vl'][vl_id]['wim_id'] = vl[0]['wim_id']
                     mapping['service']['vl'][vl_id]['pairs'] = vl
+                    vims = []
+                    for vl_det in vl:
+                        if ':' in vl_det['refs'][0]:
+                            vims.append(vl_det['nodes'][0])
+                        if ':' in vl_det['refs'][1]:
+                            vims.append(vl_det['nodes'][1])
+                    mapping['service']['vl'][vl_id]['vims'] = list(set(vims))
+
+            else:
+                vl_old = mapping['service']['vl'][vl_id]
+                if 'vim_id' in vl_old.keys():
+                    LOG.info("vl_new" + yaml.dump(vl))
+                    LOG.info("vl_old" + yaml.dump(vl_old))
+                    added_vims = list(set(vl[0]['vim_id'])\
+                                      - set(vl_old['vim_id']))
+                    if len(added_vims) > 0:
+                        vl_old['update'] = True
+                        vl_old['added_vims'] = added_vims
+                        vl_old['vim_id'] = vl[0]['vim_id']
+                if 'wim_id' in vl_old.keys():
+                    LOG.info("vl_new" + yaml.dump(vl))
+                    LOG.info("vl_old" + yaml.dump(vl_old))
+                    vims = []
+                    for pair in vl:
+                        if ':' in pair['refs'][0]:
+                            vims.append(vl_det['nodes'][0])
+                        if ':' in pair['refs'][1]:
+                            vims.append(vl_det['nodes'][1])
+                        new_pair = True
+                        for old_pair in vl_old['pairs']:
+                            if set(old_pair['refs']) == set(pair['refs']):
+                                new_pair = False
+                                break
+                        if new_pair:
+                            vl_old['update'] = True
+                            pair['new'] = True
+                            vl_old['pairs'].append(pair)
+                    net_vims = list(set(vims))
+                    vl_old['added_vims'] = set(net_vims) - set(vl_old['vims'])
 
         self.services[serv_id]['mapping'] = mapping
 
@@ -3444,12 +3403,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     break
             for vl in vnfd['virtual_links']:
                 res = tools.vnfd_vl_maps_on_nsd_vl(nsd, vnfd, vl)
-                nsd_vl_on_vim = False
+#                nsd_vl_on_vim = False
                 if res[1] in mapping['service']['vl'].keys():
                     nsd_vl = mapping['service']['vl'][res[1]]
-                    nsd_vl_on_vim = 'vim_id' in nsd_vl.keys()
-                if res[0] and nsd_vl_on_vim and \
-                   nsd_vl['vim_id'] == vnf_map['vim_id']:
+#                    nsd_vl_on_vim = 'vim_id' in nsd_vl.keys()
+                # if res[0] and nsd_vl_on_vim and \
+                #    vnf_map['vim_id'] in nsd_vl['vim_id']:
+                if res[0]:
                     vnf_map['vl'][vl['id']] = {}
                     vnf_map['vl'][vl['id']]['id'] = nsd_vl['id']
                     vnf_map['vl'][vl['id']]['vim_id'] = vnf_map['vim_id']
@@ -3499,6 +3459,38 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     mapping['service']['vl'][desc]['vim_id'] = vl['vim_id']
                 if 'wim_id' in vl.keys():
                     mapping['service']['vl'][desc]['wim_id'] = vl['wim_id']
+                    mapping['service']['vl'][desc]['pairs'] = []
+                    vims = []
+                    for path in vl['paths']:
+                        new_path = {}
+                        new_path['refs'] = [path['nodes'][0]['ref'],
+                                            path['nodes'][1]['ref']]
+                        new_path['nodes'] = [path['nodes'][0]['location'], 
+                                             path['nodes'][1]['location']]
+                        new_path['naps'] = [path['nodes'][0]['nap'], 
+                                            path['nodes'][1]['nap']]
+                        mapping['service']['vl'][desc]['pairs'].append(new_path)
+                        if ':' in new_path['refs'][0]:
+                            vims.append(new_path['nodes'][0])
+                        if ':' in new_path['refs'][1]:
+                            vims.append(new_path['nodes'][1])
+                        mapping['service']['vl'][desc]['vims'] = list(set(vims))
+
+                        # extract ingress and egress info
+                        if ':' not in path['nodes'][0]['ref']:
+                            if not self.services[serv_id]['ingress']:
+                                self.services[serv_id]['ingress'] = []
+                            entry = {'location': path['nodes'][0]['location'],
+                                     'nap': path['nodes'][0]['nap']}
+                            self.services[serv_id]['ingress'].append(entry)
+
+                        if ':' not in path['nodes'][1]['ref']:
+                            if not self.services[serv_id]['egress']:
+                                self.services[serv_id]['egress'] = []
+                            entry = {'location': path['nodes'][1]['location'],
+                                     'nap': path['nodes'][1]['nap']}
+                            self.services[serv_id]['egress'].append(entry)
+
 
         for vnf in self.services[serv_id]['function']:
             if 'vnfr' in vnf.keys():
@@ -3558,7 +3550,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
             mapping['service']['vl'][vl['id']] = {}                
             mapping['service']['vl'][vl['id']]['id'] = vl_input['external_net']
             mapping['service']['vl'][vl['id']]['new'] = False
-            mapping['service']['vl'][vl['id']]['vim_id'] = vl_input['vim_id']
+            mapping['service']['vl'][vl['id']]['fixed'] = True
+            mapping['service']['vl'][vl['id']]['vim_id'] = [vl_input['vim_id']]
 
         msg = ": mapping after user input: " + yaml.dump(mapping)
         LOG.info("Service " + serv_id + msg)

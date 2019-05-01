@@ -144,11 +144,22 @@ def build_nsr(request_status, nsd, vnfr_ids, serv_id, vls, sid=None, pid=None):
             cpr = virtual_link['connection_points_reference']
             vlink['connection_points_reference'] = cpr
             if virtual_link['id'] in vls.keys():
-                vlink['id'] = vls[virtual_link['id']]['id']
-                if 'vim_id' in vls[virtual_link['id']].keys():
-                    vlink['vim_id'] = vls[virtual_link['id']]['vim_id']
-                if 'wim_id' in vls[virtual_link['id']].keys():
-                    vlink['wim_id'] = vls[virtual_link['id']]['wim_id']
+                vl_map = vls[virtual_link['id']]
+                vlink['id'] = vl_map['id']
+                if 'vim_id' in vl_map.keys():
+                    vlink['vim_id'] = vl_map['vim_id']
+                if 'wim_id' in vl_map.keys():
+                    vlink['wim_id'] = vl_map['wim_id']
+                    for pair in vl_map['pairs']:
+                        if 'paths' not in vlink.keys():
+                            vlink['paths'] = []
+                        node1 = {'ref': pair['refs'][0],
+                                 'location': pair['nodes'][0],
+                                 'nap': pair['naps'][0]}
+                        node2 = {'ref': pair['refs'][1], 
+                                 'location': pair['nodes'][1],
+                                 'nap': pair['naps'][1]}
+                        vlink['paths'].append({'nodes': [node1, node2]})
 
             nsr['virtual_links'].append(vlink)
 
@@ -672,6 +683,8 @@ def append_networkid_to_cp(vnfd, vls):
         dus = vnfd['cloudnative_deployment_units']
 
     for du in dus:
+        if 'connection_points' not in du.keys():
+            continue
         for cp in du['connection_points']:
             for vl in vnfd['virtual_links']:
                 refs = vl['connection_points_reference']
@@ -717,7 +730,7 @@ def vnfd_vl_maps_on_nsd_vl(nsd, vnfd, vl):
     return False, None
 
 
-def map_refs_on_du_cps(refs, nsd, vnfs, mapping):
+def map_refs_on_du_cps(refs, nsd, vnfs, mapping, vnf_id=None):
     """
     This method returns a list of du cps, that map on the cp references in the
     refs input.
@@ -729,23 +742,46 @@ def map_refs_on_du_cps(refs, nsd, vnfs, mapping):
             for vnf_nsd in nsd['network_functions']:
                 if vnf_nsd['vnf_id'] == vnf_ref:
                     for vnf in vnfs:
-                        vnfd = vnf['vnfd']
-                        if vnf_nsd['vnf_name'] == vnfd['name'] and \
-                           vnf_nsd['vnf_version'] == vnfd['version'] and \
-                           vnf_nsd['vnf_vendor'] == vnfd['vendor']:
-                            du_cp_list = map_vnf_cp_on_du_cps(cp_ref, vnfd)
-                            for du_cp in du_cp_list:
-                                du_cp['vnf_id'] = vnf['id']
-                                du_cp['vim_id'] = mapping[vnf['id']]['vim_id']
-                            cps.extend(du_cp_list)
+                        if not vnf_id or vnf['id'] == vnf_id: 
+                            vnfd = vnf['vnfd']
+                            if vnf_nsd['vnf_name'] == vnfd['name'] and \
+                               vnf_nsd['vnf_version'] == vnfd['version'] and \
+                               vnf_nsd['vnf_vendor'] == vnfd['vendor']:
+                                du_cp_list = map_vnf_cp_on_du_cps(cp_ref, vnfd)
+                                for du_cp in du_cp_list:
+                                    du_cp['vnf_id'] = vnf['id']
+                                    du_cp['vim_id'] = mapping[vnf['id']]['vim_id']
+                                cps.extend(du_cp_list)
                     break
     return cps
 
-def find_ip_from_ref(ref, nsd, vnfs, mapping):
+def find_du_based_on_ip(ip, functions):
+    """
+    This method finds a du id associated to an ip
+    """
+
+    for vnf in functions:
+        if 'vnfr' not in vnf.keys():
+            continue
+        vnfr = vnf['vnfr']
+        dus = []
+        if 'virtual_deployment_units' in vnfr.keys():
+            dus = vnfr['virtual_deployment_units']
+        if 'couldnative_deployment_units' in vnfr.keys():
+            dus = vnfr['cloudnative_deployment_units']
+        for du in dus:
+            du_string = str(du)
+            if ip in du_string:
+                return du['id'], vnf['id']
+
+    return None, None
+
+
+def find_ip_from_ref(ref, nsd, vnfs, mapping, vnf_id=None):
     """
     find ip associated to a ref
     """
-    cp = map_refs_on_du_cps([ref], nsd, vnfs, mapping)[0]
+    cp = map_refs_on_du_cps([ref], nsd, vnfs, mapping, vnf_id)[0]
 
     for vnf in vnfs:
         if vnf['id'] == cp['vnf_id']:

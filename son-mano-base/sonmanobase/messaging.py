@@ -171,7 +171,7 @@ class ManoBrokerConnection(object):
             try:
                 cbf(ch, method, properties, body)
             except BaseException as e:
-                LOG.error("Error in subscription thread: " + str(''.join(traceback.format_tb(e.__traceback__))))
+                LOG.error("Error in subscription thread: " + str(e) + '\n' + str(''.join(traceback.format_tb(e.__traceback__))))
             # ack the message to let broker know that message was delivered
             msg.ack()
 

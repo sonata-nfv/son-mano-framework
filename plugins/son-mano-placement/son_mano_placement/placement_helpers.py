@@ -352,23 +352,23 @@ def map_ref_on_id(ref, nsd, vnfds, eps):
             if vnfd['name'] == vnf_name and vnfd['version'] == vnf_version and \
                vnfd['vendor'] == vnf_vendor:
 
-            for vl in vnfd['virtual_links']:
-                cpr = vl['connection_points_reference']
-                if ref.split(':')[1] in cpr:
-                    ref_i = cpr.index(ref.split(':')[1])
-                    du_int_ref = cpr[len(cpr) - 1 - ref_i]
-                    du_ref = du_int_ref.split(':')[0]
-                    break
+                for vl in vnfd['virtual_links']:
+                    cpr = vl['connection_points_reference']
+                    if ref.split(':')[1] in cpr:
+                        ref_i = cpr.index(ref.split(':')[1])
+                        du_int_ref = cpr[len(cpr) - 1 - ref_i]
+                        du_ref = du_int_ref.split(':')[0]
+                        break
 
-            if 'cloudnative_deployment_units' in vnfd.keys():
-                for cdu in vnfd['cloudnative_deployment_units']:
-                    if cdu['id'].startswith(du_ref):
-                        nodes_list.append(cdu['id'])
+                if 'cloudnative_deployment_units' in vnfd.keys():
+                    for cdu in vnfd['cloudnative_deployment_units']:
+                        if cdu['id'].startswith(du_ref):
+                            nodes_list.append(cdu['id'])
 
-            if 'virtual_deployment_units' in vnfd.keys():
-                for vdu in vnfd['virtual_deployment_units']:
-                    if vdu['id'].startswith(du_ref):
-                        nodes_list.append(vdu['id'])
+                if 'virtual_deployment_units' in vnfd.keys():
+                    for vdu in vnfd['virtual_deployment_units']:
+                        if vdu['id'].startswith(du_ref):
+                            nodes_list.append(vdu['id'])
 
     else:
         # reference is towards an endpoint
@@ -400,4 +400,4 @@ def map_ref_on_id(ref, nsd, vnfds, eps):
                 if ep['type'] == 'egress':
                     return [ep['id']]
 
-    return []
+    return nodes_list
