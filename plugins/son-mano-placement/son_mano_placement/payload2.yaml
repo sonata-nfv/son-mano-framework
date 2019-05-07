@@ -141,7 +141,7 @@ nsd:
   - connection_points_reference: ['vnf0:mgmt', 'vnf1:mgmt', mgmt]
     connectivity_type: E-LAN
     id: mgmt
-  - connection_points_reference: [input, 'vnf0:input']
+  - connection_points_reference: [input, 'vnf0:input', 'vnf1:input']
     connectivity_type: E-Line
     id: input-2-vnf0
     qos_requirements: {minimum_bandwidth: 50}

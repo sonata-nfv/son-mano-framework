@@ -99,7 +99,7 @@ def replace_old_corr_id_by_new(dictionary, old_correlation_id):
     return new_correlation_id, dictionary
 
 
-def build_nsr(request_status, nsd, vnfr_ids, serv_id, vls, sid=None, pid=None):
+def build_nsr(request_status, nsd, vnfr_ids, serv_id, vls, flavour=None, sid=None, pid=None):
     """
     This method builds the whole NSR from the payload (stripped nsr and vnfrs)
     returned by the Infrastructure Adaptor (IA).
@@ -200,10 +200,13 @@ def build_nsr(request_status, nsd, vnfr_ids, serv_id, vls, sid=None, pid=None):
             nsr['monitoring_parameters'].append(asp)
 
     # sla and policy
-    if sid is not None:
+    if sid:
         nsr['sla_id'] = sid
-    if pid is not None:
+    if pid:
         nsr['policy_id'] = pid
+
+    if flavour:
+        nsr['flavour'] = flavour
 
     return nsr
 
@@ -568,69 +571,80 @@ def build_monitoring_message(service, functions, userdata):
         vnfr = vnf['vnfr']
         vnfd = vnf['vnfd']
 
-        vdu_hostid = []
-
+        dus = []
+        if 'cloudnative_deployment_units' in vnfr:
+            dus = vnfr['cloudnative_deployment_units']
         if 'virtual_deployment_units' in vnfr:
-            # we should create one function per virtual deployment unit
-            for vdu in vnfr['virtual_deployment_units']:
+            dus = vnfr['virtual_deployment_units']
 
+        for du in dus:
+            du_d = {}
+            if 'cloudnative_deployment_units' in vnfr:
+                for cdu_d in vnfd['cloudnative_deployment_units']:
+                    if du['id'].split(':')[0] == cdu_d['id']:
+                        du_d = cdu_d
+                        break
+            if 'virtual_deployment_units' in vnfr:
                 for vdu_d in vnfd['virtual_deployment_units']:
-                    if vdu_d['id'].split('-')[0] == vdu['id']:
-                        vdu_descriptor = vdu_d
+                    if du['id'].split(':')[0] == vdu_d['id']:
+                        du_d = vdu_d
                         break
 
-                for vnfc in vdu['vnfc_instance']:
-                    vdu_hostid.append({vdu['id']: vnfc['vc_id']})
+            function = {}
+            function['sonata_func_id'] = vnfr['id']
+            function['name'] = vnfd['name']
+            function['description'] = vnfd['description']
+            function['pop_id'] = vnf['vim_uuid']
 
-                    function = {}
-                    function['sonata_func_id'] = vnfr['id']
-                    function['name'] = vnfd['name']
-                    function['description'] = vnfd['description']
-                    function['pop_id'] = vnfc['vim_id']
-                    function['host_id'] = vnfc['vc_id']
-                    function['metrics'] = []
+            if 'cloudnative_deployment_units' in vnfr:
+                function['cnt_name'] = [du['id'] + '-' + vnfr['id']]
 
-                    if 'monitoring_parameters' in vdu_descriptor:
+            if 'virtual_deployment_units' in vnfr:
+                function['host_id'] = du['vnfc_instance'][0]['vc_id']
 
-                        for mp in vdu_descriptor['monitoring_parameters']:
-                            metric = {}
-                            metric['name'] = mp['name']
-                            metric['unit'] = mp['unit']
+            function['metrics'] = []
 
-                            associated_rule = get_associated_rule(vnfd, mp['name'])
-                            if (associated_rule is not None):
-                                if 'threshold' in mp.keys():
-                                    metric['threshold'] = mp['threshold']
-                                else:
-                                    metric['threshold'] = None
-                                if 'frequency' in mp.keys():
-                                    metric['interval'] = mp['frequency']
-                                else:
-                                    metric['interval'] = None
-                                if 'command' in mp.keys():
-                                    metric['cmd'] = mp['command']
-                                else:
-                                    metric['cmd'] = None
-                                if 'description' in mp.keys():
-                                    metric['description'] = mp['description']
-                                else:
-                                    metric['description'] = ""
+            if 'monitoring_parameters' in du_d:
 
-                                function['metrics'].append(metric)
+                for mp in du_d['monitoring_parameters']:
+                    metric = {}
+                    metric['name'] = mp['name']
+                    metric['unit'] = mp['unit']
 
-                    if 'snmp_parameters' in vdu_descriptor:
-                        function['snmp'] = {}
-                        function['snmp'] = vdu_descriptor['snmp_parameters']
-                        function['snmp']['password'] = "supercalifrajilistico"
-                        function['snmp']['entity_id'] = vnfc['vc_id']
+                    associated_rule = get_associated_rule(vnfd, mp['name'])
+                    if (associated_rule is not None):
+                        if 'threshold' in mp.keys():
+                            metric['threshold'] = mp['threshold']
+                        else:
+                            metric['threshold'] = None
+                        if 'frequency' in mp.keys():
+                            metric['interval'] = mp['frequency']
+                        else:
+                            metric['interval'] = None
+                        if 'command' in mp.keys():
+                            metric['cmd'] = mp['command']
+                        else:
+                            metric['cmd'] = None
+                        if 'description' in mp.keys():
+                            metric['description'] = mp['description']
+                        else:
+                            metric['description'] = ""
 
-                        mgmt_ip = ''
-                        for cp in vnfc['connection_points']:
-                            if cp['id'] == 'mgmt':
-                                mgmt_ip = cp['interface']['address']
-                        function['snmp']['ip'] = mgmt_ip
+                        function['metrics'].append(metric)
 
-                    message['functions'].append(function)
+            if 'snmp_parameters' in du_d:
+                function['snmp'] = {}
+                function['snmp'] = du_d['snmp_parameters']
+                function['snmp']['password'] = "supercalifrajilistico"
+                function['snmp']['entity_id'] = du['vnfc_instance'][0]['vc_id']
+
+                mgmt_ip = ''
+                for cp in du['vnfc_instance'][0]['connection_points']:
+                    if cp['id'] == 'mgmt':
+                        mgmt_ip = cp['interface']['address']
+                function['snmp']['ip'] = mgmt_ip
+
+            message['functions'].append(function)
 
         if 'monitoring_rules' in vnfd.keys():
 

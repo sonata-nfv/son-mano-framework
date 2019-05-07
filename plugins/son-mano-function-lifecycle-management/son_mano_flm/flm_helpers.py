@@ -131,7 +131,7 @@ def getRestData(base, path, expected_code=200, head=None):
         return{'error': '400', 'content': 'request timed out'}
 
 
-def build_vnfr(ia_vnfr, vnfd, vim_id):
+def build_vnfr(ia_vnfr, vnfd, vim_id, flavour=None):
     """
     This method builds the VNFR. VNFRS are built from the stripped VNFRs
     returned by the Infrastructure Adaptor (IA), combining it with the
@@ -239,6 +239,9 @@ def build_vnfr(ia_vnfr, vnfd, vim_id):
     # lifecycle_events (optional)
     if 'lifecycle_events' in vnfd:
         vnfr['lifecycle_events'] = vnfd['lifecycle_events']
+
+    if flavour:
+        vnfr['flavour'] = flavour
 
     print(yaml.dump(vnfr))
     return vnfr

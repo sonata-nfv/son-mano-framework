@@ -326,8 +326,8 @@ class PlacementPlugin(ManoBasePlugin):
                             if vim_wim_id:
                                 new_vl['vim_wim'] = vim_wim_id
                             if qos_req:
-                                if 'bandwidth' in qos_req.keys():
-                                    new_vl['bandwidth'] = int(qos_req['bandwidth'])
+                                if 'minimum_bandwidth' in qos_req.keys():
+                                    new_vl['bandwidth'] = int(qos_req['minimum_bandwidth']['bandwidth'])
                                 if 'latency' in qos_req.keys():
                                     new_vl['latency'] = int(qos_req['latency'])
                             if not placement_needed:
@@ -791,14 +791,14 @@ class PlacementPlugin(ManoBasePlugin):
         # Solve the problem
         lpProblem.solve()
 
-        # for var in variables:
-        #     if variables[var].varValue == 1.0:
-        #         LOG.info(variables[var].varValue)
-        #         LOG.info(variables[var].cat)
-        #         LOG.info(variables[var].name)
+        for var in variables:
+            if variables[var].varValue == 1.0:
+                LOG.info(variables[var].varValue)
+                LOG.info(variables[var].cat)
+                LOG.info(variables[var].name)
 
-        # LOG.info(lpProblem)
-        # LOG.info(lpProblem.status)
+        LOG.info(lpProblem)
+        LOG.info(lpProblem.status)
 
         # processing the result
         result = {}

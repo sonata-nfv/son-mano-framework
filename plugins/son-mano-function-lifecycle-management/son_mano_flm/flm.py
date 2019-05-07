@@ -868,7 +868,8 @@ class FunctionLifecycleManager(ManoBasePlugin):
         LOG.info(yaml.dump(function['vnfd']))
         vnfr = tools.build_vnfr(function['ia_vnfr'],
                                 function['vnfd'],
-                                function['vim_uuid'])
+                                function['vim_uuid'],
+                                function['flavour'])
         self.functions[func_id]['vnfr'] = vnfr
         LOG.info(yaml.dump(vnfr))
 
@@ -1214,6 +1215,26 @@ class FunctionLifecycleManager(ManoBasePlugin):
         self.functions[func_id]['vnfd'] = payload['vnfd']
         self.functions[func_id]['id'] = func_id
 
+        vnfd = self.functions[func_id]['vnfd']
+
+        # Adjust for flavour
+        self.functions[func_id]['flavour'] = payload['flavour']
+
+        if self.functions[func_id]['flavour']:
+            flavour_dict = {}
+
+            for flavour in vnfd['deployment_flavours']:
+                if flavour['name'] == self.functions[func_id]['flavour']:
+                    flavour_dict = flavour
+                    break
+
+            for key in flavour_dict.keys():
+                if key != 'name':
+                    vnfd[key] = flavour_dict[key] 
+
+        if 'deployment_flavours' in vnfd.keys():
+            del vnfd['deployment_flavours']
+
         # Add the topic of the call
         self.functions[func_id]['topic'] = topic
 
@@ -1303,6 +1324,26 @@ class FunctionLifecycleManager(ManoBasePlugin):
         LOG.info(str(self.functions[func_id]['vnfd']))
 
         self.functions[func_id]['id'] = func_id
+
+        # Adjust for flavour
+        vnfd = self.functions[func_id]['vnfd']
+        vnfr = self.functions[func_id]['vnfr']
+        self.functions[func_id]['flavour'] = vnfr.get('flavour')
+
+        if self.functions[func_id]['flavour']:
+            flavour_dict = {}
+
+            for flavour in vnfd['deployment_flavours']:
+                if flavour['name'] == self.functions[func_id]['flavour']:
+                    flavour_dict = flavour
+                    break
+
+            for key in flavour_dict.keys():
+                if key != 'name':
+                    vnfd[key] = flavour_dict[key] 
+
+        if 'deployment_flavours' in vnfd.keys():
+            del vnfd['deployment_flavours']
 
         # Add the topic of the call
         self.functions[func_id]['topic'] = topic

@@ -403,7 +403,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             add_schedule.append('SLM_mapping')
 
         add_schedule.append('consolidate_mapping')
-        add_schedule.append('update_networks')
+        add_schedule.append('network_create')
         add_schedule.append('vnf_deploy')
         add_schedule.append('vnfs_generic_envs')
         add_schedule.append('vnfs_start')
@@ -578,7 +578,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]["current_workflow"] = 'migrate'
 
         add_schedule = []
-        add_schedule.append('update_networks')
+        add_schedule.append('network_create')
         add_schedule.append("vnf_deploy")
         add_schedule.append("vnfs_start")
         add_schedule.append("vnf_chain")
@@ -742,7 +742,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['topic'] = t.MANO_SCALE
 
         for vnf in self.services[serv_id]['function']:
-            if vnf['id'] == payload['vnf_id']:
+            if vnf['id'] in payload['vnf_id']:
                 continue
             else:
                 vnf['stop']['trigger'] = False
@@ -750,7 +750,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]["current_workflow"] = 'removevnf'
 
         add_schedule = []
+        add_schedule.append('consolidate_predefined_mapping')
+        add_schedule.append('remove_vnfs_from_mapping')
         add_schedule.append('vnf_remove')
+        add_schedule.append('remove_network')
+        add_schedule.append('wan_deconfigure')
+        add_schedule.append('wan_configure')
         add_schedule.append('update_nsr')
         if 'scale' in self.services[serv_id]['ssm'].keys():
             add_schedule.append("configure_ssm")
@@ -783,30 +788,57 @@ class ServiceLifecycleManager(ManoBasePlugin):
         #     vnf['deployed'] = True
 
         vnfd_to_add = payload['vnfd']
-        vnf_id = str(uuid.uuid4())
-        vnf_base_dict = {'start': {'trigger': True, 'payload': {}},
-                         'stop': {'trigger': True, 'payload': {}},
-                         'configure': {'trigger': True, 'payload': {}},
-                         'scale': {'trigger': True, 'payload': {}},
-                         'vnfd': vnfd_to_add,
-                         'id': vnf_id,
-                         'vim_uuid': payload['vim_uuid']}
+        flavour = None
 
-        # If no VIM is provided, find the VIM of the same VNF
-        # if payload['vim_uuid'] is None:
-        #     for vnf in self.services[serv_id]['function']:
-        #         if vnf['vnfd']['name'] == vnfd_to_add['name']:
-        #             vdu = vnf['vnfr']['virtual_deployment_units'][0]
-        #             vim_id = vdu['vnfc_instance'][0]['vim_id']
-        #             vnf_base_dict['vim_uuid'] = vim_id
+        nsd = self.services[serv_id]['nsd']
+        for vnf_nsd in nsd['network_functions']:
+            if vnf_nsd['vnf_name'] == vnfd_to_add['name'] and \
+               vnf_nsd['vnf_vendor'] == vnfd_to_add['vendor'] and \
+               vnf_nsd['vnf_version'] == vnfd_to_add['version']:
+                if vnf_nsd.get('vnf_flavour'):
+                    flavour = vnf_nsd['vnf_flavour']
 
-        # fix vdu_id
-        for vdu in vnf_base_dict['vnfd']['virtual_deployment_units']:
-            vdu['id'] = vdu['id'] + '-' + vnf_id
+                    flavour_dict = {}
 
-        # msg = ": VIM for new VNF: " + vnf_base_dict['vim_uuid']
-        # LOG.info('Service ' + str(serv_id) + msg)
-        self.services[serv_id]['function'].append(vnf_base_dict)
+                    for flavour_name in vnfd_to_add['deployment_flavours']:
+                        if flavour_name == flavour:
+                            flavour_dict = flavour_name
+                            break
+
+                    for key in flavour_dict.keys():
+                        if key != 'name':
+                            vnfd_to_add[key] = flavour_dict[key] 
+
+        for i in range(payload['number_of_instances']):
+            vnf_id = str(uuid.uuid4())
+            vnf_base_dict = {'start': {'trigger': True, 'payload': {}},
+                             'stop': {'trigger': True, 'payload': {}},
+                             'configure': {'trigger': True, 'payload': {}},
+                             'scale': {'trigger': True, 'payload': {}},
+                             'vnfd': copy.deepcopy(vnfd_to_add),
+                             'id': vnf_id,
+                             'vim_uuid': payload['vim_uuid'],
+                             'flavour': None}
+
+            # fix vdu_id
+            for vdu in vnf_base_dict['vnfd']['virtual_deployment_units']:
+                vdu['id'] = vdu['id'] + '-' + vnf_id
+
+            self.services[serv_id]['function'].append(vnf_base_dict)
+
+            # Add selected vim to input mapping
+            if payload['vim_uuid']:
+                fixed_map = {}
+                for vnf_nsd in self.services[serv_id]['nsd']['network_functions']:
+                    if vnf_nsd['vnf_name'] == vnfd_to_add['name'] and \
+                       vnf_nsd['vnf_vendor'] == vnfd_to_add['vendor'] and \
+                       vnf_nsd['vnf_version'] == vnfd_to_add['version']:
+                        vnf_id = vnf_nsd['vnf_id']
+                        break
+                fixed_map['vnf_id'] = vnf_id
+                fixed_map['vim_id'] = payload['vim_uuid']
+                service['input_mapping']['vnfs'].append(fixed_map)
+
         self.services[serv_id]["current_workflow"] = 'addvnf'
 
         add_schedule = []
@@ -820,9 +852,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
         else:
             add_schedule.append('SLM_mapping')
         add_schedule.append('consolidate_mapping')
-        add_schedule.append('update_networks')
+        add_schedule.append('network_create')
         add_schedule.append('vnf_deploy')
         add_schedule.append('vnfs_start')
+        add_schedule.append('wan_configure')
         add_schedule.append('update_nsr')
         if 'scale' in self.services[serv_id]['ssm'].keys():
             add_schedule.append("configure_ssm")
@@ -1367,6 +1400,25 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         self.start_next_task(serv_id)
 
+    def resp_remove_networks(self, ch, method, prop, payload):
+        """
+        This method handles a response to a prepare request.
+        """
+        # Retrieve the service uuid
+        serv_id = tools.servid_from_corrid(self.services, prop.correlation_id)
+
+        response = yaml.load(payload)
+        LOG.debug("Response from IA on network.remove call: " + str(response))
+
+        if response['request_status'] == "COMPLETED":
+            LOG.info("Service " + serv_id + ": Networks removed")
+        else:
+            msg = ": Error occured while removing network"
+            LOG.info("Service " + serv_id + msg)
+            self.error_handling(serv_id, t.GK_CREATE, response['message'])
+
+        self.start_next_task(serv_id)
+
     def contact_gk(self, serv_id):
         """
         This method handles communication towards the gatekeeper.`
@@ -1449,7 +1501,61 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         LOG.info("Service " + serv_id + ": Operator policies requested.")
 
-    def update_networks(self, serv_id):
+    def remove_network(self, serv_id):
+        """
+        This message sends a message towards the IA if new networks need
+        to be removed.
+
+        :param serv_id: The instance uuid of the service
+        """
+        vim_list = {}
+
+        mapping = self.services[serv_id]['mapping']
+        for vl in mapping['service']['vl']:
+            if 'vim_id' not in vl.keys():
+                continue
+            vims = vl['vim_id']
+            new_vims = []
+            for vim in vims:
+                vim_still_used = False
+                for vnf_id in mapping['function'].keys():
+                    vnf = mapping['function'][vnf_id]
+                    if vnf['vim_id'] != vim:
+                        continue
+                    for vl_vnf in vnf['vl']:
+                        if vl_vnf['id'] == vl['id']:
+                            vim_still_used = True
+                            new_vims.append(vim)
+                if not vnf_still_used:
+                    if vim not in vim_list.keys():
+                        vim_list[vim_id] = {'vls': []}
+                    vim_list[vim_id]['vls'].append({'id': vl['id']})
+            vl['vim_id'] = new_vims
+
+        if not vim_list:
+            LOG.info("Service " + serv_id + ": No network update needed.")
+            return
+
+        message = {}
+        message['instance_id'] = serv_id
+        message['vim_list'] = [{'uuid':x, 'virtual_links': \
+                               vim_list[x]['vls']} for x in vim_list.keys()]
+
+        # Add correlation id to the ledger for future reference
+        corr_id = str(uuid.uuid4())
+        self.services[serv_id]['act_corr_id'] = corr_id
+
+        # Send this mapping to the IA
+        self.manoconn.call_async(self.resp_remove_networks,
+                                 t.IA_REMOVE_NETWORKS,
+                                 yaml.dump(message),
+                                 correlation_id=corr_id)
+
+        # Pause the chain of tasks to wait for response
+        self.services[serv_id]['pause_chain'] = True
+
+
+    def network_create(self, serv_id):
         """
         This message sends a message towards the IA if new networks need
         to be created.
@@ -1586,7 +1692,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method triggeres the deployment of all the vnfs.
         """
 
-        LOG.info(yaml.dump(self.services[serv_id]))
+        LOG.info("ledger: " + yaml.dump(self.services[serv_id]))
         msg = ": Deploying VNFs"
         LOG.info("Service " + serv_id + msg)
 
@@ -1604,6 +1710,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 corr_id = str(uuid.uuid4())
                 self.services[serv_id]['act_corr_id'].append(corr_id)
 
+                LOG.info("vnfd: " + yaml.dump(function['vnfd']))
                 tools.append_networkid_to_cp(function['vnfd'],
                                              mapping[function['id']]['vl'])
 
@@ -1614,6 +1721,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 message['serv_id'] = serv_id
                 message['public_key'] = self.services[serv_id]['public_key']
                 message['private_key'] = self.services[serv_id]['private_key']
+                message['flavour'] = function['flavour']
 
                 msg = ": Requesting the deployment of vnf " + function['id']
                 LOG.info("Service " + serv_id + msg)
@@ -2023,28 +2131,30 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
     def update_nsr(self, serv_id):
 
-        self.services[serv_id]['nsr']['network_functions'] = []
-        nsr = self.services[serv_id]['nsr']
-        for vnf in self.services[serv_id]['function']:
-            function = {}
-            function['vnfr_id'] = vnf['id']
-            nsr['network_functions'].append(function)
+        old_nsr = self.services[serv_id]['nsr']
+        version = str(int(old_nsr['version']) + 1)
+
+        nsd = self.services[serv_id]['nsd']
+
+        vnfr_ids = []
+        for function in self.services[serv_id]['function']:
+            vnfr_ids.append(function['id'])
+
+        sid = old_nsr.get('sla_id')
+        pid = old_nsr.get('policy_id')
+        vls = self.services[serv_id]['mapping']['service']['vl']
+        status = 'normal operation'
+
+        nsr = tools.build_nsr(status, nsd, vnfr_ids, serv_id, vls, self.services[serv_id]['flavour'], sid, pid)
+
+        nsr['id'] = serv_id
+        nsr['version'] = version
 
         LOG.info(str(yaml.dump(nsr, default_flow_style=False)))
 
-        try:
-            del nsr["uuid"]
-            del nsr["updated_at"]
-            del nsr["created_at"]
-        except:
-            pass
-
         error = None
 
-        nsr_id = serv_id
-        nsr['id'] = nsr_id
-        nsr['version'] = str(int(nsr['version']) + 1)
-        url = t.nsr_path + '/' + nsr_id
+        url = t.nsr_path + '/' + serv_id
         LOG.info("Service " + serv_id + ": " + str(url))
         header = {'Content-Type': 'application/json'}
 
@@ -2119,7 +2229,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         sid = self.services[serv_id]['sla_id']
         pid = self.services[serv_id]['policy_id']
         vls = self.services[serv_id]['mapping']['service']['vl']
-        nsr = tools.build_nsr(status, nsd, vnfr_ids, serv_id, vls, sid, pid)
+        nsr = tools.build_nsr(status, nsd, vnfr_ids, serv_id, vls, self.services[serv_id]['flavour'], sid, pid)
         LOG.info("NSR to be stored: " + yaml.dump(nsr))
 
         error = None
@@ -2552,8 +2662,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
             if vl['id'] in vl_map.keys():
                 if 'wim_id' not in vl_map[vl['id']].keys():
                     continue
-                LOG.info("Service " + serv_id + ": VL for WAN identified")
                 for vl_for_wim in vl_map[vl['id']]['pairs']:
+                    if not vl_for_wim['new']:
+                        continue
+                    LOG.info("Service " + serv_id + ": new VL for WAN identified")
                     message = {}
                     message['service_instance_id'] = serv_id
                     message['vl_id'] = vl['id']
@@ -2700,11 +2812,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         msg = ": Stopping Monitoring by sending on " + url
         LOG.info("Service " + serv_id + msg)
 
-        if self.services[serv_id]['cnf']:
-            msg = ": CNFs involved, skipping monitoring cleanup"
-            LOG.info("Service " + serv_id + msg)
-            return
-
         error = None
         # try:
         header = {'Content-Type': 'application/json'}
@@ -2742,11 +2849,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
         This method instructs the monitoring manager to start monitoring
         """
 
-        # Disabling monitoring for cloudnative services
-        if self.services[serv_id]['cnf']:
-            msg = ": No monitoring because of CNF presence."
-            LOG.info("Service " + serv_id + msg)
-            return
+        # # Disabling monitoring for cloudnative services
+        # if self.services[serv_id]['cnf']:
+        #     msg = ": No monitoring because of CNF presence."
+        #     LOG.info("Service " + serv_id + msg)
+        #     return
 
         # Configure the Monitoring SSM, if present
         if 'monitor' in self.services[serv_id]['ssm'].keys():
@@ -2788,7 +2895,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         mon_mess = tools.build_monitoring_message(service, functions, userdata)
 
-        LOG.info("Monitoring message created: " + str(mon_mess))
+        LOG.info("Monitoring message created: " + yaml.dump(mon_mess))
 
         error = None
         try:
@@ -2897,6 +3004,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Add the service to the ledger and add instance ids
         self.services[serv_id] = {}
         self.services[serv_id]['nsd'] = payload['NSD']
+
         self.services[serv_id]['id'] = serv_id
         self.services[serv_id]['cnf'] = False
 
@@ -2905,6 +3013,30 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         msg = ": NSD name is " + str(payload['NSD']['name'])
         LOG.info("Service " + serv_id + msg)
+
+        nsd = self.services[serv_id]['nsd']
+
+        # Adjust for flavour
+        self.services[serv_id]['flavour'] = None
+        if 'flavor' in payload.keys():
+            if payload['flavor']:
+                self.services[serv_id]['flavour'] = payload['flavor']
+        msg = str(self.services[serv_id]['flavour'])
+        LOG.info("The selected flavour is: " + msg)
+
+        if self.services[serv_id]['flavour']:
+            flavour_dict = {}
+            for flavour in nsd['deployment_flavours']:
+                if flavour['name'] == self.services[serv_id]['flavour']:
+                    flavour_dict = flavour
+                    break
+
+            for key in flavour_dict.keys():
+                if key != 'name':
+                    nsd[key] = flavour_dict[key] 
+
+            if 'deployment_flavours' in nsd:
+                del nsd['deployment_flavours']
 
         self.services[serv_id]['function'] = []
         for key in payload.keys():
@@ -2918,7 +3050,26 @@ class ServiceLifecycleManager(ManoBasePlugin):
                             'configure': {'trigger': True, 'payload': {}},
                             'scale': {'trigger': True, 'payload': {}},
                             'vnfd': vnfd,
-                            'id': vnf_id}
+                            'id': vnf_id,
+                            'flavour':None}
+
+                for vnf_nsd in nsd['network_functions']:
+                    if vnf_nsd['vnf_name'] == vnfd['name'] and \
+                       vnf_nsd['vnf_vendor'] == vnfd['vendor'] and \
+                       vnf_nsd['vnf_version'] == vnfd['version']:
+                        if vnf_nsd.get('vnf_flavour'):
+                            vnf_base['flavour'] = vnf_nsd['vnf_flavour']
+
+                            flavour_dict = {}
+
+                            for flavour in vnfd['deployment_flavours']:
+                                if flavour['name'] == vnf_base['flavour']:
+                                    flavour_dict = flavour
+                                    break
+
+                            for key in flavour_dict.keys():
+                                if key != 'name':
+                                    vnfd[key] = flavour_dict[key] 
 
                 if 'virtual_deployment_units' in vnf_base['vnfd'].keys():
                     for vdu in vnf_base['vnfd']['virtual_deployment_units']:
@@ -3095,6 +3246,25 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['nsd']['uuid'] = nsd_uuid
         LOG.info("Service " + serv_id + ": Recreating ledger: NSD retrieved.")
 
+        nsd = self.services[serv_id]['nsd']
+
+        # adjust for flavour
+        self.services[serv_id]['flavour'] = nsr.get('flavour')
+
+        if self.services[serv_id]['flavour']:
+            flavour_dict = {}
+            for flavour in nsd['deployment_flavours']:
+                if flavour['name'] == self.services[serv_id]['flavour']:
+                    flavour_dict = flavour
+                    break
+
+            for key in flavour_dict.keys():
+                if key != 'name':
+                    nsd[key] = flavour_dict[key] 
+
+        if 'deployment_flavours' in nsd:
+            del nsd['deployment_flavours']
+
         # Retrieve the function records based on the service record
         self.services[serv_id]['function'] = []
         nsr = self.services[serv_id]['nsr']
@@ -3121,7 +3291,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
                             'configure': {'trigger': True, 'payload': {}},
                             'scale': {'trigger': True, 'payload': {}},
                             'vnfr': request['content'],
-                            'vim_uuid': vim_id}
+                            'vim_uuid': vim_id,
+                            'flavour': request['content'].get('flavour')}
 
             del new_function['vnfr']['updated_at']
             del new_function['vnfr']['created_at']
@@ -3154,6 +3325,18 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     vdu['id'] = vdu['id'] + '-' + vnf['id']
 
             LOG.info("Service " + serv_id + ": Recreate: VNFD retrieved.")
+
+            if vnf['flavour']:
+                flavour_dict = {}
+
+                for flavour in vnf['vnfd']['deployment_flavours']:
+                    if flavour['name'] == vnf['flavour']:
+                        flavour_dict = flavour
+                        break
+
+                for key in flavour_dict.keys():
+                    if key != 'name':
+                        vnf['vnfd'][key] = flavour_dict[key] 
 
         LOG.info("Serice " +
                  serv_id + ": Recreating ledger: VNFDs retrieved.")
@@ -3335,6 +3518,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 mapping['function'][vnf_id]['vim_id'] = calc_map['du'][vnf_id]
                 mapping['function'][vnf_id]['new'] = True
 
+                for vnf in self.services[serv_id]['function']:
+                    vnf['vim_uuid'] = mapping['function'][vnf['id']]['vim_id']
+
         for vl_id in calc_map['vl'].keys():
             vl = calc_map['vl'][vl_id]
             if vl_id not in mapping['service']['vl'].keys():
@@ -3349,6 +3535,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     mapping['service']['vl'][vl_id]['pairs'] = vl
                     vims = []
                     for vl_det in vl:
+                        vl_det['new'] = True
                         if ':' in vl_det['refs'][0]:
                             vims.append(vl_det['nodes'][0])
                         if ':' in vl_det['refs'][1]:
@@ -3372,9 +3559,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     vims = []
                     for pair in vl:
                         if ':' in pair['refs'][0]:
-                            vims.append(vl_det['nodes'][0])
+                            vims.append(pair['nodes'][0])
                         if ':' in pair['refs'][1]:
-                            vims.append(vl_det['nodes'][1])
+                            vims.append(pair['nodes'][1])
                         new_pair = True
                         for old_pair in vl_old['pairs']:
                             if set(old_pair['refs']) == set(pair['refs']):
@@ -3385,7 +3572,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                             pair['new'] = True
                             vl_old['pairs'].append(pair)
                     net_vims = list(set(vims))
-                    vl_old['added_vims'] = set(net_vims) - set(vl_old['vims'])
+                    vl_old['added_vims'] = list(set(net_vims) - set(vl_old['vims']))
 
         self.services[serv_id]['mapping'] = mapping
 
@@ -3463,6 +3650,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     vims = []
                     for path in vl['paths']:
                         new_path = {}
+                        new_path['new'] = False
                         new_path['refs'] = [path['nodes'][0]['ref'],
                                             path['nodes'][1]['ref']]
                         new_path['nodes'] = [path['nodes'][0]['location'], 
@@ -3582,6 +3770,51 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     pass
 
         self.services[serv_id]['mapping'] = mapping
+
+        return
+
+
+    def remove_vnfs_from_mapping(self, serv_id):
+        """
+        Adjust mapping to removed vnfs
+        """
+        update_wan_needed = False
+        mapping = self.services[serv_id]['mapping']
+
+        functions = self.services[serv_id]['function']
+        for vnf in functions:
+            if not vnf['stop']['trigger']:
+                continue
+            vnf_id = vnf['id']
+            dus = []
+            if 'virtual_deployment_units' in vnf['vnfr']:
+                dus = vnf['vnfr']['virtual_deployment_units']
+            if 'cloudnative_deployment_units' in vnf['vnfr']:
+                dus = vnf['vnfr']['cloudnative_deployment_units']
+            du_ids = []
+            for du in dus:
+                du_ids.append(du['id'] + '-' + vnf_id)
+
+            del mapping['function'][vnf_id]
+
+            for vl in mapping['service']['vl']:
+                if 'wim_id' in vl.keys():
+                    obs_pairs = []
+                    for pair in vl['pairs']:
+                        pair['new'] = True
+                        refs = [x.split(':')[-1] for x in pair['refs']]
+                        for du_ref in du_ids:
+                            if du_ref in refs:
+                                obs_pair.append(vl['pairs'].index(pair))
+                                update_wan_needed = True
+                                break
+                    inv_obs_pairs = obs_pair[::-1]
+                    for index in inv_obs_pairs:
+                        del vl['pairs'][index]
+
+        if not update_wan_needed:
+            self.services[serv_id]['schedule'].remove(wan_configure)
+            self.services[serv_id]['schedule'].remove(wan_deconfigure)
 
         return
 
