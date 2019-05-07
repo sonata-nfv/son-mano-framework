@@ -629,10 +629,19 @@ class ServiceLifecycleManager(ManoBasePlugin):
             send_response(error, None)
             return
 
-        if 'service_instance_id' in message.keys():
-            serv_id = message['service_instance_id']
+        if 'service_instance_uuid' in message.keys():
+            serv_id = message['service_instance_uuid']
             LOG.info('Service ' + str(serv_id) + ": Received scaling request")
             LOG.info('Service ' + str(serv_id) + ": " + str(payload))
+
+            if serv_id in self.services.keys():
+                error = "Workflow for service still going on, rejected"
+                send_response(error, serv_id)
+                return
+            else:
+                # Based on the received payload, the ledger entry is recreated.
+                self.recreate_ledger(corr_id, serv_id)
+
         else:
             error = 'Missing \'service_instance_id\' in request'
             send_response(error, None)
@@ -645,15 +654,15 @@ class ServiceLifecycleManager(ManoBasePlugin):
             send_response(error, serv_id)
             return
 
-        if scaling_type not in ['addvnf', 'removevnf']:
+        if scaling_type not in ['addvnf', 'removevnf', 'ADD_VNF', 'REMOVE_VNF']:
             error = "scaling type \'" + scaling_type + "\' not supported."
             send_response(error, serv_id, scaling_type)
             return
 
         # Handle the request
-        if scaling_type == 'addvnf':
+        if scaling_type in ['addvnf', 'ADD_VNF']:
             # Check if vnfd id is provided
-            if 'vnfd_id' not in message.keys():
+            if 'vnfd_uuid' not in message.keys():
                 error = '\'vnfd_id\' missing from request'
                 send_response(error, serv_id, scaling_type)
                 return
@@ -661,7 +670,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             # Request vnfd
             head = {'content-type': 'application/x-yaml'}
             req = tools.getRestData(t.vnfd_path + '/',
-                                    message['vnfd_id'],
+                                    message['vnfd_uuid'],
                                     header=head)
 
             if req['error'] is not None:
@@ -669,7 +678,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 return
 
             vnfd = req['content']['vnfd']
-            vnfd['uuid'] = message['vnfd_id']
+            vnfd['uuid'] = message['vnfd_uuid']
 
             # build content for scaling workflow
             content = {}
@@ -681,8 +690,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
             if 'number_of_instances' in message.keys():
                 content['number_of_instances'] = message['number_of_instances']
             if 'constraints' in message.keys():
-                if 'vim_id' in message['constraints'].keys():
-                    content['vim_uuid'] = message['constraints']['vim_id']
+                if 'vim_uuid' in message['constraints'].keys():
+                    content['vim_uuid'] = message['constraints']['vim_uuid']
 
             # sending response to requesting party
             send_response(error, serv_id, scaling_type)
@@ -690,43 +699,51 @@ class ServiceLifecycleManager(ManoBasePlugin):
             # starting scaling workflow
             self.add_vnf_workflow(serv_id, content)
 
-        if scaling_type == 'removevnf':
+        if scaling_type in ['removevnf', 'REMOVE_VNF']:
             # Check if vnf id is provided
-            if 'vnf_id' not in message.keys():
-                error = '\'vnf_id\' missing from request'
-                send_response(error, serv_id, scaling_type)
-                return
-
-            # Request vnfr
-            head = {'Content-Type': 'application/json'}
-            req = tools.getRestData(t.vnfr_path + '/',
-                                    message['vnf_id'],
-                                    header=head)
-
-            if req['error'] is not None:
-                error = str(req['error']) + ': ' + req['content']
-                msg = "error while retrieving VNFR. " + error
-                send_response(msg, serv_id, scaling_type)
-                return
-
-            vnfr = req['content']
-
-            if vnfr['status'] == 'terminated':
-                error = 'vnf already terminated'
-                send_response(error, serv_id, scaling_type)
-                return
-
-            # sending response to requesting party
-            send_response(error, serv_id, scaling_type)
-
-            # build content for scaling workflow
             content = {}
-            content['vnf_id'] = message['vnf_id']
             content['corr_id'] = corr_id
 
-            # starting scaling workflow
-            self.remove_vnf_workflow(serv_id, content)
+            if 'vnf_uuid' not in message.keys() and 'vnfd_uuid' not in message.keys():
+                error = '\'vnf_id\' or \'vnfd_id\' missing from request'
+                send_response(error, serv_id, scaling_type)
+                return
 
+            if 'vnf_uuid' in message.keys() and 'number_of_instances' in message.keys():
+                error = '\'vnf_id\' and \'number_of_instances\' cant appear together'
+                send_response(error, serv_id, scaling_type)
+                return
+
+            if 'vnf_uuid' in message.keys():
+                for vnf in self.services[serv_id]['function']:
+                    if vnf['id'] == message['vnf_uuid']:
+                        if vnf['vnfr']['status'] == 'terminated':
+                            error = 'vnf already terminated'
+                            send_response(error, serv_id, scaling_type)
+                            return
+                        else:
+                            send_response(error, serv_id, scaling_type)
+                            content['vnf_id'] = message['vnf_uuid']
+                            self.remove_vnf_workflow(serv_id, content)
+            elif 'vnfd_uuid' in message.keys():
+                number = 1
+                if 'number_of_instances' in message.keys():
+                    number = message['number_of_instances']
+                vnf_ids = []
+                for vnf in self.services[serv_id]['function']:
+                    if vnf['vnfr']['status'] == 'terminated':
+                        continue
+                    if vnf['vnfr']['descriptor_reference'] == message['vnfd_uuid']:
+                        vnf_ids.append(vnf['id'])
+                        number = number - 1
+                        if number == 0:
+                            send_response(error, serv_id, scaling_type)
+                            content['vnf_id'] = vnf_ids
+                            self.remove_vnf_workflow(serv_id, content)
+                if number > 0:
+                    error = 'Not enough instances running'
+                    send_response(error, serv_id, scaling_type)
+                    return
             return
 
     def remove_vnf_workflow(self, serv_id, payload):
@@ -1509,9 +1526,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
         :param serv_id: The instance uuid of the service
         """
         vim_list = {}
+        if 'removed_vls' in self.services[serv_id]:
+            vim_list = self.services[serv_id]['removed_vls']
 
         mapping = self.services[serv_id]['mapping']
-        for vl in mapping['service']['vl']:
+        for vl_id in mapping['service']['vl']:
+            vl = mapping['service']['vl'][vl_id]
             if 'vim_id' not in vl.keys():
                 continue
             vims = vl['vim_id']
@@ -1522,20 +1542,22 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     vnf = mapping['function'][vnf_id]
                     if vnf['vim_id'] != vim:
                         continue
-                    for vl_vnf in vnf['vl']:
+                    for vl_vnf_id in vnf['vl']:
+                        vl_vnf = vnf['vl'][vl_vnf_id]
                         if vl_vnf['id'] == vl['id']:
                             vim_still_used = True
                             new_vims.append(vim)
-                if not vnf_still_used:
+                if not vim_still_used:
                     if vim not in vim_list.keys():
-                        vim_list[vim_id] = {'vls': []}
-                    vim_list[vim_id]['vls'].append({'id': vl['id']})
+                        vim_list[vim] = {'vls': []}
+                    vim_list[vim]['vls'].append({'id': vl['id']})
             vl['vim_id'] = new_vims
 
         if not vim_list:
             LOG.info("Service " + serv_id + ": No network update needed.")
             return
 
+        LOG.info("remove networks: " + yaml.dump(vim_list))
         message = {}
         message['instance_id'] = serv_id
         message['vim_list'] = [{'uuid':x, 'virtual_links': \
@@ -2895,31 +2917,32 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         mon_mess = tools.build_monitoring_message(service, functions, userdata)
 
-        LOG.info("Monitoring message created: " + yaml.dump(mon_mess))
+        LOG.info("Monitoring message created: \n" + yaml.dump(mon_mess))
 
         error = None
-        try:
-            header = {'Content-Type': 'application/json'}
-            mon_resp = requests.post(t.monitoring_path + '/service/new',
-                                     data=json.dumps(mon_mess),
-                                     headers=header,
-                                     timeout=10.0)
-            monitoring_json = mon_resp.json()
+#        try:
+        header = {'Content-Type': 'application/json'}
+        mon_resp = requests.post(t.monitoring_path + '/services',
+                                 data=json.dumps(mon_mess),
+                                 headers=header,
+                                 timeout=10.0)
+        if (mon_resp.status_code == 200):
+            LOG.info("Service " + serv_id + ": Monitoring started")
 
-            if (mon_resp.status_code == 200):
-                LOG.info("Service " + serv_id + ": Monitoring started")
+        else:
+            LOG.info("Service " + serv_id + ": Monitoring msg not accepted")
+            LOG.info("Service " + serv_id + ": Monitoring code " + str(mon_resp.status_code)) 
 
-            else:
-                LOG.info("Service " + serv_id + ": Monitoring msg not acceptd")
-                msg = ": Monitoring response: " + str(monitoring_json)
-                LOG.info("Service " + serv_id + msg)
-                error = {'http_code': mon_resp.status_code,
-                         'message': mon_resp.json()}
+            msg = ": Monitoring response: " + str(mon_resp.text)
+            LOG.info("Service " + serv_id + msg)
+            error = {'http_code': mon_resp.status_code,
+                     'message': mon_resp.text}
 
-        except:
-            LOG.info("Service " + serv_id + ": timeout on monitoring server.")
-            error = {'http_code': '0',
-                     'message': 'Timeout when contacting server'}
+        # except:
+        #     LOG.info()
+        #     LOG.info("Service " + serv_id + ": timeout on monitoring server.")
+        #     error = {'http_code': '0',
+        #              'message': 'Timeout when contacting server'}
 
         # If an error occured, the workflow is aborted and the GK is informed
         if error is not None:
@@ -3021,6 +3044,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
         if 'flavor' in payload.keys():
             if payload['flavor']:
                 self.services[serv_id]['flavour'] = payload['flavor']
+        elif 'flavour' in payload.keys():
+            if payload['flavour']:
+                self.services[serv_id]['flavour'] = payload['flavour']
         msg = str(self.services[serv_id]['flavour'])
         LOG.info("The selected flavour is: " + msg)
 
@@ -3778,6 +3804,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         """
         Adjust mapping to removed vnfs
         """
+
+        remove_networks = {}
         update_wan_needed = False
         mapping = self.services[serv_id]['mapping']
 
@@ -3786,6 +3814,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             if not vnf['stop']['trigger']:
                 continue
             vnf_id = vnf['id']
+            vim_id = mapping['function'][vnf_id]['vim_id']
             dus = []
             if 'virtual_deployment_units' in vnf['vnfr']:
                 dus = vnf['vnfr']['virtual_deployment_units']
@@ -3795,9 +3824,17 @@ class ServiceLifecycleManager(ManoBasePlugin):
             for du in dus:
                 du_ids.append(du['id'] + '-' + vnf_id)
 
+            for vl_id in mapping['function'][vnf_id]['vl']:
+                vl = mapping['function'][vnf_id]['vl'][vl_id]
+                if '_vnf_' in vl['id'] and not '_ns_' in vl['id']:
+                    if vim_id not in remove_networks.keys():
+                        remove_networks[vim_id] = {'vls': []}
+                    remove_networks[vim_id]['vls'].append({'id': vl['id']})
+
             del mapping['function'][vnf_id]
 
-            for vl in mapping['service']['vl']:
+            for vl_id in mapping['service']['vl']:
+                vl = mapping['service']['vl'][vl_id]
                 if 'wim_id' in vl.keys():
                     obs_pairs = []
                     for pair in vl['pairs']:
@@ -3813,8 +3850,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
                         del vl['pairs'][index]
 
         if not update_wan_needed:
-            self.services[serv_id]['schedule'].remove(wan_configure)
-            self.services[serv_id]['schedule'].remove(wan_deconfigure)
+            self.services[serv_id]['schedule'].remove('wan_configure')
+            self.services[serv_id]['schedule'].remove('wan_deconfigure')
+
+        self.services[serv_id]['removed_vls'] = remove_networks
+
+        LOG.info('mapping after removal: ' + yaml.dump(mapping))
+        LOG.info('removed networks mapping: ' + yaml.dump(remove_networks))
 
         return
 

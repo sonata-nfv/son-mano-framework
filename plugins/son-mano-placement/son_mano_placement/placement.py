@@ -218,6 +218,7 @@ class PlacementPlugin(ManoBasePlugin):
 
         # Build vim list
         vims = []
+        vim_ids = []
         for vim in input_vims:
             new_vim = {}
             new_vim['core_used'] = vim['core_used']
@@ -229,6 +230,7 @@ class PlacementPlugin(ManoBasePlugin):
             new_vim['latency'] = 0
             new_vim['bandwidth'] = 1000
             vims.append(new_vim)
+            vim_ids.append(vim['vim_uuid'])
 
         LOG.info(serv_id + ': list of vims ' + str(vims))
         # print(yaml.dump(vims))
@@ -244,7 +246,9 @@ class PlacementPlugin(ManoBasePlugin):
                     new_wim['id'] = wim['uuid']
                     new_wim['bandwidth'] = int(pair['bandwidth'])
                     new_wim['latency'] = int(pair['latency'])
-                    wims.append(new_wim)
+
+                    if pair['node_1'] in vim_ids or pair['node_2'] in vim_ids:
+                        wims.append(new_wim)
 
         LOG.info(serv_id + ': list of wims ' + str(wims))
         # print(yaml.dump(wims))
@@ -261,6 +265,7 @@ class PlacementPlugin(ManoBasePlugin):
                     for wim in wims:
                         if new_ep['id'] in [wim['vim_1'], wim['vim_2']]:
                             new_ep['wims'].append(wim['id'])
+                    new_ep['wims'] = list(set(new_ep['wims']))
                     eps.append(new_ep)
         if egress is not None:
             for ep in egress:
@@ -465,8 +470,8 @@ class PlacementPlugin(ManoBasePlugin):
                 if vl['id'] not in vls_map.keys():
                     vim_or_ep = []
                     refs = vl['connection_points_reference']
+                    all_nodes = []
                     for ref in refs:
-                        all_nodes = []
                         node_id = tools.map_ref_on_id(ref, nsd, vnfds, eps)
                         all_nodes.extend([{'ref': ref, 'node': x} for x in node_id])
                         LOG.info(vl['id'] + ': ' + str(node_id))
@@ -478,6 +483,9 @@ class PlacementPlugin(ManoBasePlugin):
                                 vim_or_ep.append(node)
                     for wim in wims:
                         coll = [wim['vim_1'], wim['vim_2']]
+                        LOG.info(vl['id'] + ' vim_or_ep: ' + str(set(vim_or_ep)))
+                        LOG.info(vl['id'] + ' coll: ' + str(set(coll)))
+                        LOG.info(vl['id'] + ' allnodes: ' + str(all_nodes))
                         if set(vim_or_ep) <= set(coll) and \
                            len(set(vim_or_ep)) > 1:
                             vls_map[vl['id']] = []

@@ -61,8 +61,7 @@ except:
 
 LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=True)
 TangoLogger.getLogger("son-mano-base:messaging", logging.INFO, log_json=True)
-TangoLogger.getLogger("son-mano-base:plugin", logging.INFO, log_json=True)
-
+#TangoLogger.getLogger("son-mano-base:plugin", logging.INFO, log_json=True)
 
 class FunctionLifecycleManager(ManoBasePlugin):
     """
@@ -756,6 +755,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         msg = ": IA contacted for function deployment."
         LOG.info("Function " + func_id + msg)
+        LOG.info("Function " + func_id + ':corr_id is ' + str(corr_id))
         LOG.debug("Payload of request: " + payload)
         # Contact the IA
         self.manoconn.call_async(self.IA_deploy_response,
@@ -800,7 +800,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
         vnf deploy request.
         """
 
-        LOG.info("Payload of request: " + str(payload))
+#        LOG.info("Payload of request: " + str(payload))
 
         inc_message = yaml.load(payload)
 
@@ -864,14 +864,11 @@ class FunctionLifecycleManager(ManoBasePlugin):
         function = self.functions[func_id]
 
         # Build the record
-        LOG.info(yaml.dump(function['ia_vnfr']))
-        LOG.info(yaml.dump(function['vnfd']))
         vnfr = tools.build_vnfr(function['ia_vnfr'],
                                 function['vnfd'],
                                 function['vim_uuid'],
                                 function['flavour'])
         self.functions[func_id]['vnfr'] = vnfr
-        LOG.info(yaml.dump(vnfr))
 
         # Store the record
 #            try:
@@ -951,6 +948,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         function = self.functions[func_id]
 
+        LOG.info(yaml.dump(function))
         message = {}
         message["vnfr"] = function["vnfr"]
         message["status"] = function["status"]
