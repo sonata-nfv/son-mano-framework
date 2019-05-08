@@ -131,7 +131,7 @@ def getRestData(base, path, expected_code=200, head=None):
         return{'error': '400', 'content': 'request timed out'}
 
 
-def build_vnfr(ia_vnfr, vnfd):
+def build_vnfr(ia_vnfr, vnfd, vim_id, flavour=None):
     """
     This method builds the VNFR. VNFRS are built from the stripped VNFRs
     returned by the Infrastructure Adaptor (IA), combining it with the
@@ -198,8 +198,41 @@ def build_vnfr(ia_vnfr, vnfd):
     # connection points && virtual links (optional)
     if 'connection_points' in ia_vnfr:
         vnfr['connection_points'] = ia_vnfr['connection_points']
+
+    dus = []
+    if 'virtual_deployment_units' in vnfd.keys():
+        dus = vnfd['virtual_deployment_units']
+    if 'cloudnative_deployment_units' in vnfd.keys():
+        dus = vnfd['cloudnative_deployment_units']
     if 'virtual_links' in vnfd:
         vnfr['virtual_links'] = vnfd['virtual_links']
+        for vl in vnfr['virtual_links']:
+            vl_id = None
+            vl['descriptor_reference'] = vl['id']
+            for cp_ref in vl['connection_points_reference']:
+                if ':' not in cp_ref:
+                    continue
+                print('###')
+                print(cp_ref)
+                print('###')
+                for du in dus:
+                    print('###')
+                    print(du['id'])
+                    print('###')
+                    if du['id'][:-37] != cp_ref.split(':')[0]:
+                        continue
+                    for cp in du['connection_points']:
+                        print(cp['id'])
+                        print(cp_ref.split(':')[1])
+                        if cp['id'] == cp_ref.split(':')[1]:
+                            vl_id = cp['network_id']
+                            break
+                    if vl_id is not None:
+                        break
+                break
+            if vl_id is not None:
+                vl['id'] = vl_id
+                vl['vim_id'] = vim_id
 
     # TODO vnf_address ???
 
@@ -207,6 +240,10 @@ def build_vnfr(ia_vnfr, vnfd):
     if 'lifecycle_events' in vnfd:
         vnfr['lifecycle_events'] = vnfd['lifecycle_events']
 
+    if flavour:
+        vnfr['flavour'] = flavour
+
+    print(yaml.dump(vnfr))
     return vnfr
 
 

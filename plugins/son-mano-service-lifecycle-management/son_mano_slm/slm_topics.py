@@ -67,6 +67,8 @@ WC_KILL = "*.instance.terminate"
 WC_UPDATE = "*.instances.update"
 
 # With infrastructure adaptor
+IA_CREATE_NETWORKS = 'infrastructure.service.network.create'
+IA_REMOVE_NETWORKS = 'infrastructure.service.network.delete'
 IA_DEPLOY = 'infrastructure.function.deploy'
 IA_REMOVE = 'infrastructure.service.remove'
 IA_VIM_LIST = 'infrastructure.management.compute.list'

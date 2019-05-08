@@ -339,6 +339,7 @@ def map_ref_on_id(ref, nsd, vnfds, eps):
     This method is used to map a reference in a virtual link descriptor on
     a deployment unit.
     """
+    nodes_list = []
     if ':' in ref:
         # reference is towards a vnf
         for vnf in nsd['network_functions']:
@@ -350,25 +351,24 @@ def map_ref_on_id(ref, nsd, vnfds, eps):
         for vnfd in vnfds:
             if vnfd['name'] == vnf_name and vnfd['version'] == vnf_version and \
                vnfd['vendor'] == vnf_vendor:
-               break
 
-        for vl in vnfd['virtual_links']:
-            cpr = vl['connection_points_reference']
-            if ref.split(':')[1] in cpr:
-                ref_i = cpr.index(ref.split(':')[1])
-                du_int_ref = cpr[len(cpr) - 1 - ref_i]
-                du_ref = du_int_ref.split(':')[0]
-                break
+                for vl in vnfd['virtual_links']:
+                    cpr = vl['connection_points_reference']
+                    if ref.split(':')[1] in cpr:
+                        ref_i = cpr.index(ref.split(':')[1])
+                        du_int_ref = cpr[len(cpr) - 1 - ref_i]
+                        du_ref = du_int_ref.split(':')[0]
+                        break
 
-        if 'cloudnative_deployment_units' in vnfd.keys():
-            for cdu in vnfd['cloudnative_deployment_units']:
-                if cdu['id'].startswith(du_ref):
-                    return cdu['id']
+                if 'cloudnative_deployment_units' in vnfd.keys():
+                    for cdu in vnfd['cloudnative_deployment_units']:
+                        if cdu['id'].startswith(du_ref):
+                            nodes_list.append(cdu['id'])
 
-        if 'virtual_deployment_units' in vnfd.keys():
-            for vdu in vnfd['virtual_deployment_units']:
-                if vdu['id'].startswith(du_ref):
-                    return vdu['id']
+                if 'virtual_deployment_units' in vnfd.keys():
+                    for vdu in vnfd['virtual_deployment_units']:
+                        if vdu['id'].startswith(du_ref):
+                            nodes_list.append(vdu['id'])
 
     else:
         # reference is towards an endpoint
@@ -382,22 +382,22 @@ def map_ref_on_id(ref, nsd, vnfds, eps):
         if len(cps) == 1:
             for ep in eps:
                 if ep['type'] == 'ingress':
-                    return ep['id']
+                    return [ep['id']]
         if len(cps) == 3 and cp_i == 1:
             for ep in eps:
                 if ep['type'] == 'ingress':
-                    return ep['id']
+                    return [ep['id']]
         if len(cps) == 3 and cp_i == 2:
             for ep in eps:
                 if ep['type'] == 'egress':
-                    return ep['id']
-        if len(cps) == 2 and cp_i == 0:
+                    return [ep['id']]
+        if len(cps) == 2 and cp_i == 1:
             for ep in eps:
                 if ep['type'] == 'ingress':
-                    return ep['id']
+                    return [ep['id']]
         if len(cps) == 2 and cp_i == 1:
             for ep in eps:
                 if ep['type'] == 'egress':
-                    return ep['id']
+                    return [ep['id']]
 
-    return None
+    return nodes_list

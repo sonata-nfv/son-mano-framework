@@ -61,8 +61,7 @@ except:
 
 LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=True)
 TangoLogger.getLogger("son-mano-base:messaging", logging.INFO, log_json=True)
-TangoLogger.getLogger("son-mano-base:plugin", logging.INFO, log_json=True)
-
+#TangoLogger.getLogger("son-mano-base:plugin", logging.INFO, log_json=True)
 
 class FunctionLifecycleManager(ManoBasePlugin):
     """
@@ -756,6 +755,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         msg = ": IA contacted for function deployment."
         LOG.info("Function " + func_id + msg)
+        LOG.info("Function " + func_id + ':corr_id is ' + str(corr_id))
         LOG.debug("Payload of request: " + payload)
         # Contact the IA
         self.manoconn.call_async(self.IA_deploy_response,
@@ -800,7 +800,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
         vnf deploy request.
         """
 
-        LOG.info("Payload of request: " + str(payload))
+#        LOG.info("Payload of request: " + str(payload))
 
         inc_message = yaml.load(payload)
 
@@ -864,9 +864,11 @@ class FunctionLifecycleManager(ManoBasePlugin):
         function = self.functions[func_id]
 
         # Build the record
-        vnfr = tools.build_vnfr(function['ia_vnfr'], function['vnfd'])
+        vnfr = tools.build_vnfr(function['ia_vnfr'],
+                                function['vnfd'],
+                                function['vim_uuid'],
+                                function['flavour'])
         self.functions[func_id]['vnfr'] = vnfr
-        LOG.info(yaml.dump(vnfr))
 
         # Store the record
 #            try:
@@ -946,6 +948,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         function = self.functions[func_id]
 
+        LOG.info(yaml.dump(function))
         message = {}
         message["vnfr"] = function["vnfr"]
         message["status"] = function["status"]
@@ -1150,8 +1153,9 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         func_id = tools.funcid_from_corrid(self.functions, prop.correlation_id)
 
-        msg = 'Response received from IA on configure call'
+        msg = ': Response received from IA on configure call'
         LOG.info("Function " + func_id + msg)
+        LOG.info("Function " + func_id + ': corr_id ' + str(prop.correlation_id))
 
         if response['request_status'] == 'ERROR':
             msg = ': CNF configure event failed: ' + response['message']
@@ -1208,6 +1212,26 @@ class FunctionLifecycleManager(ManoBasePlugin):
         self.functions[func_id] = {}
         self.functions[func_id]['vnfd'] = payload['vnfd']
         self.functions[func_id]['id'] = func_id
+
+        vnfd = self.functions[func_id]['vnfd']
+
+        # Adjust for flavour
+        self.functions[func_id]['flavour'] = payload['flavour']
+
+        if self.functions[func_id]['flavour']:
+            flavour_dict = {}
+
+            for flavour in vnfd['deployment_flavours']:
+                if flavour['name'] == self.functions[func_id]['flavour']:
+                    flavour_dict = flavour
+                    break
+
+            for key in flavour_dict.keys():
+                if key != 'name':
+                    vnfd[key] = flavour_dict[key] 
+
+        if 'deployment_flavours' in vnfd.keys():
+            del vnfd['deployment_flavours']
 
         # Add the topic of the call
         self.functions[func_id]['topic'] = topic
@@ -1298,6 +1322,26 @@ class FunctionLifecycleManager(ManoBasePlugin):
         LOG.info(str(self.functions[func_id]['vnfd']))
 
         self.functions[func_id]['id'] = func_id
+
+        # Adjust for flavour
+        vnfd = self.functions[func_id]['vnfd']
+        vnfr = self.functions[func_id]['vnfr']
+        self.functions[func_id]['flavour'] = vnfr.get('flavour')
+
+        if self.functions[func_id]['flavour']:
+            flavour_dict = {}
+
+            for flavour in vnfd['deployment_flavours']:
+                if flavour['name'] == self.functions[func_id]['flavour']:
+                    flavour_dict = flavour
+                    break
+
+            for key in flavour_dict.keys():
+                if key != 'name':
+                    vnfd[key] = flavour_dict[key] 
+
+        if 'deployment_flavours' in vnfd.keys():
+            del vnfd['deployment_flavours']
 
         # Add the topic of the call
         self.functions[func_id]['topic'] = topic

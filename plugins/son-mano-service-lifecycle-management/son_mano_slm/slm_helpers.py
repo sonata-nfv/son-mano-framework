@@ -99,7 +99,7 @@ def replace_old_corr_id_by_new(dictionary, old_correlation_id):
     return new_correlation_id, dictionary
 
 
-def build_nsr(request_status, nsd, vnfr_ids, serv_id, sid=None, pid=None):
+def build_nsr(request_status, nsd, vnfr_ids, serv_id, vls, flavour=None, sid=None, pid=None):
     """
     This method builds the whole NSR from the payload (stripped nsr and vnfrs)
     returned by the Infrastructure Adaptor (IA).
@@ -139,10 +139,28 @@ def build_nsr(request_status, nsd, vnfr_ids, serv_id, sid=None, pid=None):
         nsr['virtual_links'] = []
         for virtual_link in nsd['virtual_links']:
             vlink = {}
-            vlink['id'] = virtual_link['id']
+            vlink['descriptor_reference'] = virtual_link['id']
             vlink['connectivity_type'] = virtual_link['connectivity_type']
             cpr = virtual_link['connection_points_reference']
             vlink['connection_points_reference'] = cpr
+            if virtual_link['id'] in vls.keys():
+                vl_map = vls[virtual_link['id']]
+                vlink['id'] = vl_map['id']
+                if 'vim_id' in vl_map.keys():
+                    vlink['vim_id'] = vl_map['vim_id']
+                if 'wim_id' in vl_map.keys():
+                    vlink['wim_id'] = vl_map['wim_id']
+                    for pair in vl_map['pairs']:
+                        if 'paths' not in vlink.keys():
+                            vlink['paths'] = []
+                        node1 = {'ref': pair['refs'][0],
+                                 'location': pair['nodes'][0],
+                                 'nap': pair['naps'][0]}
+                        node2 = {'ref': pair['refs'][1], 
+                                 'location': pair['nodes'][1],
+                                 'nap': pair['naps'][1]}
+                        vlink['paths'].append({'nodes': [node1, node2]})
+
             nsr['virtual_links'].append(vlink)
 
     # forwarding graphs
@@ -182,10 +200,13 @@ def build_nsr(request_status, nsd, vnfr_ids, serv_id, sid=None, pid=None):
             nsr['monitoring_parameters'].append(asp)
 
     # sla and policy
-    if sid is not None:
+    if sid:
         nsr['sla_id'] = sid
-    if pid is not None:
+    if pid:
         nsr['policy_id'] = pid
+
+    if flavour:
+        nsr['flavour'] = flavour
 
     return nsr
 
@@ -276,7 +297,7 @@ def get_ordered_vim_list(payload, which_graph=0):
     """
 
     def find_vim_based_on_vnf_id(vnf_id):
-        for vnf in payload['service']['nsd']['network_functions']:
+        for vnf in payload['nsd']['network_functions']:
             if vnf['vnf_id'] == vnf_id:
                 for func in payload['function']:
                     if vnf['vnf_version'] == func['vnfd']['version']:
@@ -288,7 +309,7 @@ def get_ordered_vim_list(payload, which_graph=0):
 
     nodes = {}
 
-    nsd = payload['service']['nsd']
+    nsd = payload['nsd']
     vim_list = []
 
     if 'forwarding_graphs' in nsd.keys():
@@ -550,69 +571,80 @@ def build_monitoring_message(service, functions, userdata):
         vnfr = vnf['vnfr']
         vnfd = vnf['vnfd']
 
-        vdu_hostid = []
-
+        dus = []
+        if 'cloudnative_deployment_units' in vnfr:
+            dus = vnfr['cloudnative_deployment_units']
         if 'virtual_deployment_units' in vnfr:
-            # we should create one function per virtual deployment unit
-            for vdu in vnfr['virtual_deployment_units']:
+            dus = vnfr['virtual_deployment_units']
 
+        for du in dus:
+            du_d = {}
+            if 'cloudnative_deployment_units' in vnfr:
+                for cdu_d in vnfd['cloudnative_deployment_units']:
+                    if du['id'].split(':')[0] == cdu_d['id']:
+                        du_d = cdu_d
+                        break
+            if 'virtual_deployment_units' in vnfr:
                 for vdu_d in vnfd['virtual_deployment_units']:
-                    if vdu_d['id'].split('-')[0] == vdu['id']:
-                        vdu_descriptor = vdu_d
+                    if du['id'].split(':')[0] == vdu_d['id']:
+                        du_d = vdu_d
                         break
 
-                for vnfc in vdu['vnfc_instance']:
-                    vdu_hostid.append({vdu['id']: vnfc['vc_id']})
+            function = {}
+            function['sonata_func_id'] = vnfr['id']
+            function['name'] = vnfd['name']
+            function['description'] = vnfd['description']
+            function['pop_id'] = vnf['vim_uuid']
 
-                    function = {}
-                    function['sonata_func_id'] = vnfr['id']
-                    function['name'] = vnfd['name']
-                    function['description'] = vnfd['description']
-                    function['pop_id'] = vnfc['vim_id']
-                    function['host_id'] = vnfc['vc_id']
-                    function['metrics'] = []
+            if 'cloudnative_deployment_units' in vnfr:
+                function['cnt_name'] = [du['id'] + '-' + vnfr['id']]
 
-                    if 'monitoring_parameters' in vdu_descriptor:
+            if 'virtual_deployment_units' in vnfr:
+                function['host_id'] = du['vnfc_instance'][0]['vc_id']
 
-                        for mp in vdu_descriptor['monitoring_parameters']:
-                            metric = {}
-                            metric['name'] = mp['name']
-                            metric['unit'] = mp['unit']
+            function['metrics'] = []
 
-                            associated_rule = get_associated_rule(vnfd, mp['name'])
-                            if (associated_rule is not None):
-                                if 'threshold' in mp.keys():
-                                    metric['threshold'] = mp['threshold']
-                                else:
-                                    metric['threshold'] = None
-                                if 'frequency' in mp.keys():
-                                    metric['interval'] = mp['frequency']
-                                else:
-                                    metric['interval'] = None
-                                if 'command' in mp.keys():
-                                    metric['cmd'] = mp['command']
-                                else:
-                                    metric['cmd'] = None
-                                if 'description' in mp.keys():
-                                    metric['description'] = mp['description']
-                                else:
-                                    metric['description'] = ""
+            if 'monitoring_parameters' in du_d:
 
-                                function['metrics'].append(metric)
+                for mp in du_d['monitoring_parameters']:
+                    metric = {}
+                    metric['name'] = mp['name']
+                    metric['unit'] = mp['unit']
 
-                    if 'snmp_parameters' in vdu_descriptor:
-                        function['snmp'] = {}
-                        function['snmp'] = vdu_descriptor['snmp_parameters']
-                        function['snmp']['password'] = "supercalifrajilistico"
-                        function['snmp']['entity_id'] = vnfc['vc_id']
+                    associated_rule = get_associated_rule(vnfd, mp['name'])
+                    if (associated_rule is not None):
+                        if 'threshold' in mp.keys():
+                            metric['threshold'] = mp['threshold']
+                        else:
+                            metric['threshold'] = None
+                        if 'frequency' in mp.keys():
+                            metric['interval'] = mp['frequency']
+                        else:
+                            metric['interval'] = None
+                        if 'command' in mp.keys():
+                            metric['cmd'] = mp['command']
+                        else:
+                            metric['cmd'] = None
+                        if 'description' in mp.keys():
+                            metric['description'] = mp['description']
+                        else:
+                            metric['description'] = ""
 
-                        mgmt_ip = ''
-                        for cp in vnfc['connection_points']:
-                            if cp['id'] == 'mgmt':
-                                mgmt_ip = cp['interface']['address']
-                        function['snmp']['ip'] = mgmt_ip
+                        function['metrics'].append(metric)
 
-                    message['functions'].append(function)
+            if 'snmp_parameters' in du_d:
+                function['snmp'] = {}
+                function['snmp'] = du_d['snmp_parameters']
+                function['snmp']['password'] = "supercalifrajilistico"
+                function['snmp']['entity_id'] = du['vnfc_instance'][0]['vc_id']
+
+                mgmt_ip = ''
+                for cp in du['vnfc_instance'][0]['connection_points']:
+                    if cp['id'] == 'mgmt':
+                        mgmt_ip = cp['interface']['address']
+                function['snmp']['ip'] = mgmt_ip
+
+            message['functions'].append(function)
 
         if 'monitoring_rules' in vnfd.keys():
 
@@ -653,8 +685,66 @@ def build_monitoring_message(service, functions, userdata):
 
     return message
 
+def append_networkid_to_cp(vnfd, vls):
+    """
+    This method adds network ids to the connection points in the vnfd
+    """
 
-def map_refs_on_du_cps(refs, nsd, vnfs):
+    dus = []
+    if 'virtual_deployment_units' in vnfd.keys():
+        dus = vnfd['virtual_deployment_units']
+    if 'cloudnative_deployment_units' in vnfd.keys():
+        dus = vnfd['cloudnative_deployment_units']
+
+    for du in dus:
+        if 'connection_points' not in du.keys():
+            continue
+        for cp in du['connection_points']:
+            for vl in vnfd['virtual_links']:
+                refs = vl['connection_points_reference']
+                if du['id'][:-37] + ':' + cp['id'] in refs:
+                    vl_id = vl['id']
+                    break
+            cp['network_id'] = vls[vl_id]['id']
+
+    return vnfd
+
+def vnfd_vl_maps_on_nsd_vl(nsd, vnfd, vl):
+    """
+    This method returns whether a vnfd vl maps on an nsd vl
+    """
+
+    name = vnfd['name']
+    version = vnfd['version']
+    vendor = vnfd['vendor']
+
+    res_cp = None
+
+    for cp in vl['connection_points_reference']:
+        if ':' not in cp:
+            res_cp = cp
+            break
+
+    if res_cp is None:
+        return False, None
+
+    vnf_id = None
+    for vnf in nsd['network_functions']:
+        if vnf['vnf_name'] == name and vnf['vnf_vendor'] == vendor and \
+           vnf['vnf_version'] == version:
+           vnf_id = vnf['vnf_id']
+
+    if vnf_id is None:
+        return False, None
+
+    for nsd_vl in nsd['virtual_links']:
+        if vnf_id + ':' + res_cp in nsd_vl['connection_points_reference']:
+            return True, nsd_vl['id']
+
+    return False, None
+
+
+def map_refs_on_du_cps(refs, nsd, vnfs, mapping, vnf_id=None):
     """
     This method returns a list of du cps, that map on the cp references in the
     refs input.
@@ -666,23 +756,46 @@ def map_refs_on_du_cps(refs, nsd, vnfs):
             for vnf_nsd in nsd['network_functions']:
                 if vnf_nsd['vnf_id'] == vnf_ref:
                     for vnf in vnfs:
-                        vnfd = vnf['vnfd']
-                        if vnf_nsd['vnf_name'] == vnfd['name'] and \
-                           vnf_nsd['vnf_version'] == vnfd['version'] and \
-                           vnf_nsd['vnf_vendor'] == vnfd['vendor']:
-                            du_cp_list = map_vnf_cp_on_du_cps(cp_ref, vnfd)
-                            for du_cp in du_cp_list:
-                                du_cp['vnf_id'] = vnf['id']
-                                du_cp['vim_id'] = vnf['vim_uuid']
-                            cps.extend(du_cp_list)
+                        if not vnf_id or vnf['id'] == vnf_id: 
+                            vnfd = vnf['vnfd']
+                            if vnf_nsd['vnf_name'] == vnfd['name'] and \
+                               vnf_nsd['vnf_version'] == vnfd['version'] and \
+                               vnf_nsd['vnf_vendor'] == vnfd['vendor']:
+                                du_cp_list = map_vnf_cp_on_du_cps(cp_ref, vnfd)
+                                for du_cp in du_cp_list:
+                                    du_cp['vnf_id'] = vnf['id']
+                                    du_cp['vim_id'] = mapping[vnf['id']]['vim_id']
+                                cps.extend(du_cp_list)
                     break
     return cps
 
-def find_ip_from_ref(ref, nsd, vnfs):
+def find_du_based_on_ip(ip, functions):
+    """
+    This method finds a du id associated to an ip
+    """
+
+    for vnf in functions:
+        if 'vnfr' not in vnf.keys():
+            continue
+        vnfr = vnf['vnfr']
+        dus = []
+        if 'virtual_deployment_units' in vnfr.keys():
+            dus = vnfr['virtual_deployment_units']
+        if 'couldnative_deployment_units' in vnfr.keys():
+            dus = vnfr['cloudnative_deployment_units']
+        for du in dus:
+            du_string = str(du)
+            if ip in du_string:
+                return du['id'], vnf['id']
+
+    return None, None
+
+
+def find_ip_from_ref(ref, nsd, vnfs, mapping, vnf_id=None):
     """
     find ip associated to a ref
     """
-    cp = map_refs_on_du_cps([ref], nsd, vnfs)[0]
+    cp = map_refs_on_du_cps([ref], nsd, vnfs, mapping, vnf_id)[0]
 
     for vnf in vnfs:
         if vnf['id'] == cp['vnf_id']:
