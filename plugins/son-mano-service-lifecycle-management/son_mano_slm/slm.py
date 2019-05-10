@@ -3864,56 +3864,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
             self.services[serv_id]['schedule'].remove('wan_configure')
             self.services[serv_id]['schedule'].remove('wan_deconfigure')
 
-=======
-        remove_networks = {}
-        update_wan_needed = False
-        mapping = self.services[serv_id]['mapping']
-
-        functions = self.services[serv_id]['function']
-        for vnf in functions:
-            if not vnf['stop']['trigger']:
-                continue
-            vnf_id = vnf['id']
-            vim_id = mapping['function'][vnf_id]['vim_id']
-            dus = []
-            if 'virtual_deployment_units' in vnf['vnfr']:
-                dus = vnf['vnfr']['virtual_deployment_units']
-            if 'cloudnative_deployment_units' in vnf['vnfr']:
-                dus = vnf['vnfr']['cloudnative_deployment_units']
-            du_ids = []
-            for du in dus:
-                du_ids.append(du['id'] + '-' + vnf_id)
-
-            for vl_id in mapping['function'][vnf_id]['vl']:
-                vl = mapping['function'][vnf_id]['vl'][vl_id]
-                if '_vnf_' in vl['id'] and not '_ns_' in vl['id']:
-                    if vim_id not in remove_networks.keys():
-                        remove_networks[vim_id] = {'vls': []}
-                    remove_networks[vim_id]['vls'].append({'id': vl['id']})
-
-            del mapping['function'][vnf_id]
-
-            for vl_id in mapping['service']['vl']:
-                vl = mapping['service']['vl'][vl_id]
-                if 'wim_id' in vl.keys():
-                    obs_pairs = []
-                    for pair in vl['pairs']:
-                        pair['new'] = True
-                        refs = [x.split(':')[-1] for x in pair['refs']]
-                        for du_ref in du_ids:
-                            if du_ref in refs:
-                                obs_pair.append(vl['pairs'].index(pair))
-                                update_wan_needed = True
-                                break
-                    inv_obs_pairs = obs_pair[::-1]
-                    for index in inv_obs_pairs:
-                        del vl['pairs'][index]
-
-        if not update_wan_needed:
-            self.services[serv_id]['schedule'].remove('wan_configure')
-            self.services[serv_id]['schedule'].remove('wan_deconfigure')
-
->>>>>>> upstream/master
         self.services[serv_id]['removed_vls'] = remove_networks
 
         LOG.info('mapping after removal: ' + yaml.dump(mapping))
