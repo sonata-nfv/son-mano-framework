@@ -2920,7 +2920,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         LOG.info("Monitoring message created: \n" + yaml.dump(mon_mess))
 
         error = None
-<<<<<<< HEAD
         try:
             header = {'Content-Type': 'application/json'}
             mon_resp = requests.post(t.monitoring_path + '/services',
@@ -2938,31 +2937,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 LOG.info("Service " + serv_id + msg)
                 error = {'http_code': mon_resp.status_code,
                          'message': mon_resp.text}
-=======
-#        try:
-        header = {'Content-Type': 'application/json'}
-        mon_resp = requests.post(t.monitoring_path + '/services',
-                                 data=json.dumps(mon_mess),
-                                 headers=header,
-                                 timeout=10.0)
-        if (mon_resp.status_code == 200):
-            LOG.info("Service " + serv_id + ": Monitoring started")
-
-        else:
-            LOG.info("Service " + serv_id + ": Monitoring msg not accepted")
-            LOG.info("Service " + serv_id + ": Monitoring code " + str(mon_resp.status_code)) 
-
-            msg = ": Monitoring response: " + str(mon_resp.text)
-            LOG.info("Service " + serv_id + msg)
-            error = {'http_code': mon_resp.status_code,
-                     'message': mon_resp.text}
->>>>>>> upstream/master
-
-        # except:
-        #     LOG.info()
-        #     LOG.info("Service " + serv_id + ": timeout on monitoring server.")
-        #     error = {'http_code': '0',
-        #              'message': 'Timeout when contacting server'}
+        except:
+            LOG.info()
+            LOG.info("Service " + serv_id + ": timeout on monitoring server.")
+            error = {'http_code': '0',
+                     'message': 'Timeout when contacting server'}
 
         # If an error occured, the workflow is aborted and the GK is informed
         if error is not None:
