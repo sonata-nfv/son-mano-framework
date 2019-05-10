@@ -706,6 +706,7 @@ def append_networkid_to_cp(vnfd, vls):
                     vl_id = vl['id']
                     break
             cp['network_id'] = vls[vl_id]['id']
+            cp['fip'] = vls[vl_id]['fip']
 
     return vnfd
 
