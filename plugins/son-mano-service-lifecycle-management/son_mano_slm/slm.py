@@ -854,7 +854,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                         break
                 fixed_map['vnf_id'] = vnf_id
                 fixed_map['vim_id'] = payload['vim_uuid']
-                service['input_mapping']['vnfs'].append(fixed_map)
+                self.services[serv_id]['input_mapping']['vnfs'].append(fixed_map)
 
         self.services[serv_id]["current_workflow"] = 'addvnf'
 
@@ -2920,29 +2920,28 @@ class ServiceLifecycleManager(ManoBasePlugin):
         LOG.info("Monitoring message created: \n" + yaml.dump(mon_mess))
 
         error = None
-#        try:
-        header = {'Content-Type': 'application/json'}
-        mon_resp = requests.post(t.monitoring_path + '/services',
-                                 data=json.dumps(mon_mess),
-                                 headers=header,
-                                 timeout=10.0)
-        if (mon_resp.status_code == 200):
-            LOG.info("Service " + serv_id + ": Monitoring started")
+        try:
+            header = {'Content-Type': 'application/json'}
+            mon_resp = requests.post(t.monitoring_path + '/services',
+                                     data=json.dumps(mon_mess),
+                                     headers=header,
+                                     timeout=10.0)
+            if (mon_resp.status_code == 200):
+                LOG.info("Service " + serv_id + ": Monitoring started")
 
-        else:
-            LOG.info("Service " + serv_id + ": Monitoring msg not accepted")
-            LOG.info("Service " + serv_id + ": Monitoring code " + str(mon_resp.status_code)) 
+            else:
+                LOG.info("Service " + serv_id + ": Monitoring msg not accepted")
+                LOG.info("Service " + serv_id + ": Monitoring code " + str(mon_resp.status_code)) 
 
-            msg = ": Monitoring response: " + str(mon_resp.text)
-            LOG.info("Service " + serv_id + msg)
-            error = {'http_code': mon_resp.status_code,
-                     'message': mon_resp.text}
-
-        # except:
-        #     LOG.info()
-        #     LOG.info("Service " + serv_id + ": timeout on monitoring server.")
-        #     error = {'http_code': '0',
-        #              'message': 'Timeout when contacting server'}
+                msg = ": Monitoring response: " + str(mon_resp.text)
+                LOG.info("Service " + serv_id + msg)
+                error = {'http_code': mon_resp.status_code,
+                         'message': mon_resp.text}
+        except:
+            LOG.info()
+            LOG.info("Service " + serv_id + ": timeout on monitoring server.")
+            error = {'http_code': '0',
+                     'message': 'Timeout when contacting server'}
 
         # If an error occured, the workflow is aborted and the GK is informed
         if error is not None:
@@ -3543,10 +3542,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
             if pred_map['function'][vnf_id]['vim_id'] is None:
                 mapping['function'][vnf_id]['vim_id'] = calc_map['du'][vnf_id]
                 mapping['function'][vnf_id]['new'] = True
-
                 for vnf in self.services[serv_id]['function']:
                     vnf['vim_uuid'] = mapping['function'][vnf['id']]['vim_id']
-
         for vl_id in calc_map['vl'].keys():
             vl = calc_map['vl'][vl_id]
             if vl_id not in mapping['service']['vl'].keys():
@@ -3627,11 +3624,26 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     vnf_map['vl'][vl['id']]['id'] = nsd_vl['id']
                     vnf_map['vl'][vl['id']]['vim_id'] = vnf_map['vim_id']
                     vnf_map['vl'][vl['id']]['new'] = False
+                    vnf_map['vl'][vl['id']]['fip'] = False
+                    if 'wim_id' in nsd_vl.keys():
+                        vnf_map['vl'][vl['id']]['fip'] = True
+                    elif len(nsd_vl['vim_id']) > 1:
+                        vnf_map['vl'][vl['id']]['fip'] = True
+                    else:
+                        for new_nsd_vl in nsd['virtual_links']:
+                            if new_nsd_vl['id'] == res[1]:
+                                refs = new_nsd_vl['connection_points_reference']
+                                break
+                        for ref in refs:
+                            if ':' not in ref:
+                                vnf_map['vl'][vl['id']]['fip'] = True
+                                break
                 else:
                     vnf_map['vl'][vl['id']] = {}
                     vnf_map['vl'][vl['id']]['id'] = vnf_id + '_vnf_' + vl['id']
                     vnf_map['vl'][vl['id']]['vim_id'] = vnf_map['vim_id']
                     vnf_map['vl'][vl['id']]['new'] = True
+                    vnf_map['vl'][vl['id']]['fip'] = False
 
         msg = ": Final mapping " + yaml.dump(mapping)
         LOG.info("Service " + serv_id + msg)
@@ -3808,7 +3820,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         remove_networks = {}
         update_wan_needed = False
         mapping = self.services[serv_id]['mapping']
-
         functions = self.services[serv_id]['function']
         for vnf in functions:
             if not vnf['stop']['trigger']:
