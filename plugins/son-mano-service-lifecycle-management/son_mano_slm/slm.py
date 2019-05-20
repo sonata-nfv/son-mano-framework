@@ -2706,7 +2706,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                                                      nsd,
                                                      vnfs,
                                                      vnf_map,
-                                                     vnf_id=ref.split('_')[1][-36:])
+                                                     vnf_id=ref.split('_')[-1][-36:])
                     vl_for_wim['naps'].append(nap)
 
                     ref = vl_for_wim['refs'][1]
@@ -2717,7 +2717,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                                                      nsd,
                                                      vnfs,
                                                      vnf_map,
-                                                     vnf_id=ref.split('_')[1][-36:])
+                                                     vnf_id=ref.split('_')[-1][-36:])
                     vl_for_wim['naps'].append(nap)
 
                     message['ingress'] = {}
@@ -2938,7 +2938,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 error = {'http_code': mon_resp.status_code,
                          'message': mon_resp.text}
         except:
-            LOG.info()
             LOG.info("Service " + serv_id + ": timeout on monitoring server.")
             error = {'http_code': '0',
                      'message': 'Timeout when contacting server'}
@@ -3792,7 +3791,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     break
 
         for vnf_id in mapping['function'].keys():
-            if mapping['function'][vnf_id]['vim_id'] is None:
+            if mapping['function'][vnf_id]['new']:
                 placement_needed = True
                 break
 
@@ -3800,7 +3799,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             LOG.info("Service " + serv_id + ": Placement plugin not needed")
             schedule = self.services[serv_id]['schedule']
             for x in ['request_topology', 'request_policies', \
-                      'request_SLM_mapping', 'req_placement_from_ssm', \
+                      'SLM_mapping', 'req_placement_from_ssm', \
                       'consolidate_mapping']:
                 try:
                     schedule.remove(x)
