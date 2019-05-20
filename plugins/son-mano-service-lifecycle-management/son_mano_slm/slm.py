@@ -928,7 +928,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 add_schedule.append("terminate_ssms")
 
             for vnf in self.services[serv_id]['function']:
-                if vnf['fsm']:
+                if vnf.get('fsm'):
                     add_schedule.append("terminate_fsms")
                     break
 
