@@ -165,7 +165,10 @@ class SMREngine(object):
     def rm (self, id, image, uuid):
 
         cn_name = "{0}{1}".format(id,uuid)
-        LOG.info("{0} Logs: {1}".format(id,self.dc.logs(container=cn_name)))
+        try:
+            LOG.info("{0} Logs: {1}".format(id,self.dc.logs(container=cn_name)))
+        except:
+            LOG.info("Containers logs are not available due docker external logging system was configured")
         self.dc.stop(container=cn_name)
         self.dc.remove_container(container=cn_name, force=True)
         self.dc.remove_image(image= image, force=True)
