@@ -273,6 +273,7 @@ class PlacementPlugin(ManoBasePlugin):
                     new_ep = {}
                     new_ep['type'] = 'egress'
                     new_ep['id'] = ep['location']
+                    new_ep['wims'] = []
                     for wim in wims:
                         if new_ep['id'] in [wim['vim_1'], wim['vim_2']]:
                             new_ep['wims'].append(wim['id'])
