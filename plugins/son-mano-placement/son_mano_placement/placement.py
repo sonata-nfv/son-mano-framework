@@ -475,7 +475,6 @@ class PlacementPlugin(ManoBasePlugin):
                     for ref in refs:
                         node_id = tools.map_ref_on_id(ref, nsd, vnfds, eps)
                         all_nodes.extend([{'ref': ref, 'node': x} for x in node_id])
-                        LOG.info(vl['id'] + ': ' + str(node_id))
                         for node in node_id:
                             if ':' in ref:
                                 vim_id = res[0]['dus'][node]
@@ -484,9 +483,6 @@ class PlacementPlugin(ManoBasePlugin):
                                 vim_or_ep.append(node)
                     for wim in wims:
                         coll = [wim['vim_1'], wim['vim_2']]
-                        LOG.info(vl['id'] + ' vim_or_ep: ' + str(set(vim_or_ep)))
-                        LOG.info(vl['id'] + ' coll: ' + str(set(coll)))
-                        LOG.info(vl['id'] + ' allnodes: ' + str(all_nodes))
                         if set(vim_or_ep) <= set(coll) and \
                            len(set(vim_or_ep)) > 1:
                             vls_map[vl['id']] = []
@@ -511,7 +507,6 @@ class PlacementPlugin(ManoBasePlugin):
                         new_vl = {}
                         new_vl['vim_id'] = list(set(vim_or_ep))
                         new_vl['refs'] = refs
-                        LOG.info(str(new_vl))
                         vls_map[vl['id']].append(new_vl)
 
             response['mapping']['vl'] = vls_map
@@ -713,13 +708,18 @@ class PlacementPlugin(ManoBasePlugin):
         vim_wim = vims + wims
 #        LOG.info("vim_wim:" + yaml.dump(vim_wim))
         for vl in vls:
+            LOG.info("vl specific:" + yaml.dump(vl))
             if 'placement_needed' in vl.keys():
                 if not vl['placement_needed']:
+                    LOG.info("fixing vl")
                     vl_i = vls.index(vl) + offset_vls
+                    LOG.info("vl_index: " + str(vl_i))
                     used_vim_wim = vl['vim_wim']
                     for wim in vim_wim:
                         vim_wim_i = vim_wim.index(wim)
-                        if wim['id'] == used_vim_wim:
+                        LOG.info("considered wim: " + yaml.dump(wim))
+                        if str(wim['id']) == str(used_vim_wim):
+                            LOG.info("wim match")
                             lpProblem += variables[(vl_i, vim_wim_i)] == 1
                             break
 
