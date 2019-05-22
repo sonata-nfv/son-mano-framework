@@ -260,8 +260,8 @@ class PlacementPlugin(ManoBasePlugin):
                 if 'location' in ep.keys():
                     new_ep = {}
                     new_ep['type'] = 'ingress'
-                    new_ep['id'] = ep['location'] + '_ingress_' + ingress.index(ep)
-                    new_ep['location'] = ep['location']
+                    new_ep['id'] = ep['location']
+                    new_ep['pos'] = ingress.index(ep)
                     new_ep['wims'] = []
                     for wim in wims:
                         if new_ep['id'] in [wim['vim_1'], wim['vim_2']]:
@@ -273,8 +273,8 @@ class PlacementPlugin(ManoBasePlugin):
                 if 'location' in ep.keys():
                     new_ep = {}
                     new_ep['type'] = 'egress'
-                    new_ep['id'] = ep['location'] + '_egress_' + egress.index(ep)
-                    new_ep['location'] = ep['location']
+                    new_ep['id'] = ep['location']
+                    new_ep['pos'] = egress.index(ep)
                     new_ep['wims'] = []
                     for wim in wims:
                         if new_ep['id'] in [wim['vim_1'], wim['vim_2']]:
@@ -297,7 +297,7 @@ class PlacementPlugin(ManoBasePlugin):
             all_nodes = []
             for ref in refs:
                 node_id, ref_res, in_out = tools.map_ref_on_id(ref, nsd, vnfds, eps)
-                all_nodes.extend([{'ref': ref_res[x], 'node': x} for x in node_id])
+                all_nodes.extend([{'ref': ref_res[x], 'node': node_id[x]} for x in range(len(node_id))])
                 if in_out:
                     vl_inout = in_out
             len_nodes = len(all_nodes)
@@ -473,6 +473,7 @@ class PlacementPlugin(ManoBasePlugin):
                             for ep in eps:
                                 if ep['id'] == node:
                                     new_vl['nodes'].append(node)
+                                    break
                             for du in dus:
                                 if du['id'] == node:
                                     vim = response['mapping']['du'][du['nf_id']]
@@ -490,7 +491,7 @@ class PlacementPlugin(ManoBasePlugin):
                     all_nodes = []
                     for ref in refs:
                         node_id, ref_res, in_out = tools.map_ref_on_id(ref, nsd, vnfds, eps)
-                        all_nodes.extend([{'ref': ref_res[x], 'node': x} for x in node_id])
+                        all_nodes.extend([{'ref': ref_res[x], 'node': node_id[x]} for x in range(len(node_id))])
                         if in_out:
                             vl_inout = in_out
                         for node in node_id:

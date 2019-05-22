@@ -340,7 +340,7 @@ def map_ref_on_id(ref, nsd, vnfds, eps):
     a deployment unit.
     """
     nodes_list = []
-    ref_dict = {}
+    ref_list = []
     in_out = None
     if ':' in ref:
         # reference is towards a vnf
@@ -366,13 +366,13 @@ def map_ref_on_id(ref, nsd, vnfds, eps):
                     for cdu in vnfd['cloudnative_deployment_units']:
                         if cdu['id'].startswith(du_ref):
                             nodes_list.append(cdu['id'])
-                            ref_dict[cdu['id']] = ref
+                            ref_list.append(ref)
 
                 if 'virtual_deployment_units' in vnfd.keys():
                     for vdu in vnfd['virtual_deployment_units']:
                         if vdu['id'].startswith(du_ref):
                             nodes_list.append(vdu['id'])
-                            ref_dict[vdu['id']] = ref
+                            ref_list.append(ref)
 
     else:
 
@@ -393,33 +393,33 @@ def map_ref_on_id(ref, nsd, vnfds, eps):
         if len(cps) == 1:
             for ep in eps:
                 if ep['type'] == 'ingress':
-                    nodes_list.append(ep['id'])
-                    ref_dict[ep['id']] = ref + '+' + str(eps.index(ep))
+                    nodes_list.append(ep['id'].split('_')[0])
+                    ref_list.append(ref + '+' + str(eps.index(ep)))
                     in_out = 'ingress'
         if len(cps) == 3 and cp_i == 1:
             for ep in eps:
                 if ep['type'] == 'ingress':
-                    nodes_list.append(ep['id'])
-                    ref_dict[ep['id']] = ref + '+' + str(eps.index(ep))
+                    nodes_list.append(ep['id'].split('_')[0])
+                    ref_list.append(ref + '+' + str(eps.index(ep)))
                     in_out = 'ingress'
         if len(cps) == 3 and cp_i == 2:
             for ep in eps:
                 if ep['type'] == 'egress':
-                    nodes_list.append(ep['id'])
-                    ref_dict[ep['id']] = ref + '+' + str(eps.index(ep) - index_e)
+                    nodes_list.append(ep['id'].split('_')[0])
+                    ref_list.append(ref + '+' + str(eps.index(ep) - index_e))
                     in_out = 'egress'
         if len(cps) == 2 and cp_i == 1:
             for ep in eps:
                 if ep['type'] == 'ingress':
-                    nodes_list.append(ep['id'])
-                    ref_dict[ep['id']] = ref + '+' + str(eps.index(ep))
+                    nodes_list.append(ep['id'].split('_')[0])
+                    ref_list.append(ref + '+' + str(eps.index(ep)))
                     in_out = 'ingress'
-            return nodes_list, ref_dict, in_out
+            return nodes_list, ref_list, in_out
         if len(cps) == 2 and cp_i == 1:
             for ep in eps:
                 if ep['type'] == 'egress':
-                    nodes_list.append(ep['id'])
-                    ref_dict[ep['id']] = ref + '+' + str(eps.index(ep) - index_e)
+                    nodes_list.append(ep['id'].split('_')[0])
+                    ref_list.append(ref + '+' + str(eps.index(ep) - index_e))
                     in_out = 'egress'
 
-    return nodes_list, ref_dict, in_out
+    return nodes_list, ref_list, in_out
