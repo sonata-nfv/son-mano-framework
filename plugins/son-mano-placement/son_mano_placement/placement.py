@@ -260,7 +260,8 @@ class PlacementPlugin(ManoBasePlugin):
                 if 'location' in ep.keys():
                     new_ep = {}
                     new_ep['type'] = 'ingress'
-                    new_ep['id'] = ep['location']
+                    new_ep['id'] = ep['location'] + '_ingress_' + ingress.index(ep)
+                    new_ep['location'] = ep['location']
                     new_ep['wims'] = []
                     for wim in wims:
                         if new_ep['id'] in [wim['vim_1'], wim['vim_2']]:
@@ -272,7 +273,8 @@ class PlacementPlugin(ManoBasePlugin):
                 if 'location' in ep.keys():
                     new_ep = {}
                     new_ep['type'] = 'egress'
-                    new_ep['id'] = ep['location']
+                    new_ep['id'] = ep['location'] + '_egress_' + egress.index(ep)
+                    new_ep['location'] = ep['location']
                     new_ep['wims'] = []
                     for wim in wims:
                         if new_ep['id'] in [wim['vim_1'], wim['vim_2']]:
@@ -290,11 +292,14 @@ class PlacementPlugin(ManoBasePlugin):
         for nsd_vl in nsd_vls:
             vl_id = nsd_vl['id']
             refs = nsd_vl['connection_points_reference']
+            vl_inout = None
 
             all_nodes = []
             for ref in refs:
-                node_id = tools.map_ref_on_id(ref, nsd, vnfds, eps)
-                all_nodes.extend([{'ref': ref, 'node': x} for x in node_id])
+                node_id, ref_res, in_out = tools.map_ref_on_id(ref, nsd, vnfds, eps)
+                all_nodes.extend([{'ref': ref_res[x], 'node': x} for x in node_id])
+                if in_out:
+                    vl_inout = in_out
             len_nodes = len(all_nodes)
 
             vim_wim_id = None
@@ -338,6 +343,12 @@ class PlacementPlugin(ManoBasePlugin):
                                     new_vl['latency'] = int(qos_req['latency'])
                             if not placement_needed:
                                 new_vl['placement_needed'] = False
+                            if vl_inout:
+                                if vl_inout == 'ingress':
+                                    new_vl['ingress'] = True
+                                if vl_inout == 'egress':
+                                    new_vl['egress'] = True
+
                             vls.append(new_vl)
 
         # add vls coming from vnfds, between deployment units
@@ -454,6 +465,10 @@ class PlacementPlugin(ManoBasePlugin):
                             ref_j = vl['refs'][1] + '_' + vl['nodes'][1]
                         new_vl['refs'] = [ref_i, ref_j]
                         new_vl['nodes'] = []
+                        if 'ingress' in vl.keys():
+                            new_vl['ingress'] = vl['ingress']
+                        if 'egress' in vl.keys():
+                            new_vl['egress'] = vl['egress']
                         for node in vl['nodes']:
                             for ep in eps:
                                 if ep['id'] == node:
@@ -471,10 +486,13 @@ class PlacementPlugin(ManoBasePlugin):
                 if vl['id'] not in vls_map.keys():
                     vim_or_ep = []
                     refs = vl['connection_points_reference']
+                    vl_inout = None
                     all_nodes = []
                     for ref in refs:
-                        node_id = tools.map_ref_on_id(ref, nsd, vnfds, eps)
-                        all_nodes.extend([{'ref': ref, 'node': x} for x in node_id])
+                        node_id, ref_res, in_out = tools.map_ref_on_id(ref, nsd, vnfds, eps)
+                        all_nodes.extend([{'ref': ref_res[x], 'node': x} for x in node_id])
+                        if in_out:
+                            vl_inout = in_out
                         for node in node_id:
                             if ':' in ref:
                                 vim_id = res[0]['dus'][node]
@@ -500,6 +518,11 @@ class PlacementPlugin(ManoBasePlugin):
                                         if ':' in ref_j:
                                             ref_j = ref_j + '_' + all_nodes[j]['node']
                                         new_vl['refs'] = [ref_i, ref_j]
+                                        if vl_inout:
+                                            if vl_inout == 'ingress':
+                                                new_vl['ingress'] = True
+                                            if vl_inout == 'egress':
+                                                new_vl['egress'] = True
                                         vls_map[vl['id']].append(new_vl)
                             break
                     if vl['id'] not in vls_map.keys():
