@@ -2698,27 +2698,20 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
                     LOG.info(yaml.dump(vl_for_wim))
                     vl_for_wim['naps'] = []
-                    ref = vl_for_wim['refs'][0]
-                    if ':' not in ref:
-                        nap = self.services[serv_id]['ingress'][0]['nap']
-                    else:
-                        nap = tools.find_ip_from_ref(ref.split('_')[0],
-                                                     nsd,
-                                                     vnfs,
-                                                     vnf_map,
-                                                     vnf_id=ref.split('_')[-1][-36:])
-                    vl_for_wim['naps'].append(nap)
-
-                    ref = vl_for_wim['refs'][1]
-                    if ':' not in ref:
-                        nap = self.services[serv_id]['egress'][0]['nap']
-                    else:
-                        nap = tools.find_ip_from_ref(ref.split('_')[0],
-                                                     nsd,
-                                                     vnfs,
-                                                     vnf_map,
-                                                     vnf_id=ref.split('_')[-1][-36:])
-                    vl_for_wim['naps'].append(nap)
+                    for ref in vl_for_wim['refs']:
+                        if ':' not in ref:
+                            index = int(ref.split('+')[-1])
+                            if 'ingress' in vl_for_wim.keys():
+                                nap = self.services[serv_id]['ingress'][index]['nap']
+                            if 'egress' in vl_for_wim.keys():
+                                nap = self.services[serv_id]['egress'][index]['nap']
+                        else:
+                            nap = tools.find_ip_from_ref(ref.split('_')[0],
+                                                         nsd,
+                                                         vnfs,
+                                                         vnf_map,
+                                                         vnf_id=ref.split('_')[-1][-36:])
+                        vl_for_wim['naps'].append(nap)
 
                     message['ingress'] = {}
                     first_node = vl_for_wim['nodes'][0]

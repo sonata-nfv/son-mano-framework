@@ -261,6 +261,7 @@ class PlacementPlugin(ManoBasePlugin):
                     new_ep = {}
                     new_ep['type'] = 'ingress'
                     new_ep['id'] = ep['location']
+                    new_ep['pos'] = ingress.index(ep)
                     new_ep['wims'] = []
                     for wim in wims:
                         if new_ep['id'] in [wim['vim_1'], wim['vim_2']]:
@@ -273,6 +274,7 @@ class PlacementPlugin(ManoBasePlugin):
                     new_ep = {}
                     new_ep['type'] = 'egress'
                     new_ep['id'] = ep['location']
+                    new_ep['pos'] = egress.index(ep)
                     new_ep['wims'] = []
                     for wim in wims:
                         if new_ep['id'] in [wim['vim_1'], wim['vim_2']]:
@@ -290,11 +292,14 @@ class PlacementPlugin(ManoBasePlugin):
         for nsd_vl in nsd_vls:
             vl_id = nsd_vl['id']
             refs = nsd_vl['connection_points_reference']
+            vl_inout = None
 
             all_nodes = []
             for ref in refs:
-                node_id = tools.map_ref_on_id(ref, nsd, vnfds, eps)
-                all_nodes.extend([{'ref': ref, 'node': x} for x in node_id])
+                node_id, ref_res, in_out = tools.map_ref_on_id(ref, nsd, vnfds, eps)
+                all_nodes.extend([{'ref': ref_res[x], 'node': node_id[x]} for x in range(len(node_id))])
+                if in_out:
+                    vl_inout = in_out
             len_nodes = len(all_nodes)
 
             vim_wim_id = None
@@ -338,6 +343,12 @@ class PlacementPlugin(ManoBasePlugin):
                                     new_vl['latency'] = int(qos_req['latency'])
                             if not placement_needed:
                                 new_vl['placement_needed'] = False
+                            if vl_inout:
+                                if vl_inout == 'ingress':
+                                    new_vl['ingress'] = True
+                                if vl_inout == 'egress':
+                                    new_vl['egress'] = True
+
                             vls.append(new_vl)
 
         # add vls coming from vnfds, between deployment units
@@ -454,10 +465,15 @@ class PlacementPlugin(ManoBasePlugin):
                             ref_j = vl['refs'][1] + '_' + vl['nodes'][1]
                         new_vl['refs'] = [ref_i, ref_j]
                         new_vl['nodes'] = []
+                        if 'ingress' in vl.keys():
+                            new_vl['ingress'] = vl['ingress']
+                        if 'egress' in vl.keys():
+                            new_vl['egress'] = vl['egress']
                         for node in vl['nodes']:
                             for ep in eps:
                                 if ep['id'] == node:
                                     new_vl['nodes'].append(node)
+                                    break
                             for du in dus:
                                 if du['id'] == node:
                                     vim = response['mapping']['du'][du['nf_id']]
@@ -471,11 +487,13 @@ class PlacementPlugin(ManoBasePlugin):
                 if vl['id'] not in vls_map.keys():
                     vim_or_ep = []
                     refs = vl['connection_points_reference']
+                    vl_inout = None
                     all_nodes = []
                     for ref in refs:
-                        node_id = tools.map_ref_on_id(ref, nsd, vnfds, eps)
-                        all_nodes.extend([{'ref': ref, 'node': x} for x in node_id])
-                        LOG.info(vl['id'] + ': ' + str(node_id))
+                        node_id, ref_res, in_out = tools.map_ref_on_id(ref, nsd, vnfds, eps)
+                        all_nodes.extend([{'ref': ref_res[x], 'node': node_id[x]} for x in range(len(node_id))])
+                        if in_out:
+                            vl_inout = in_out
                         for node in node_id:
                             if ':' in ref:
                                 vim_id = res[0]['dus'][node]
@@ -484,9 +502,6 @@ class PlacementPlugin(ManoBasePlugin):
                                 vim_or_ep.append(node)
                     for wim in wims:
                         coll = [wim['vim_1'], wim['vim_2']]
-                        LOG.info(vl['id'] + ' vim_or_ep: ' + str(set(vim_or_ep)))
-                        LOG.info(vl['id'] + ' coll: ' + str(set(coll)))
-                        LOG.info(vl['id'] + ' allnodes: ' + str(all_nodes))
                         if set(vim_or_ep) <= set(coll) and \
                            len(set(vim_or_ep)) > 1:
                             vls_map[vl['id']] = []
@@ -504,6 +519,11 @@ class PlacementPlugin(ManoBasePlugin):
                                         if ':' in ref_j:
                                             ref_j = ref_j + '_' + all_nodes[j]['node']
                                         new_vl['refs'] = [ref_i, ref_j]
+                                        if vl_inout:
+                                            if vl_inout == 'ingress':
+                                                new_vl['ingress'] = True
+                                            if vl_inout == 'egress':
+                                                new_vl['egress'] = True
                                         vls_map[vl['id']].append(new_vl)
                             break
                     if vl['id'] not in vls_map.keys():
@@ -511,7 +531,6 @@ class PlacementPlugin(ManoBasePlugin):
                         new_vl = {}
                         new_vl['vim_id'] = list(set(vim_or_ep))
                         new_vl['refs'] = refs
-                        LOG.info(str(new_vl))
                         vls_map[vl['id']].append(new_vl)
 
             response['mapping']['vl'] = vls_map
@@ -713,13 +732,18 @@ class PlacementPlugin(ManoBasePlugin):
         vim_wim = vims + wims
 #        LOG.info("vim_wim:" + yaml.dump(vim_wim))
         for vl in vls:
+            LOG.info("vl specific:" + yaml.dump(vl))
             if 'placement_needed' in vl.keys():
                 if not vl['placement_needed']:
+                    LOG.info("fixing vl")
                     vl_i = vls.index(vl) + offset_vls
+                    LOG.info("vl_index: " + str(vl_i))
                     used_vim_wim = vl['vim_wim']
                     for wim in vim_wim:
                         vim_wim_i = vim_wim.index(wim)
-                        if wim['id'] == used_vim_wim:
+                        LOG.info("considered wim: " + yaml.dump(wim))
+                        if str(wim['id']) == str(used_vim_wim):
+                            LOG.info("wim match")
                             lpProblem += variables[(vl_i, vim_wim_i)] == 1
                             break
 
