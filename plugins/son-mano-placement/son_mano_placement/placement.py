@@ -448,7 +448,17 @@ class PlacementPlugin(ManoBasePlugin):
                             vls_map[orig_id] = []
                         new_vl = {}
                         new_vl['vim_id'] = [vim_wim_id]
-                        new_vl['refs'] = vl['refs']
+                        ref_i = vl['refs'][0]
+                        if ':' in vl['refs'][0]:
+                            ref_i = vl['refs'][0] + '_' + vl['nodes'][0]
+                        ref_j = vl['refs'][1]
+                        if ':' in vl['refs'][1]:
+                            ref_j = vl['refs'][1] + '_' + vl['nodes'][1]
+                        new_vl['refs'] = [ref_i, ref_j]
+                        if 'ingress' in vl.keys():
+                            new_vl['ingress'] = vl['ingress']
+                        if 'egress' in vl.keys():
+                            new_vl['egress'] = vl['egress']
                         vls_map[orig_id].append(new_vl)
                         break
                 for wim in wims:
@@ -482,11 +492,33 @@ class PlacementPlugin(ManoBasePlugin):
                         vls_map[orig_id].append(new_vl)
                         break
 
+            # If VIMs and WIMs are shared within a VL, convert VIMs to WIMs
+            for vl_id in vls_map.keys():
+                vl = vls_map[vl_id]
+                vim_used = False
+                wim_used = False
+                wim_id = None
+                for vl_pair in vl:
+                    if 'vim_id' in vl_pair.keys():
+                        vim_used = True
+                    if 'wim_id' in vl_pair.keys():
+                        wim_used = True
+                        wim_id = vl_pair['wim_id']
+                if vim_used and wim_used:
+                    for vl_pair in vl:
+                        if 'vim_id' in vl_pair.keys():
+                            vl_pair['wim_id'] = wim_id
+                            vl_pair['nodes'] = [copy.deepcopy(vl_pair['vim_id'][0]), copy.deepcopy(vl_pair['vim_id'][0])]
+                            del vl_pair['vim_id']
+
+            LOG.info("vls_map initial: " + yaml.dump(vls_map))
+
             # Add virtual links that have no qos requirements but coincide with
             # VIMs or WIMs to the list
             for vl in nsd_vls:
                 if vl['id'] not in vls_map.keys():
                     vim_or_ep = []
+                    only_vim = []
                     refs = vl['connection_points_reference']
                     vl_inout = None
                     all_nodes = []
@@ -499,10 +531,16 @@ class PlacementPlugin(ManoBasePlugin):
                             if ':' in ref:
                                 vim_id = res[0]['dus'][node]
                                 vim_or_ep.append(vim_id)
+                                only_vim.append(vim_id)
                             else:
                                 vim_or_ep.append(node)
                     for wim in wims:
-                        coll = [wim['vim_1'], wim['vim_2']]
+                        wim_id = wim['id']
+                        coll = []
+                        for wim in wims:
+                            if wim['id'] == wim_id:
+                                coll.append(wim['vim_1'])
+                                coll.append(wim['vim_2'])
                         if set(vim_or_ep) <= set(coll) and \
                            len(set(vim_or_ep)) > 1:
                             vls_map[vl['id']] = []
@@ -530,7 +568,7 @@ class PlacementPlugin(ManoBasePlugin):
                     if vl['id'] not in vls_map.keys():
                         vls_map[vl['id']] = []
                         new_vl = {}
-                        new_vl['vim_id'] = list(set(vim_or_ep))
+                        new_vl['vim_id'] = list(set(only_vim))
                         new_vl['refs'] = refs
                         vls_map[vl['id']].append(new_vl)
 
