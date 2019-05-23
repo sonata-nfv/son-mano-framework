@@ -313,10 +313,13 @@ class PlacementPlugin(ManoBasePlugin):
                     vim_wim_id = pre_map['service']['vl'][vl_id]['vim_id']
                     placement_needed = False
 
+                    if len_nodes == 1:
+                        all_nodes.append(all_nodes[0])
+                        len_nodes = len(all_nodes)
+
                 elif 'wim_id' in pre_map['service']['vl'][vl_id].keys():
                     vim_wim_id = pre_map['service']['vl'][vl_id]['wim_id']
                     placement_needed = False
-
 
             elif 'qos_requirements' in nsd_vl.keys():
                 qos_req = nsd_vl['qos_requirements']
@@ -403,8 +406,6 @@ class PlacementPlugin(ManoBasePlugin):
         if "vnf_single_pop" in content.keys():
             sng = content["vnf_single_pop"]
 
-        LOG.info(serv_id + ': VNFs single PoP ' + str(sng))
-
         # Extract weights
         op_weight = 1.0
         dev_weight = 0.0
@@ -446,7 +447,7 @@ class PlacementPlugin(ManoBasePlugin):
                         if orig_id not in vls_map.keys():                            
                             vls_map[orig_id] = []
                         new_vl = {}
-                        new_vl['vim_id'] = vim_wim_id
+                        new_vl['vim_id'] = [vim_wim_id]
                         new_vl['refs'] = vl['refs']
                         vls_map[orig_id].append(new_vl)
                         break
@@ -730,20 +731,14 @@ class PlacementPlugin(ManoBasePlugin):
 
         # Preplaced virtual links should not be placed elsewhere
         vim_wim = vims + wims
-#        LOG.info("vim_wim:" + yaml.dump(vim_wim))
         for vl in vls:
-            LOG.info("vl specific:" + yaml.dump(vl))
             if 'placement_needed' in vl.keys():
                 if not vl['placement_needed']:
-                    LOG.info("fixing vl")
                     vl_i = vls.index(vl) + offset_vls
-                    LOG.info("vl_index: " + str(vl_i))
-                    used_vim_wim = vl['vim_wim']
+                    used_vim_wim = vl['vim_wim'][0]
                     for wim in vim_wim:
                         vim_wim_i = vim_wim.index(wim)
-                        LOG.info("considered wim: " + yaml.dump(wim))
                         if str(wim['id']) == str(used_vim_wim):
-                            LOG.info("wim match")
                             lpProblem += variables[(vl_i, vim_wim_i)] == 1
                             break
 
@@ -824,11 +819,10 @@ class PlacementPlugin(ManoBasePlugin):
         # Solve the problem
         lpProblem.solve()
 
-        for var in variables:
-            if variables[var].varValue == 1.0:
-                LOG.info(variables[var].varValue)
-                LOG.info(variables[var].cat)
-                LOG.info(variables[var].name)
+        # for var in variables:
+        #     if variables[var].varValue == 1.0:
+        #         LOG.info(variables[var].cat)
+        #         LOG.info(variables[var].name)
 
         LOG.info(lpProblem)
         LOG.info(lpProblem.status)
