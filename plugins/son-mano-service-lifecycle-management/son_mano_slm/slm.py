@@ -3739,6 +3739,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             for vnf_nsd in nsd['network_functions']:
                 if vnf_nsd['vnf_id'] == vnf_input['vnf_id']:
                     for vnf in functions:
+                        vnf['vim_uuid'] = vim_id
                         if mapping['function'][vnf['id']]['vim_id'] != None:
                             continue
                         vnfd = vnf['vnfd']
