@@ -2706,7 +2706,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                             if 'egress' in vl_for_wim.keys():
                                 nap = self.services[serv_id]['egress'][index]['nap']
                         else:
-                            nap = tools.find_ip_from_ref(ref.split('_')[0],
+                            nap = tools.find_ip_from_ref(ref.rsplit('_',1)[0],
                                                          nsd,
                                                          vnfs,
                                                          vnf_map,
