@@ -2687,6 +2687,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 for vl_for_wim in vl_map[vl['id']]['pairs']:
                     if not vl_for_wim['new']:
                         continue
+                    if ':' not in str(vl_for_wim['refs']):
+                        continue
                     LOG.info("Service " + serv_id + ": new VL for WAN identified")
                     message = {}
                     message['service_instance_id'] = serv_id
