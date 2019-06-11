@@ -581,12 +581,12 @@ def build_monitoring_message(service, functions, userdata):
             du_d = {}
             if 'cloudnative_deployment_units' in vnfr:
                 for cdu_d in vnfd['cloudnative_deployment_units']:
-                    if du['id'].split(':')[0] == cdu_d['id']:
+                    if du['id'].split(':')[0] == cdu_d['id'][:-37]:
                         du_d = cdu_d
                         break
             if 'virtual_deployment_units' in vnfr:
                 for vdu_d in vnfd['virtual_deployment_units']:
-                    if du['id'].split(':')[0] == vdu_d['id']:
+                    if du['id'].split(':')[0] == vdu_d['id'][:-37]:
                         du_d = vdu_d
                         break
 
