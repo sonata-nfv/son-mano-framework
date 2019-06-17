@@ -33,6 +33,8 @@
 This contains topics that are used by SONATA's Specific Manager Registry plugin.
 """
 
+import os
+
 SSM_ONBOARD = "specific.manager.registry.ssm.on-board"
 FSM_ONBOARD = "specific.manager.registry.fsm.on-board"
 SSM_INSTANTIATE = "specific.manager.registry.ssm.instantiate"
