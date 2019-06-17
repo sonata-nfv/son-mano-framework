@@ -56,7 +56,7 @@ try:
 except:
     import slm_topics as t
 
-LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=True)
+LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=t.json_logger)
 
 class ServiceLifecycleManager(ManoBasePlugin):
     """
@@ -3899,8 +3899,8 @@ def main():
     :return:
     """
     # reduce messaging log level to have a nicer output for this plugin
-    TangoLogger.getLogger("son-mano-base:messaging", logging.INFO, log_json=True)
-    TangoLogger.getLogger("son-mano-base:plugin", logging.INFO, log_json=True)
+    TangoLogger.getLogger("son-mano-base:messaging", logging.INFO, log_json=t.json_logger)
+    TangoLogger.getLogger("son-mano-base:plugin", logging.INFO, log_json=t.json_logger)
 #    logging.getLogger("amqp-storm").setLevel(logging.DEBUG)
     # create our service lifecycle manager
     slm = ServiceLifecycleManager()
