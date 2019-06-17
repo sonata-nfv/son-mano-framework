@@ -43,3 +43,8 @@ FSM_UPDATE = "specific.manager.registry.fsm.update"
 SSM_TERMINATE = "specific.manager.registry.ssm.terminate"
 FSM_TERMINATE = "specific.manager.registry.fsm.terminate"
 FSM_STATUS = "specific.manager.registry.ssm.status"
+
+# Logger
+json_logger = False
+if os.environ.get("json_logger"):
+	json_logger = True

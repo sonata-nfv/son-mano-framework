@@ -59,9 +59,9 @@ try:
 except:
     import flm_topics as t
 
-LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=True)
-TangoLogger.getLogger("son-mano-base:messaging", logging.INFO, log_json=True)
-#TangoLogger.getLogger("son-mano-base:plugin", logging.INFO, log_json=True)
+LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=t.json_logger)
+TangoLogger.getLogger("son-mano-base:messaging", logging.INFO, log_json=t.json_logger)
+TangoLogger.getLogger("son-mano-base:plugin", logging.INFO, log_json=t.json_logger)
 
 class FunctionLifecycleManager(ManoBasePlugin):
     """

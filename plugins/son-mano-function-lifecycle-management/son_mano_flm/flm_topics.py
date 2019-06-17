@@ -73,3 +73,8 @@ vnfr_path = repo_path + '/' + vnfr_ext
 
 # Monitoring urls
 monitoring_path = os.environ.get("monitoring_path").strip("/")
+
+# Logger
+json_logger = False
+if os.environ.get("json_logger"):
+	json_logger = True

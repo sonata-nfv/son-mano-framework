@@ -52,10 +52,14 @@ try:
 except:
     import placement_helpers as tools
 
-LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=True)
-TangoLogger.getLogger("son-mano-base:messaging", logging.INFO, log_json=True)
-TangoLogger.getLogger("son-mano-base:plugin", logging.INFO, log_json=True)
+# Logger
+json_logger = False
+if os.environ.get("json_logger"):
+    json_logger = True
 
+LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=json_logger)
+TangoLogger.getLogger("son-mano-base:messaging", logging.INFO, log_json=json_logger)
+TangoLogger.getLogger("son-mano-base:plugin", logging.INFO, log_json=json_logger)
 
 class PlacementPlugin(ManoBasePlugin):
     """
@@ -292,11 +296,13 @@ class PlacementPlugin(ManoBasePlugin):
         for nsd_vl in nsd_vls:
             vl_id = nsd_vl['id']
             refs = nsd_vl['connection_points_reference']
+            LOG.info("special refs:" + str(refs))
             vl_inout = None
 
             all_nodes = []
             for ref in refs:
                 node_id, ref_res, in_out = tools.map_ref_on_id(ref, nsd, vnfds, eps)
+                LOG.info("node_id: " + str(node_id) + ' for ref: ' + str(ref))
                 all_nodes.extend([{'ref': ref_res[x], 'node': node_id[x]} for x in range(len(node_id))])
                 if in_out:
                     vl_inout = in_out
