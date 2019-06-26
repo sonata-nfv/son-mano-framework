@@ -53,7 +53,7 @@ ENV nsr_collection nsr/ns-instances
 ENV vnfr_collection vnfr/vnf-instances
 
 # Monitoring information
-ENV monitoring_path http://son-monitor-manager:8000/api/v1
+# ENV monitoring_path http://son-monitor-manager:8000/api/v1
 
 RUN pip install git+git://github.com/eandersson/amqpstorm.git@feature/reuse_channels
 # RUN pip install git+git://github.com/eandersson/amqpstorm.git

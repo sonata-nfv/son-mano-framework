@@ -140,6 +140,9 @@ class FunctionLifecycleManager(ManoBasePlugin):
         # The topic on which terminate requests are posted.
         self.manoconn.subscribe(self.function_instance_remove, t.VNF_REMOVE)
 
+        # The topic on which state requests are posted.
+        self.manoconn.subscribe(self.function_instance_state, t.VNF_STATE)
+
     def on_lifecycle_start(self, ch, mthd, prop, msg):
         """
         This event is called when the plugin has successfully registered itself
@@ -500,6 +503,50 @@ class FunctionLifecycleManager(ManoBasePlugin):
         self.start_next_task(func_id)
 
         return self.functions[func_id]['schedule']
+
+    def function_instance_state(self, ch, method, properties, payload):
+        """
+        This method a state management workflow
+        """
+
+       # Don't trigger on self created messages
+        if self.name == properties.app_id:
+            return
+
+        LOG.info("Function instance stop request received.")
+        message = yaml.load(payload)
+
+        # Extract the correlation id
+        corr_id = properties.correlation_id
+
+        func_id = message['vnf_id']
+
+        # recreate the ledger
+        self.recreate_ledger(message, corr_id, func_id, t.VNF_STATE)
+
+        self.functions[func_id]['state'] = {}
+
+        state = self.functions[func_id]['state']
+        state['vnfr'] = self.functions[func_id]['vnfr']
+        state['action'] = message['action']
+        if message.get('state'):
+            state['state'] = message['state']
+
+        # Schedule the tasks that the FLM should do for this request.
+        add_schedule = []
+
+        add_schedule.append("trigger_state_fsm")
+        add_schedule.append("respond_to_request")
+
+        self.functions[func_id]['schedule'].extend(add_schedule)
+
+        msg = ": New state request received."
+        LOG.info("Function " + func_id + msg)
+        # Start the chain of tasks
+        self.start_next_task(func_id)
+
+        return self.functions[func_id]['schedule']
+
 
     def function_instance_remove(self, ch, method, properties, payload):
         """
@@ -1030,6 +1077,12 @@ class FunctionLifecycleManager(ManoBasePlugin):
         """
         self.trigger_fsm(func_id, 'scale')
 
+    def trigger_state_fsm(self, func_id):
+        """
+        This method is called to trigger the state FSM.
+        """
+        self.trigger_fsm(func_id, 'state')
+
     def trigger_configure_fsm(self, func_id):
         """
         This method is called to trigger the configure FSM.
@@ -1080,7 +1133,10 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         if response['status'] == "COMPLETED":
             LOG.info("FSM finished successfully")
-            self.functions[func_id]['message'] = "FSM finished successfully"
+            if response['persist']:
+                self.functions[func_id]['message'] = response['persist']
+            else:
+                self.functions[func_id]['message'] = "FSM finished successfully"
             if 'envs' in response.keys():
                 if function['type'] is not 'container':
                     msg = 'type is not container, ignoring envs from fsm'

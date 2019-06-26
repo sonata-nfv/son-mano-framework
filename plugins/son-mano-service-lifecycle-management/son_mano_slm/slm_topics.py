@@ -58,6 +58,8 @@ MANO_START = "mano.function.start"
 MANO_CONFIG = "mano.function.configure"
 MANO_STOP = "mano.function.stop"
 MANO_SCALE = "service.instance.scale"
+MANO_MIGRATE = "service.instance.migrate"
+MANO_STATE = "mano.function.state"
 
 # With gatekeeper or other SLM
 WC_CREATE = "*.instances.create"
@@ -116,7 +118,10 @@ nsr_path = repo_path + '/' + nsr_ext
 vnfr_path = repo_path + '/' + vnfr_ext
 
 # Monitoring urls
-monitoring_path = os.environ.get("monitoring_path").strip("/")
+if os.environ.get("monitoring_path"):
+	monitoring_path = os.environ.get("monitoring_path").strip("/")
+else:
+	monitoring_path = None
 
 # Logger
 json_logger = False
