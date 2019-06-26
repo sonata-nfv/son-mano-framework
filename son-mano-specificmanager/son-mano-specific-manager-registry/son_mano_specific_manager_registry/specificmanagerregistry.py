@@ -47,9 +47,9 @@ from sonmanobase import messaging
 from son_mano_specific_manager_registry import smr_engine as engine
 from son_mano_specific_manager_registry import smr_topics as topic
 
-LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=True)
-TangoLogger.getLogger("son-mano-base:messaging", logging.INFO, log_json=True)
-TangoLogger.getLogger("son-mano-base:plugin", logging.INFO, log_json=True)
+LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=topic.json_logger)
+TangoLogger.getLogger("son-mano-base:messaging", logging.INFO, log_json=topic.json_logger)
+TangoLogger.getLogger("son-mano-base:plugin", logging.INFO, log_json=topic.json_logger)
 
 class SpecificManagerRegistry(ManoBasePlugin):
 

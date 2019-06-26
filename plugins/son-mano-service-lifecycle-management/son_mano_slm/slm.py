@@ -56,7 +56,7 @@ try:
 except:
     import slm_topics as t
 
-LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=True)
+LOG = TangoLogger.getLogger(__name__, log_level=logging.INFO, log_json=t.json_logger)
 
 class ServiceLifecycleManager(ManoBasePlugin):
     """
@@ -148,6 +148,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         # The topic on which the the SLM receives life cycle scale events
         self.manoconn.subscribe(self.service_instance_scale, t.MANO_SCALE)
+
+        # The topic on which the the SLM receives life cycle migrate events
+        self.manoconn.subscribe(self.service_instance_migrate, t.MANO_MIGRATE)
+
 
     def on_lifecycle_start(self, ch, mthd, prop, msg):
         """
@@ -410,7 +414,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
         add_schedule.append('vnf_chain')
         add_schedule.append('wan_configure')
         add_schedule.append('store_nsr')
-        add_schedule.append('start_monitoring')
+
+        if t.monitoring_path:
+            add_schedule.append('start_monitoring')
+
         add_schedule.append('inform_gk_instantiation')
 
         self.services[serv_id]['schedule'].extend(add_schedule)
@@ -556,36 +563,208 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         return self.services[serv_id]['schedule']
 
-    def migrate_workflow(self, serv_id, payload):
+
+    def service_instance_migrate(self, ch, method, prop, payload):
         """
-        This method triggers a reconfiguration workflow.
+        callback for migration request
         """
 
+        def send_response(error, serv_id):
+            response = {}
+            response['error'] = error
+
+            if error is None:
+                response['status'] = 'MIGRATING'
+            else:
+                response['status'] = 'ERROR'
+
+            msg = ' Response on migration request: ' + str(response)
+            LOG.info('Service ' + str(serv_id) + msg)
+            self.manoconn.notify(t.MANO_MIGRATE,
+                                 yaml.dump(response),
+                                 correlation_id=corr_id)
+
+        # Check if the message doesn't come from SLM itself
+        if prop.app_id == self.name:
+            return
+
+        message = yaml.load(payload)
+
+        # Check if payload is ok
+        error = None
+
+        corr_id = prop.correlation_id
+        if corr_id is None:
+            error = 'No correlation id provided in header of request'
+            send_response(error, None)
+            return
+
+        if not isinstance(message, dict):
+            error = 'Payload is not a dictionary'
+            send_response(error, None)
+            return
+
+        if 'service_instance_uuid' in message.keys():
+            serv_id = message['service_instance_uuid']
+            msg = ": Received migration request"
+            LOG.info('Service ' + str(serv_id) + msg)
+            LOG.info('Service ' + str(serv_id) + ": " + str(payload))
+
+            if serv_id in self.services.keys():
+                error = "Workflow for service still going on, rejected"
+                send_response(error, serv_id)
+                return
+        else:
+            error = 'Missing \'service_instance_id\' in request'
+            send_response(error, None)
+            return
+
+        if 'vim_uuid' not in message.keys():
+            error = "Missing vim uuid"
+            send_response(error, serv_id)
+            return
+
+        if 'vnf_uuid' not in message.keys():
+            error = "Missing vnf uuid"
+            send_response(error, serv_id)
+            return
+
+        # Request vnfr
+        request = tools.getRestData(t.vnfr_path + '/', message['vnf_uuid'])
+
+        LOG.info("request: " + str(request))
+        if request['error'] is not None:
+            send_response(request['error'], serv_id)
+            return
+
+        # Ensure that migration target is not the same vim
+        vnfr = request['content']
+        if 'virtual_deployment_units' in vnfr.keys():
+            vdu = vnfr['virtual_deployment_units'][0]
+            used_vim = vdu['vnfc_instance'][0]['vim_id']
+        else:
+            used_vim = vnfr['cloudnative_deployment_units'][0]['vim_id']
+
+        if str(used_vim) == str(message['vim_uuid']):
+            send_response('vnf already deployed on this vim', serv_id)
+            return
+
+        # sending response to requesting party
+        send_response(error, serv_id)
+
+        LOG.info("accepting migration request")
+        self.migrate_workflow(serv_id,
+                              message['vnf_uuid'],
+                              message['vim_uuid'],
+                              prop.correlation_id)
+
+        return
+
+    def migrate_workflow(self, serv_id, old_vnf_id, vim_uuid, corr_id):
+        """
+        This method triggers a migration workflow.
+        """
+
+        LOG.info('Service ' + str(serv_id) + ": Starting migration workflow")
         # Check if the ledger has an entry for this instance
         if serv_id not in self.services.keys():
             # Based on the received payload, the ledger entry is recreated.
             LOG.info("Recreating ledger.")
             self.recreate_ledger(corr_id, serv_id)
 
-        for function in self.services[serv_id]['function']:
-            function['vim_uuid'] = payload['vim_uuid']
-            function['id'] = payload['function_id']
+        self.services[serv_id]['start_time'] = time.time()
+        self.services[serv_id]['topic'] = t.MANO_MIGRATE
+        self.services[serv_id]["current_workflow"] = 'migratevnf'
 
-        self.services[serv_id]['ingress'] = payload['ingress']
-        self.services[serv_id]['egress'] = payload['egress']
+        # Collecting VNFD for VNF that needs to be migrated
+        for old_vnf in self.services[serv_id]['function']:
+            if old_vnf['id'] == old_vnf_id:
+                vnfd = old_vnf['vnfd'] 
+                vnfd_uuid = old_vnf['vnfr']['descriptor_reference']
+                break
 
-        LOG.info('Service ' + str(serv_id) + ': migrate workflow request')
-        self.services[serv_id]["current_workflow"] = 'migrate'
+        # flagging old VNF to be deleted at the end
+        for vnf in self.services[serv_id]['function']:
+            vnf['stop']['trigger'] = False
+
+        old_vnf['stop']['trigger'] = True
+
+        new_vnf_id = str(uuid.uuid4())
+        vnf_base_dict = {'start': {'trigger': True, 'payload': {}},
+                         'stop': {'trigger': False, 'payload': {}},
+                         'configure': {'trigger': True, 'payload': {}},
+                         'scale': {'trigger': False, 'payload': {}},
+                         'vnfd': vnfd,
+                         'id': new_vnf_id,
+                         'vim_uuid': vim_uuid,
+                         'flavour': old_vnf['flavour']}
+
+        # fix du_id
+        if 'virtual_deployment_units' in vnfd.keys():
+            for vdu in vnfd['virtual_deployment_units']:
+                vdu['id'] = vdu['id'][:-37] + '-' + new_vnf_id
+        else:
+            for cdu in vnfd['cloudnative_deployment_units']:
+                cdu['id'] = cdu['id'][:-37] + '-' + new_vnf_id
+
+        self.services[serv_id]['function'].append(vnf_base_dict)
+
+        fixed_map = {}
+        for vnf_nsd in self.services[serv_id]['nsd']['network_functions']:
+            if vnf_nsd['vnf_name'] == vnfd['name'] and \
+               vnf_nsd['vnf_vendor'] == vnfd['vendor'] and \
+               vnf_nsd['vnf_version'] == vnfd['version']:
+                vnf_id = vnf_nsd['vnf_id']
+                break
+        fixed_map['vnf_id'] = vnf_id
+        fixed_map['vim_id'] = vim_uuid
+        self.services[serv_id]['input_mapping']['vnfs'].append(fixed_map)
+
+        self.services[serv_id]['migration'] = {}
+        self.services[serv_id]['migration']['old_vnf_id'] = old_vnf_id
+        self.services[serv_id]['migration']['new_vnf_id'] = new_vnf_id
+        self.services[serv_id]['migration']['state'] = {}
 
         add_schedule = []
+
+        # Adding new VNF
+        add_schedule.append('consolidate_predefined_mapping')
+        add_schedule.append('request_topology')
+        add_schedule.append('request_policies')
+
+        # Perform the placement
+        if 'placement' in self.services[serv_id]['ssm'].keys():
+            add_schedule.append('req_placement_from_ssm')
+        else:
+            add_schedule.append('SLM_mapping')
+        add_schedule.append('consolidate_mapping')
         add_schedule.append('network_create')
-        add_schedule.append("vnf_deploy")
-        add_schedule.append("vnfs_start")
-        add_schedule.append("vnf_chain")
+        add_schedule.append('vnf_deploy')
+        add_schedule.append('vnfs_start')
+
+        # Migrate state
+        if 'state' in self.services[serv_id]['ssm'].keys():
+            add_schedule.append('requesting_state_from_fsm')
+            add_schedule.append('migration_ssm')
+            add_schedule.append('injecting_state_in_fsm')
+
+        # Removing old vnf
+        add_schedule.append('remove_vnfs_from_mapping')
+        add_schedule.append('vnf_remove')
+        add_schedule.append('remove_network')
+        add_schedule.append('wan_deconfigure')
+
+        # aftermath
+        add_schedule.append('wan_configure')
+        add_schedule.append('update_nsr')
+        if t.monitoring_path:
+            add_schedule.append('start_monitoring')
+        add_schedule.append("inform_gk")
 
         self.services[serv_id]['schedule'].extend(add_schedule)
 
-        LOG.info('Service ' + str(serv_id) + ': migrate workflow started')
+        LOG.info('Service ' + str(serv_id) + ': migrate vnf workflow started')
+        LOG.info('Service ' + str(serv_id) + ': ' + str(add_schedule))
         # Start the chain of tasks
         self.start_next_task(serv_id)
 
@@ -777,7 +956,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         if 'scale' in self.services[serv_id]['ssm'].keys():
             add_schedule.append("configure_ssm")
             add_schedule.append("vnfs_config")
-        add_schedule.append('start_monitoring')
+        if t.monitoring_path:
+            add_schedule.append('start_monitoring')
         add_schedule.append("inform_gk")
 
         self.services[serv_id]['schedule'].extend(add_schedule)
@@ -838,8 +1018,14 @@ class ServiceLifecycleManager(ManoBasePlugin):
                              'flavour': None}
 
             # fix vdu_id
-            for vdu in vnf_base_dict['vnfd']['virtual_deployment_units']:
-                vdu['id'] = vdu['id'] + '-' + vnf_id
+            vnfd = vnf_base_dict['vnfd']
+            if 'virtual_deployment_units' in vnfd.keys():
+                for vdu in vnfd['virtual_deployment_units']:
+                    vdu['id'] = vdu['id'] + '-' + vnf_id
+            else:
+                for cdu in vnfd['cloudnative_deployment_units']:
+                    cdu['id'] = cdu['id'] + '-' + vnf_id
+
 
             self.services[serv_id]['function'].append(vnf_base_dict)
 
@@ -877,7 +1063,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         if 'scale' in self.services[serv_id]['ssm'].keys():
             add_schedule.append("configure_ssm")
             add_schedule.append("vnfs_config")
-        add_schedule.append('start_monitoring')
+        if t.monitoring_path:
+            add_schedule.append('start_monitoring')
         add_schedule.append("inform_gk")
 
         self.services[serv_id]['schedule'].extend(add_schedule)
@@ -918,7 +1105,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
             if orig == 'GK':
                 add_schedule.append('contact_gk')
             add_schedule.append('consolidate_predefined_mapping')
-            add_schedule.append("stop_monitoring")
+            if t.monitoring_path:
+                add_schedule.append("stop_monitoring")
             add_schedule.append("wan_deconfigure")
             add_schedule.append("vnf_unchain")
             add_schedule.append("vnfs_stop")
@@ -1585,7 +1773,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         :param serv_id: The instance uuid of the service
         """
 
-        LOG.info(yaml.dump(self.services[serv_id]))
+#        LOG.info(yaml.dump(self.services[serv_id]))
 
         msg = ": Requesting IA to update the networks."
         LOG.info("Service " + serv_id + msg)
@@ -1695,8 +1883,13 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
                 message = {}
                 message['vnf_id'] = function['id']
-                vdu = function['vnfr']['virtual_deployment_units'][0]
-                message['vim_id'] = vdu['vnfc_instance'][0]['vim_id']
+
+                if 'virtual_deployment_units' in function['vnfr'].keys():
+                    vdu = function['vnfr']['virtual_deployment_units'][0]
+                    message['vim_id'] = vdu['vnfc_instance'][0]['vim_id']
+                else:
+                    cdu = function['vnfr']['cloudnative_deployment_units'][0]
+                    message['vim_id'] = cdu['vim_id']
                 message['serv_id'] = serv_id
 
                 msg = ": Requesting the removal of vnf " + function['id']
@@ -2364,6 +2557,147 @@ class ServiceLifecycleManager(ManoBasePlugin):
             error = message['message']
             LOG.info('Error occured during chaining: ' + str(error))
             self.error_handling(serv_id, t.GK_CREATE, error)
+
+        self.start_next_task(serv_id)
+
+    def requesting_state_from_fsm(self, serv_id):
+        """
+        This method asks the FLM to request the state from an FSM
+        """
+
+        corr_id = str(uuid.uuid4())
+        self.services[serv_id]['act_corr_id'] = corr_id
+
+        message = {}
+        message['vnf_id'] = self.services[serv_id]['migration']['old_vnf_id']
+        message['serv_id'] = serv_id
+        message['action'] = 'extract'
+
+        self.manoconn.call_async(self.resp_requesting_state_from_fsm,
+                                 t.MANO_STATE,
+                                 yaml.dump(message),
+                                 correlation_id=corr_id)
+
+        self.services[serv_id]['pause_chain'] = True
+
+        LOG.info("Service " + serv_id + ": State requested " + str(message))
+
+    def resp_requesting_state_from_fsm(self, ch, method, prop, payload):
+        """
+        Callback when requesting_state_from_fsm is finished
+        """
+
+        # Get the serv_id of this service
+        serv_id = tools.servid_from_corrid(self.services,
+                                           prop.correlation_id)
+
+        message = yaml.load(payload)
+
+        LOG.info("Service " + serv_id + ": State request completed.")
+        LOG.info("Service " + serv_id + payload)
+
+        if message['status'] == 'FAILED':
+            error = message['error']
+            LOG.info('Error occured during state request: ' + str(error))
+            self.error_handling(serv_id, t.MANO_MIGRATE, error)
+
+        self.services[serv_id]['migration']['state'] = message['message']
+
+        self.start_next_task(serv_id)
+
+    def injecting_state_in_fsm(self, serv_id):
+        """
+        This method asks FLM to inject the state in an FSM
+        """
+
+        corr_id = str(uuid.uuid4())
+        self.services[serv_id]['act_corr_id'] = corr_id
+
+        message = {}
+        message['vnf_id'] = self.services[serv_id]['migration']['new_vnf_id']
+        message['action'] = 'inject'
+        message['serv_id'] = serv_id
+        message['state'] = self.services[serv_id]['migration']['state']
+
+        self.manoconn.call_async(self.resp_injecting_state_in_fsm,
+                                 t.MANO_STATE,
+                                 yaml.dump(message),
+                                 correlation_id=corr_id)
+
+        self.services[serv_id]['pause_chain'] = True
+
+        LOG.info("Service " + serv_id + ": State sent " + str(message))
+
+    def resp_injecting_state_in_fsm(self, ch, method, prop, payload):
+        """
+        Callback when injecting_state_in_fsm is finished
+        """
+
+        # Get the serv_id of this service
+        serv_id = tools.servid_from_corrid(self.services,
+                                           prop.correlation_id)
+
+        message = yaml.load(payload)
+
+        LOG.info("Service " + serv_id + ": State inject completed.")
+        LOG.info("Service " + serv_id + payload)
+
+        if message['status'] == 'FAILED':
+            error = message['error']
+            LOG.info('Error occured during state inject: ' + str(error))
+            self.error_handling(serv_id, t.MANO_MIGRATE, error)
+
+        self.start_next_task(serv_id)
+
+    def migration_ssm(self, serv_id):
+        """
+        This method asks the SSM to manipulate the state if needed
+        """
+
+        corr_id = str(uuid.uuid4())
+        self.services[serv_id]['act_corr_id'] = corr_id
+
+        state = {'state': self.services[serv_id]['migration']['state']}
+
+        response = {}
+        response['content'] = state
+        response['ssm_type'] = 'state'
+
+        topic = "generic.ssm." + str(serv_id)
+
+        ssm_conn = self.ssm_connections[serv_id]
+
+        ssm_conn.call_async(self.resp_migration_ssm,
+                            topic,
+                            yaml.dump(response),
+                            correlation_id=corr_id)
+
+        msg = ": Call sent to state SSM."
+        LOG.info("Service " + serv_id + msg)
+
+        # Pause the chain of tasks to wait for response
+        self.services[serv_id]['pause_chain'] = True
+
+    def resp_migration_ssm(self, ch, method, prop, payload):
+        """
+        Callback when migration_ssm is finished
+        """
+
+        # Get the serv_id of this service
+        serv_id = tools.servid_from_corrid(self.services,
+                                           prop.correlation_id)
+
+        message = yaml.load(payload)
+
+        LOG.info("Service " + serv_id + ": State ssm completed.")
+        LOG.info("Service " + serv_id + payload)
+
+        if str(message['status']) != str('completed'):
+            error = message['content']
+            LOG.info('Error occured during state ssm: ' + str(error))
+            self.error_handling(serv_id, t.MANO_MIGRATE, error)
+
+        self.services[serv_id]['migration']['state'] = message['content']
 
         self.start_next_task(serv_id)
 
@@ -3306,7 +3640,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 vim_id = vdu['vim_id']
             
             new_function = {'id': vnf['vnfr_id'],
-                            'start': {'trigger': True, 'payload': {}},
+                            'start': {'trigger': False, 'payload': {}},
                             'stop': {'trigger': True, 'payload': {}},
                             'configure': {'trigger': True, 'payload': {}},
                             'scale': {'trigger': True, 'payload': {}},
@@ -3382,7 +3716,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
             fsm_dict = tools.get_sm_from_descriptor(vnfd)
             vnf['fsm'] = fsm_dict
 
-        LOG.info(yaml.dump(self.services[serv_id]))
+#        LOG.info(yaml.dump(self.services[serv_id]))
         return True
 
     def validate_deploy_request(self, serv_id):
@@ -3513,7 +3847,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         else:
             # Add mapping to ledger
             LOG.info("Service " + serv_id + ": Placement completed")
-            LOG.debug("Calculated SLM placement: " + str(mapping))
             self.services[serv_id]['calculated_mapping'] = mapping
 
         LOG.info(yaml.dump(self.services[serv_id]['calculated_mapping']))
@@ -3526,7 +3859,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         additional mapping calculations done by the placement plugin.
         """
 
-        LOG.info(yaml.dump(self.services[serv_id]))
+#        LOG.info(yaml.dump(self.services[serv_id]))
 
         calc_map = self.services[serv_id]['calculated_mapping']
         pred_map = self.services[serv_id]['mapping']
@@ -3739,6 +4072,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         for vnf_input in service['input_mapping']['vnfs']:
             vim_id = vnf_input['vim_id']
             nsd = service['nsd']
+            LOG.info("nsd: " +  str(nsd))
+            LOG.info("nsd yaml: " + yaml.dump(nsd))
             for vnf_nsd in nsd['network_functions']:
                 if vnf_nsd['vnf_id'] == vnf_input['vnf_id']:
                     for vnf in functions:
@@ -3899,8 +4234,8 @@ def main():
     :return:
     """
     # reduce messaging log level to have a nicer output for this plugin
-    TangoLogger.getLogger("son-mano-base:messaging", logging.INFO, log_json=True)
-    TangoLogger.getLogger("son-mano-base:plugin", logging.INFO, log_json=True)
+    TangoLogger.getLogger("son-mano-base:messaging", logging.INFO, log_json=t.json_logger)
+    TangoLogger.getLogger("son-mano-base:plugin", logging.INFO, log_json=t.json_logger)
 #    logging.getLogger("amqp-storm").setLevel(logging.DEBUG)
     # create our service lifecycle manager
     slm = ServiceLifecycleManager()

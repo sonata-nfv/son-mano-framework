@@ -33,6 +33,8 @@
 This contains topics that are used by SONATA's Specific Manager Registry plugin.
 """
 
+import os
+
 SSM_ONBOARD = "specific.manager.registry.ssm.on-board"
 FSM_ONBOARD = "specific.manager.registry.fsm.on-board"
 SSM_INSTANTIATE = "specific.manager.registry.ssm.instantiate"
@@ -43,3 +45,8 @@ FSM_UPDATE = "specific.manager.registry.fsm.update"
 SSM_TERMINATE = "specific.manager.registry.ssm.terminate"
 FSM_TERMINATE = "specific.manager.registry.fsm.terminate"
 FSM_STATUS = "specific.manager.registry.ssm.status"
+
+# Logger
+json_logger = False
+if os.environ.get("json_logger"):
+	json_logger = True
