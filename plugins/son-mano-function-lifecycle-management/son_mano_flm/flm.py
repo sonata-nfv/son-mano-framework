@@ -1133,7 +1133,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         if response['status'] == "COMPLETED":
             LOG.info("FSM finished successfully")
-            if response['persist']:
+            if response.get('persist'):
                 self.functions[func_id]['message'] = response['persist']
             else:
                 self.functions[func_id]['message'] = "FSM finished successfully"
