@@ -649,6 +649,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
             send_response('vnf already deployed on this vim', serv_id)
             return
 
+        # sending response to requesting party
+        send_response(error, serv_id)
+
         LOG.info("accepting migration request")
         self.migrate_workflow(serv_id,
                               message['vnf_uuid'],
