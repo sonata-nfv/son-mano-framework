@@ -740,6 +740,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         add_schedule.append('consolidate_mapping')
         add_schedule.append('network_create')
         add_schedule.append('vnf_deploy')
+        add_schedule.append('vnfs_generic_envs')
         add_schedule.append('vnfs_start')
 
         # Migrate state
@@ -787,6 +788,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
             self.manoconn.notify(t.MANO_SCALE,
                                  yaml.dump(response),
                                  correlation_id=corr_id)
+
+            try:
+                del self.services[serv_id]
+            except:
+                pass
 
         # Check if the message doesn't come from SLM itself
         if prop.app_id == self.name:
@@ -1057,6 +1063,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         add_schedule.append('consolidate_mapping')
         add_schedule.append('network_create')
         add_schedule.append('vnf_deploy')
+        add_schedule.append('vnfs_generic_envs')
         add_schedule.append('vnfs_start')
         add_schedule.append('wan_configure')
         add_schedule.append('update_nsr')
