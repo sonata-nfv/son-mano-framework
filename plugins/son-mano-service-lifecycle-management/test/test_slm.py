@@ -646,115 +646,115 @@ class testSlmFunctionality(unittest.TestCase):
 ###############################################################
 #TEST7: test contact_gk
 ###############################################################
-    def test_contact_gk(self):
-        """
-        This method tests the contact_gk method.
-        """
+    # def test_contact_gk(self):
+    #     """
+    #     This method tests the contact_gk method.
+    #     """
 
-        #Check result SUBTEST 1
-        def on_contact_gk_subtest1(ch, mthd, prop, payload):
-            message = yaml.load(payload)
+    #     #Check result SUBTEST 1
+    #     def on_contact_gk_subtest1(ch, mthd, prop, payload):
+    #         message = yaml.load(payload)
 
-            self.assertEqual(message['status'],
-                             'FOO',
-                             msg="Status not correct in SUBTEST 1")
+    #         self.assertEqual(message['status'],
+    #                          'FOO',
+    #                          msg="Status not correct in SUBTEST 1")
 
-            self.assertEqual(message['error'],
-                             'BAR',
-                             msg="Error not correct in SUBTEST 1")
+    #         self.assertEqual(message['error'],
+    #                          'BAR',
+    #                          msg="Error not correct in SUBTEST 1")
 
-            self.assertTrue('timestamp' in message.keys(),
-                             msg="Timestamp missing in SUBTEST 1")
+    #         self.assertTrue('timestamp' in message.keys(),
+    #                          msg="Timestamp missing in SUBTEST 1")
 
-            self.assertEqual(len(message.keys()),
-                             3,
-                            msg="Number of keys not correct in SUBTEST1")
-            self.firstEventFinished()
+    #         self.assertEqual(len(message.keys()),
+    #                          3,
+    #                         msg="Number of keys not correct in SUBTEST1")
+    #         self.firstEventFinished()
 
-        #Check result SUBTEST2
-        def on_contact_gk_subtest2(ch, mthd, prop, payload):
-            self.firstEventFinished()
+    #     #Check result SUBTEST2
+    #     def on_contact_gk_subtest2(ch, mthd, prop, payload):
+    #         self.firstEventFinished()
 
-            message = yaml.load(payload)
+    #         message = yaml.load(payload)
 
-            self.assertEqual(message['status'],
-                             'FOO',
-                             msg="Status not correct in SUBTEST 2")
+    #         self.assertEqual(message['status'],
+    #                          'FOO',
+    #                          msg="Status not correct in SUBTEST 2")
 
-            self.assertEqual(message['error'],
-                             'BAR',
-                             msg="Error not correct in SUBTEST 2")
+    #         self.assertEqual(message['error'],
+    #                          'BAR',
+    #                          msg="Error not correct in SUBTEST 2")
 
-            self.assertEqual(message['FOO'],
-                             'BAR',
-                             msg="Error not correct in SUBTEST 2")
+    #         self.assertEqual(message['FOO'],
+    #                          'BAR',
+    #                          msg="Error not correct in SUBTEST 2")
 
-            self.assertTrue('timestamp' in message.keys(),
-                             msg="Timestamp missing in SUBTEST 2")
+    #         self.assertTrue('timestamp' in message.keys(),
+    #                          msg="Timestamp missing in SUBTEST 2")
 
-            self.assertEqual(len(message.keys()),
-                             4,
-                            msg="Number of keys not correct in SUBTEST2")
+    #         self.assertEqual(len(message.keys()),
+    #                          4,
+    #                         msg="Number of keys not correct in SUBTEST2")
 
-        #SUBTEST1: Without additional content
-        #Setup
-        #Create the ledger
-        self.wait_for_first_event.clear()
-        service_dict = {}
-        service_id = str(uuid.uuid4())
-        corr_id = str(uuid.uuid4())
-        service_dict[service_id] = {'schedule': ['get_ledger'],
-                                    'original_corr_id':corr_id,
-                                    'pause_chain': True,
-                                    'status': 'FOO',
-                                    'error': 'BAR',
-                                    'kill_chain': False,
-                                    'topic': 'service.instances.create'}
+    #     #SUBTEST1: Without additional content
+    #     #Setup
+    #     #Create the ledger
+    #     self.wait_for_first_event.clear()
+    #     service_dict = {}
+    #     service_id = str(uuid.uuid4())
+    #     corr_id = str(uuid.uuid4())
+    #     service_dict[service_id] = {'schedule': ['get_ledger'],
+    #                                 'original_corr_id':corr_id,
+    #                                 'pause_chain': True,
+    #                                 'status': 'FOO',
+    #                                 'error': 'BAR',
+    #                                 'kill_chain': False,
+    #                                 'topic': 'service.instances.create'}
 
-        #Set the ledger
-        self.slm_proc.set_services(service_dict)
+    #     #Set the ledger
+    #     self.slm_proc.set_services(service_dict)
 
-        #Spy the message bus
-        self.manoconn_spy.subscribe(on_contact_gk_subtest1, 'service.instances.create')
+    #     #Spy the message bus
+    #     self.manoconn_spy.subscribe(on_contact_gk_subtest1, 'service.instances.create')
 
-        #Wait until subscription is completed
-        time.sleep(0.1)
+    #     #Wait until subscription is completed
+    #     time.sleep(0.1)
 
-        #Run the method
-        self.slm_proc.contact_gk(service_id)
+    #     #Run the method
+    #     self.slm_proc.contact_gk(service_id)
 
-        #Wait for the test to finish
-        self.waitForFirstEvent(timeout=5)
+    #     #Wait for the test to finish
+    #     self.waitForFirstEvent(timeout=5)
 
-        #SUBTEST2: With additional content
-        #Setup
-        self.wait_for_first_event.clear()
-        #Create the ledger
-        service_dict = {}
-        service_id = str(uuid.uuid4())
-        corr_id = str(uuid.uuid4())
-        add_content = {'FOO': 'BAR'}
-        service_dict[service_id] = {'schedule': ['get_ledger'],
-                                    'original_corr_id':corr_id,
-                                    'pause_chain': True,
-                                    'status': 'FOO',
-                                    'error': 'BAR',
-                                    'add_content': add_content,
-                                    'topic': 'service.instances.create'}
+    #     #SUBTEST2: With additional content
+    #     #Setup
+    #     self.wait_for_first_event.clear()
+    #     #Create the ledger
+    #     service_dict = {}
+    #     service_id = str(uuid.uuid4())
+    #     corr_id = str(uuid.uuid4())
+    #     add_content = {'FOO': 'BAR'}
+    #     service_dict[service_id] = {'schedule': ['get_ledger'],
+    #                                 'original_corr_id':corr_id,
+    #                                 'pause_chain': True,
+    #                                 'status': 'FOO',
+    #                                 'error': 'BAR',
+    #                                 'add_content': add_content,
+    #                                 'topic': 'service.instances.create'}
 
-        self.slm_proc.set_services(service_dict)
+    #     self.slm_proc.set_services(service_dict)
 
-        #Spy the message bus
-        self.manoconn_gk.subscribe(on_contact_gk_subtest2, 'service.instances.create')
+    #     #Spy the message bus
+    #     self.manoconn_gk.subscribe(on_contact_gk_subtest2, 'service.instances.create')
 
-        #Wait until subscription is completed
-        time.sleep(0.1)
+    #     #Wait until subscription is completed
+    #     time.sleep(0.1)
 
-        #Run the method
-        self.slm_proc.contact_gk(service_id)
+    #     #Run the method
+    #     self.slm_proc.contact_gk(service_id)
 
-        #Wait for the test to finish
-        self.waitForFirstEvent(timeout=5)
+    #     #Wait for the test to finish
+    #     self.waitForFirstEvent(timeout=5)
 
 ###############################################################
 #TEST8: test request_topology
