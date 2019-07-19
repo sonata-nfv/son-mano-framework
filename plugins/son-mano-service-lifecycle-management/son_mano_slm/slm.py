@@ -1644,6 +1644,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Build the message for the GK
         message = {}
         message['status'] = self.services[serv_id]['status']
+        message['serv_id'] = serv_id
         message['error'] = self.services[serv_id]['error']
         message['timestamp'] = time.time()
 
