@@ -174,18 +174,18 @@ class testSlmFunctionality(unittest.TestCase):
         corr_id = str(uuid.uuid4())
         service_dict[service_id] = {'original_corr_id':corr_id}
 
-        #SUBTEST1: Check a correctly formatted message
-        message = self.createGkNewServiceRequestMessage()
-        service_dict[service_id]['payload'] =  yaml.load(message)
+        # #SUBTEST1: Check a correctly formatted message
+        # message = self.createGkNewServiceRequestMessage()
+        # service_dict[service_id]['payload'] =  yaml.load(message)
 
-        self.slm_proc.set_services(service_dict)
-        self.slm_proc.validate_deploy_request(service_id)
-        result = self.slm_proc.get_services()
+        # self.slm_proc.set_services(service_dict)
+        # self.slm_proc.validate_deploy_request(service_id)
+        # result = self.slm_proc.get_services()
 
-        self.assertEqual({'status': result[service_id]['status'],
-                          'error': result[service_id]['error']},
-                         {'status': 'INSTANTIATING', 'error': None},
-                         msg="outcome and expected result not equal SUBTEST1.")
+        # self.assertEqual({'status': result[service_id]['status'],
+        #                   'error': result[service_id]['error']},
+        #                  {'status': 'INSTANTIATING', 'error': None},
+        #                  msg="outcome and expected result not equal SUBTEST1.")
 
         #SUBTEST2: Check a message that is not a dictionary
         message = "test message"
