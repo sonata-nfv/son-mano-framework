@@ -307,9 +307,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 self.start_next_task(serv_id)
 
         else:
-            # share state with other SLMs
-            self.slm_share('DONE', self.services[serv_id])
-
             del self.services[serv_id]
 
 ####################
@@ -2342,16 +2339,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
                         yaml.dump(content),
                         correlation_id=corr_id)
 
-    def slm_share(self, status, content):
-
-        message = {'status': status,
-                   'state': content,
-                   'corr_id': content['original_corr_id'],
-                   'slm_id': self.uuid}
-
-        payload = yaml.dump(message)
-        self.manoconn.notify('mano.inter.slm', payload)
-
     def update_nsr(self, serv_id):
 
         old_nsr = self.services[serv_id]['nsr']
@@ -3181,7 +3168,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         msg = ": response from monitoring manager: " + str(mon_resp)
         LOG.info("Service " + serv_id + msg)
 
-        if (mon_resp.status_code == 204):
+        if (mon_resp.status_code in [200, 201, 202, 203, 204]):
             LOG.info("Service " + serv_id + ": Monitoring DEL msg accepted")
         elif (mon_resp.status_code == 404):
             LOG.info("Service " + serv_id + ": No such service in monitoring")
@@ -3201,8 +3188,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # If an error occured, the workflow is aborted and the GK is informed
         if error is not None:
             self.error_handling(serv_id, t.GK_KILL, error)
-
-        return
+        else:
+            return
 
     def start_monitoring(self, serv_id):
         """
