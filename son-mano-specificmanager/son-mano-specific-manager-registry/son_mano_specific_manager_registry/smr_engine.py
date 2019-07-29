@@ -171,7 +171,7 @@ class SMREngine(object):
             LOG.info("Containers logs are not available due docker external logging system was configured")
         self.dc.stop(container=cn_name)
         self.dc.remove_container(container=cn_name, force=True)
-        self.dc.remove_image(image= image, force=True)
+#        self.dc.remove_image(image= image, force=True)
 
     def retrieve_broker_name(self, broker):
         mid = broker.find(',')
