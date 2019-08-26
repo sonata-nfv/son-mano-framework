@@ -1,0 +1,25 @@
+---
+# Running the Emulator (Docker container)
+- debug: msg="##### Emulator {{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}"
+- name: Emulator (Docker container)
+  docker_container:
+    name: vim-emu
+    image: "mpeuster/vim-emu"
+    restart_policy: "always"
+    network_mode: bridge
+    networks:
+      - name: "{{ docker_network_name }}"
+        aliases:
+          - vim-emu
+    state: started
+    recreate: yes
+    pull: false
+    privileged: true
+    pid_mode: 'host'
+    tty: true
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    command: 'python examples/tango_default_cli_topology_2_pop.py'
+  async: 20
+  poll: 0
+

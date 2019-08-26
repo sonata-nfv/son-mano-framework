@@ -72,12 +72,9 @@ class PlacementPlugin(ManoBasePlugin):
                  start_running=True):
         """
         Initialize class and son-mano-base.plugin.BasePlugin class.
-        This will automatically connect to the broker, contact the
-        plugin manager, and self-register this plugin to the plugin
-        manager.
+        This will automatically connect to the broker.
 
-        After the connection and registration procedures are done, the
-        'on_lifecycle_start' method is called.
+        After the connection is done, the 'on_lifecycle_start' method is called.
         :return:
         """
 
@@ -88,8 +85,6 @@ class PlacementPlugin(ManoBasePlugin):
 
         super(self.__class__, self).__init__(version=ver,
                                              description=des,
-                                             auto_register=auto_register,
-                                             wait_for_registration=wait_for_registration,
                                              start_running=start_running)
 
     def __del__(self):
@@ -126,24 +121,6 @@ class PlacementPlugin(ManoBasePlugin):
         """
         super(self.__class__, self).on_lifecycle_start(ch, mthd, prop, msg)
         LOG.info("Placement plugin started and operational.")
-
-    def deregister(self):
-        """
-        Send a deregister request to the plugin manager.
-        """
-        LOG.info('Deregistering Placement plugin with uuid ' + str(self.uuid))
-        message = {"uuid": self.uuid}
-        self.manoconn.notify("platform.management.plugin.deregister",
-                             json.dumps(message))
-        os._exit(0)
-
-    def on_registration_ok(self):
-        """
-        This method is called when the Placement plugin
-        is registered to the plugin mananger
-        """
-        super(self.__class__, self).on_registration_ok()
-        LOG.debug("Received registration ok event.")
 
 ##########################
 # Placement

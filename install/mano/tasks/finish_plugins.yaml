@@ -1,0 +1,45 @@
+---
+- debug: msg="##### Wait for async tasks to finish DEPLOYMENT {{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}"
+
+- name: SLM result check (Check coroutine)
+  async_status:
+    jid: "{{ slm_install.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  retries: 30
+
+- name: FLM result check (Check coroutine)
+  async_status:
+    jid: "{{ flm_install.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  retries: 30
+
+- name: PP result check (Check coroutine)
+  async_status:
+    jid: "{{ pp_install.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  retries: 30
+
+- name: SMR result check (Check coroutine)
+  async_status:
+    jid: "{{ smr_install.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  retries: 30
+
+- name: CAT result check (Check coroutine)
+  async_status:
+    jid: "{{ cat_install.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  retries: 30
+
+- name: REP result check (Check coroutine)
+  async_status:
+    jid: "{{ rep_install.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  retries: 30
+

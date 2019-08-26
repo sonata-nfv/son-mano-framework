@@ -1,0 +1,25 @@
+---
+# Running the Sonata MANO Function Lifecycle Management Docker Image
+- debug: msg="##### MANO Function Lifecycle Management DEPLOYMENT {{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}"
+- name: MANO Function Lifecycle Management Plugin (Docker container)
+  docker_container:
+    name: functionlifecyclemanagement
+    image: tsoenen/sonmano-flm
+    env:
+      cat_path: "http://tng-cat:4011/api/catalogues/v2"
+      repo_path: "http://tng-rep:4012"
+      vnfr_collection: vnfrs
+      monitoring_path: http://son-monitor-manager:8000/api/v1
+      broker_host: amqp://guest:guest@son-broker:5672/%2F
+    restart_policy: "always"
+    network_mode: bridge
+    networks:
+      - name: "{{ docker_network_name }}"
+        aliases:
+          - functionlifecyclemanagement
+    state: started
+    recreate: yes
+    pull: false
+  async: 20
+  poll: 0
+  register: flm_install

@@ -1,0 +1,22 @@
+---
+# Running the Sonata MONGODB (Docker container)
+- debug: msg="##### SP MONGODB DEPLOYMENT {{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}"
+- name: deploy MongoDB as a Container (used by Monitory)
+  docker_container:
+    name: "son-mongo"
+    image: "mongo"
+    volumes:
+      - "/etc/sonata/data/mongodb:/data/db"
+    state: started
+    recreate: yes
+    pull: false
+    restart_policy: "always"
+    network_mode: bridge
+    networks:
+      - name: "{{ docker_network_name }}"
+        aliases:
+          - son-mongo
+          - mongo
+    published_ports: 27017:27017
+  async: 20
+  poll: 0

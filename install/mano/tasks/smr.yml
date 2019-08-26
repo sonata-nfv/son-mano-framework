@@ -1,0 +1,26 @@
+---
+# Running the Sonata SP SPECIFIC MANAGER REGISTRY Docker Image
+- debug: msg="##### SP SPECIFIC MANAGER REGISTRY DEPLOYMENT {{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}"
+- name: MANO Specific Manager Registry (SMR) (Docker container)
+  docker_container:
+    name: specificmanagerregistry
+    image: tsoenen/sonmano-smr
+    env:
+      broker_host: amqp://guest:guest@son-broker:5672/%2F
+      broker_name: son-broker,broker
+    network_mode: bridge
+    networks:
+      - name: "{{ docker_network_name }}"
+        aliases:
+          - specificmanagerregistry
+        links:
+          - son-broker
+    restart_policy: "always"
+    state: started
+    recreate: yes
+    pull: false
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+  async: 20
+  poll: 0
+  register: smr_install

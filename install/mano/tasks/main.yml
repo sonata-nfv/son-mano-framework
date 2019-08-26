@@ -1,0 +1,26 @@
+---
+- import_tasks: network.yaml
+
+- import_tasks: emulator.yml
+
+- import_tasks: rabbitmq.yml
+
+- import_tasks: mongo.yml
+
+- import_tasks: finish_rabbitmq_mongo.yaml
+
+- import_tasks: cat.yml
+
+- import_tasks: rep.yml
+
+- import_tasks: slm.yml
+
+- import_tasks: flm.yml
+
+- import_tasks: smr.yml
+
+- import_tasks: placementplugin.yml
+
+- import_tasks: emu-wrapper.yml
+
+- import_tasks: finish_plugins.yaml

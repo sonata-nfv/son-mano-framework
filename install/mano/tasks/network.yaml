@@ -1,0 +1,5 @@
+---
+- name: Create network
+  shell: | 
+    /usr/bin/docker network create {{ docker_network_name }}
+    exit 0

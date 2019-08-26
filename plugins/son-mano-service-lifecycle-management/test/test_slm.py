@@ -76,7 +76,7 @@ class testSlmFunctionality(unittest.TestCase):
         self.corr_id = str(uuid.uuid4())
 
         #a new SLM in another process for each test
-        self.slm_proc = ServiceLifecycleManager(auto_register=False, start_running=False)
+        self.slm_proc = ServiceLifecycleManager(start_running=False)
 
         #We make a spy connection to listen to the different topics on the broker
         self.manoconn_spy = ManoBrokerRequestResponseConnection('son-plugin.SonSpy')
