@@ -47,7 +47,7 @@ docker run --name test.mano.smr --net=son-mano-unittests --network-alias==specif
 -e network_id=son-mano-unittests  -e broker_man_host=http://broker:15672 \
 -e broker_host=amqp://guest:guest@broker:5672/%2F \
 -e sm_broker_host=amqp://specific-management:sonata@broker:5672 \
-registry.sonata-nfv.eu:5000/specificmanagerregistry py.test -v
+registry.sonata-nfv.eu:5000/specificmanagerregistry py.test -v --fulltrace
 
 echo "Specific Manager Registry unittests finised"
 
