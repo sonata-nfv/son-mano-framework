@@ -64,17 +64,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
     """
 
     def __init__(self,
-                 auto_register=True,
-                 wait_for_registration=True,
                  start_running=True):
         """
         Initialize class and son-mano-base.plugin.BasePlugin class.
-        This will automatically connect to the broker, contact the
-        plugin manager, and self-register this plugin to the plugin
-        manager.
+        This will automatically connect to the broker.
 
-        After the connection and registration procedures are done, the
-        'on_lifecycle_start' method is called.
+        After the connection is done, the 'on_lifecycle_start' method is called.
         :return:
         """
 
@@ -99,21 +94,16 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.service_requests_being_handled = {}
         self.service_updates_being_handled = {}
 
-        # call super class (will automatically connect to
-        # broker and register the SLM to the plugin manger)
         ver = "0.1-dev"
         des = "This is the SLM plugin"
 
-        wait_reg = wait_for_registration
         super(self.__class__, self).__init__(version=ver,
                                              description=des,
-                                             auto_register=auto_register,
-                                             wait_for_registration=wait_reg,
                                              start_running=start_running)
 
     def __del__(self):
         """
-        Destroy SLM instance. De-register. Disconnect.
+        Destroy SLM instance. Disconnect.
         :return:
         """
         super(self.__class__, self).__del__()
@@ -152,12 +142,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # The topic on which the the SLM receives life cycle migrate events
         self.manoconn.subscribe(self.service_instance_migrate, t.MANO_MIGRATE)
 
-
-    def on_lifecycle_start(self, ch, mthd, prop, msg):
+    def on_lifecycle_start(self):
         """
-        This event is called when the plugin has successfully registered itself
-        to the plugin manager and received its lifecycle.start event from the
-        plugin manager. The plugin is expected to do its work after this event.
+        This event is called when the plugin has successfully started.
 
         :param ch: RabbitMQ channel
         :param method: RabbitMQ method
@@ -165,7 +152,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         :param message: RabbitMQ message content
         :return:
         """
-        super(self.__class__, self).on_lifecycle_start(ch, mthd, prop, msg)
+        super(self.__class__, self).on_lifecycle_start()
         LOG.info("SLM started and operational. Registering with the GK...")
 
         LOG.info("configured nsd path: " + str(t.nsd_path))
@@ -173,60 +160,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         LOG.info("configured nsr path: " + str(t.nsr_path))
         LOG.info("configured vnfr path: " + str(t.vnfr_path))
         LOG.info("configured monitoring path: " + str(t.monitoring_path))
-
-#        self.register_slm_with_gk()
-
-    def register_slm_with_gk(self):
-        """
-        This methods tries to register the SLM with the GK
-        """
-        counter = 0
-        while counter < 3:
-            try:
-                user = self.clientId
-                secr = self.password
-                # Get Public key
-                url = t.BASE_URL + t.API_VER + t.REG_PATH + t.PUPLIC_KEY_PATH
-                self.publickey = tools.get_platform_public_key(url)
-                LOG.info("Received key: " + str(self.publickey))
-
-                # Register
-                response = tools.client_register(t.GK_REGISTER, user, secr)
-                LOG.info("Registration response: " + str(response))
-
-                # Login
-                self.token = tools.client_login(t.GK_LOGIN, user, secr)
-                LOG.info("Login response: " + str(self.token))
-            except:
-                pass
-
-            if self.token is None:
-                LOG.info("Registration with GK failed, retrying...")
-                counter = counter + 1
-            else:
-                break
-
-        if self.token is None:
-            LOG.info("Registration with GK failed, continuing without token.")
-        else:
-            LOG.info("Registration with GK succeeded, token obtained.")
-
-    def deregister(self):
-        """
-        Send a deregister request to the plugin manager.
-        """
-        LOG.info('Deregistering SLM with uuid ' + str(self.uuid))
-        message = {"uuid": self.uuid}
-        self.manoconn.notify("platform.management.plugin.deregister",
-                             json.dumps(message))
-        os._exit(0)
-
-    def on_registration_ok(self):
-        """
-        This method is called when the SLM is registered to the plugin mananger
-        """
-        super(self.__class__, self).on_registration_ok()
-        LOG.debug("Received registration ok event.")
 
 ##########################
 # SLM Threading management
@@ -2154,7 +2087,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         required SSMs.
 
         :param serv_id: The instance uuid of the service
-        :param ssm_id: which ssm you want to deploy
         """
 
         corr_id = str(uuid.uuid4())
@@ -2193,7 +2125,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         self.services[serv_id]['act_corr_id'] = corr_id
 
         # Select the master SSM and create topic to reach it on
-        ssm_id = self.services[serv_id]['ssm']['task']['uuid']
         topic = "generic.ssm." + str(serv_id)
 
         # Adding the schedule to the message
@@ -2232,7 +2163,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
             return self.SLM_mapping(serv_id)
         # build message for placement SSM
         nsd = self.services[serv_id]['nsd']
-        top = self.services[serv_id]['infrastructure']['vims']
+        top = {}
+        top['vims'] = self.services[serv_id]['infrastructure']['vims']
+        top['wims'] = self.services[serv_id]['infrastructure']['wims']
 
         vnfds = []
         for function in self.services[serv_id]['function']:
@@ -2240,28 +2173,35 @@ class ServiceLifecycleManager(ManoBasePlugin):
             vnfd_to_add['instance_uuid'] = function['id']
             vnfds.append(function['vnfd'])
 
-        message = {'nsd': nsd,
+        content = {'nsd': nsd,
                    'topology': top,
                    'uuid': serv_id,
                    'vnfds': vnfds}
 
-        message['nap'] = {}
+        content['nap'] = {}
 
         if self.services[serv_id]['ingress'] is not None:
-            message['nap']['ingresses'] = self.services[serv_id]['ingress']
+            content['nap']['ingresses'] = self.services[serv_id]['ingress']
         if self.services[serv_id]['egress'] is not None:
-            message['nap']['egresses'] = self.services[serv_id]['egress']
+            content['nap']['egresses'] = self.services[serv_id]['egress']
+
+        # Adding the ssm type
+        message = {}
+        message['content'] = content
+        message['ssm_type'] = 'placement'
+
+        payload = yaml.dump(message)
 
         # Contact SSM
-        payload = yaml.dump(message)
+        topic = "generic.ssm." + str(serv_id)
+        ssm_conn = self.ssm_connections[serv_id]
+        ssm_conn.call_async(self.resp_place,
+                            topic,
+                            payload,
+                            correlation_id=corr_id)
 
         msg = ": Placement requested from SSM: " + str(message.keys())
         LOG.info("Service " + serv_id + msg)
-
-        self.manoconn.call_async(self.resp_place,
-                                 t.EXEC_PLACE,
-                                 payload,
-                                 correlation_id=corr_id)
 
         # Pause the chain of tasks to wait for response
         self.services[serv_id]['pause_chain'] = True
@@ -2687,7 +2627,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         LOG.info("Service " + serv_id + ": State ssm completed.")
         LOG.info("Service " + serv_id + payload)
 
-        if str(message['status']) != str('completed'):
+        if str(message['status']) != str('COMPLETED'):
             error = message['content']
             LOG.info('Error occured during state ssm: ' + str(error))
             self.error_handling(serv_id, t.MANO_MIGRATE, error)

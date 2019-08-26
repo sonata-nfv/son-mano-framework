@@ -30,9 +30,20 @@
 # acknowledge the contributions of their colleagues of the 5GTANGO
 # partner consortium (www.5gtango.eu).
 
-
 FROM python:3.4-slim
 MAINTAINER SONATA
+
+# install broker with fix
+RUN apt-get update && apt-get install -y git && git clone --single-branch --branch feature/reuse_channels https://github.com/eandersson/amqpstorm.git && apt-get purge -y git
+WORKDIR /amqpstorm
+RUN python setup.py install
+
+# add generic project files
+ADD son-mano-base /son-mano-base
+
+# install son-mano-base to be able to use the plugin base class etc.
+WORKDIR /son-mano-base
+RUN python setup.py install
 
 # define plugin name once
 ENV PLUGIN_BASE son-mano-function-lifecycle-management
@@ -52,19 +63,7 @@ ENV vnfr_collection vnfr/vnf-instances
 # Monitoring information
 ENV monitoring_path http://son-monitor-manager:8000/api/v1
 
-RUN apt-get update && apt-get install -y glpk-utils && apt-get install -y python3-pip
-RUN apt-get install -y git
-RUN pip install git+git://github.com/eandersson/amqpstorm.git@feature/reuse_channels
-
-# add generic project files
-ADD son-mano-base /son-mano-base
-
-# install son-mano-base to be able to use the plugin base class etc.
-WORKDIR /son-mano-base
-RUN python setup.py install
-
 # add plugin related files
-WORKDIR /
 ADD plugins/${PLUGIN_BASE} /plugins/${PLUGIN_BASE}
 
 # install actual plugin

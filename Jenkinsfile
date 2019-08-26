@@ -15,12 +15,6 @@ pipeline {
             sh './pipeline/build/functionlifecyclemanagement.sh'
           }
         }
-        stage('Plugin Manager') {
-          steps {
-            echo 'Building Plugin Manager container'
-            sh './pipeline/build/pluginmanager.sh'
-          }
-        }
         stage('sonmanobase') {
           steps {
             echo 'Building sonmanobase container'
@@ -31,12 +25,6 @@ pipeline {
           steps {
             echo 'Building Specific Manager Registry container'
             sh './pipeline/build/specificmanagerregistry.sh'
-          }
-        }
-        stage('Placement Executive') {
-          steps {
-            echo 'Building Placement Executive container'
-            sh './pipeline/build/placementexecutive.sh'
           }
         }
         stage('Placement Plugin') {
@@ -50,16 +38,6 @@ pipeline {
     stage('Unittest Dependencies') {
       steps {
         sh './pipeline/unittest/create_dependencies.sh'
-      }
-    }
-    stage('Unittest Plugin Manager') {
-      steps {
-        sh './pipeline/unittest/pluginmanager_unittest.sh'
-      }
-    }
-    stage('Uniittest next dependencies') {
-      steps {
-        sh './pipeline/unittest/create_pm_dependency.sh'
       }
     }
     stage('Unittest Specifc Manager Registry') {
@@ -84,11 +62,6 @@ pipeline {
             sh './pipeline/unittest/sonmanobase_unittest.sh'
           }
         }
-        stage('Unittest Placement Executive') {
-          steps {
-            sh './pipeline/unittest/placementexecutive_unittest.sh'
-          }
-        }
         stage('Unittest Placement Plugin') {
           steps {
             sh './pipeline/unittest/placementplugin_unittest.sh'
@@ -108,11 +81,6 @@ pipeline {
             sh './pipeline/checkstyle/functionlifecyclemanager_stylecheck.sh || true'
           }
         }
-        stage('Plugin Manager') {
-          steps {
-            sh './pipeline/checkstyle/pluginmanager_stylecheck.sh || true'
-          }
-        }
         stage('sonmanobase') {
           steps {
             sh './pipeline/checkstyle/sonmanobase_stylecheck.sh || true'
@@ -121,11 +89,6 @@ pipeline {
         stage('Specifc Manager Registry') {
           steps {
             sh './pipeline/checkstyle/specificmanagerregistry_stylecheck.sh || true'
-          }
-        }
-        stage('Placement Executive') {
-          steps {
-            sh './pipeline/checkstyle/placementexecutive_stylecheck.sh || true'
           }
         }
         stage('Placement Plugin') {
@@ -149,12 +112,6 @@ pipeline {
             sh './pipeline/publish/functionlifecyclemanagement.sh latest'
           }
         }
-        stage('Plugin Manager') {
-          steps {
-            echo 'Publishing Plugin Manager container'
-            sh './pipeline/publish/pluginmanager.sh latest'
-          }
-        }
         stage('sonmanobase') {
           steps {
             echo 'Publishing sonmanobase container'
@@ -165,12 +122,6 @@ pipeline {
           steps {
             echo 'Publishing Specific Manager Registry container'
             sh './pipeline/publish/specificmanagerregistry.sh latest'
-          }
-        }
-        stage('Placement Executive') {
-          steps {
-            echo 'Publishing Placement Executive container'
-            sh './pipeline/publish/placementexecutive.sh latest'
           }
         }
         stage('Placement Plugin') {
@@ -212,12 +163,6 @@ pipeline {
             sh './pipeline/publish/functionlifecyclemanagement.sh int'
           }
         }
-        stage('Plugin Manager') {
-          steps {
-            echo 'Publishing Plugin Manager container'
-            sh './pipeline/publish/pluginmanager.sh int'
-          }
-        }
         stage('sonmanobase') {
           steps {
             echo 'Publishing sonmanobase container'
@@ -228,12 +173,6 @@ pipeline {
           steps {
             echo 'Publishing Specific Manager Registry container'
             sh './pipeline/publish/specificmanagerregistry.sh int'
-          }
-        }
-        stage('Placement Executive') {
-          steps {
-            echo 'Publishing Placement Executive container'
-            sh './pipeline/publish/placementexecutive.sh int'
           }
         }
         stage('Placement Plugin') {

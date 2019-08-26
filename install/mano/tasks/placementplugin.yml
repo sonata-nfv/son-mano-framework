@@ -1,0 +1,21 @@
+---
+# Running the Sonata MANO Placement Plugin (Docker container)
+- debug: msg="##### SP MANO Placement Plugin DEPLOYMENT {{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}"
+- name: MANO Placement Plugin (Docker container)
+  docker_container:
+    name: placementplugin
+    image: tsoenen/sonmano-plm
+    env:
+      broker_host: amqp://guest:guest@son-broker:5672/%2F
+    restart_policy: "always"
+    network_mode: bridge
+    networks:
+      - name: "{{ docker_network_name }}"
+        aliases:
+          - placementplugin
+    state: started
+    recreate: yes
+    pull: false
+  async: 20
+  poll: 0
+  register: pp_install

@@ -33,11 +33,8 @@
 FROM python:3.4-slim
 MAINTAINER SONATA
 
-# install required packages
-RUN apt-get update && apt-get install -y git && apt-get install -y glpk-utils
-RUN git clone --single-branch --branch feature/reuse_channels https://github.com/eandersson/amqpstorm.git && git clone https://github.com/coin-or/pulp.git
-WORKDIR /pulp
-RUN git checkout tags/1.6.10 && apt-get purge -y git && python setup.py install
+# install broker with fix
+RUN apt-get update && apt-get install -y git && git clone --single-branch --branch feature/reuse_channels https://github.com/eandersson/amqpstorm.git && apt-get purge -y git
 WORKDIR /amqpstorm
 RUN python setup.py install
 
@@ -48,20 +45,17 @@ ADD son-mano-base /son-mano-base
 WORKDIR /son-mano-base
 RUN python setup.py install
 
-# define plugin name once
-ENV PLUGIN_BASE son-mano-placement
-
-# Configuration
-ENV broker_host amqp://guest:guest@broker:5672/%2F
+# configrurations
+ENV network_id sonata
+ENV broker_host amqp://guest:guest@son-broker:5672/%2F
+ENV broker_man_host http://son-broker:15672
+ENV sm_broker_host amqp://specific-management:sonata@son-broker:5672
 ENV broker_exchange son-kernel
+ENV DOCKER_HOST unix://var/run/docker.sock
 
-# add plugin related files
-ADD plugins/${PLUGIN_BASE} /plugins/${PLUGIN_BASE}
-
-# install actual plugin
-WORKDIR /plugins/${PLUGIN_BASE}
+# Add specific plugin
+ADD plugins/son-mano-specificmanager/ /son-mano-specific-manager
+WORKDIR /son-mano-specific-manager
 RUN python setup.py develop
 
-CMD ["son-mano-placement"]
-
-
+CMD ["son-mano-specific-manager-registry"]

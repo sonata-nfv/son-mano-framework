@@ -1,0 +1,23 @@
+---
+# Running the Sonata SP BROKER (Docker container)
+- debug: msg="##### SP BROKER DEPLOYMENT {{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}"
+- name: run the SP Message Bus
+  docker_container:
+    name: "son-broker"
+    image: "rabbitmq:3.6.15-management"
+    env:
+      RABBITMQ_CONSOLE_LOG: new
+    state: started
+    recreate: yes
+    pull: true
+    restart_policy: "always"
+    network_mode: bridge
+    networks:
+      - name: "{{ docker_network_name }}"
+        aliases:
+          - son-broker
+    published_ports:
+      - "5672:5672"
+      - "15672:15672"
+  async: 20
+  poll: 0

@@ -1,0 +1,7 @@
+---
+- debug: msg="##### Waiting for rabbitmq and mongodb DEPLOYMENT {{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}"
+- name: Wait until the string "Mongodb" is UP
+  wait_for: host=0.0.0.0 port=27017 timeout=30 delay=0 state=started
+
+- name: Wait until the string "Rabbitmq" is UP
+  wait_for: host=0.0.0.0 port=5672 timeout=30 delay=0 state=started

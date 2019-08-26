@@ -1,0 +1,27 @@
+---
+# Running the Sonata SP  MANO Service Life-cycle Management (Docker container)
+- debug: msg="##### SP  MANO Service Life-cycle Management DEPLOYMENT {{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}"
+- name: MANO Service Life-cycle Management (SLM) (Docker container)
+  docker_container:
+    name: servicelifecyclemanagement
+    image: tsoenen/sonmano-slm
+    env:
+      cat_path: "http://tng-cat:4011/api/catalogues/v2"
+      repo_path: "http://tng-rep:4012"
+      nsr_collection: nsrs
+      vnfr_collection: vnfrs
+      broker_host: amqp://guest:guest@son-broker:5672/%2F
+    network_mode: bridge
+    networks:
+      - name: "{{ docker_network_name }}"
+        aliases:
+          - servicelifecyclemanagement
+        links:
+          - son-broker
+    restart_policy: "always"
+    state: started
+    recreate: yes
+    pull: false
+  async: 20
+  poll: 0
+  register: slm_install

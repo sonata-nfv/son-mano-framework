@@ -69,17 +69,12 @@ class FunctionLifecycleManager(ManoBasePlugin):
     """
 
     def __init__(self,
-                 auto_register=True,
-                 wait_for_registration=True,
                  start_running=True):
         """
         Initialize class and son-mano-base.plugin.BasePlugin class.
-        This will automatically connect to the broker, contact the
-        plugin manager, and self-register this plugin to the plugin
-        manager.
+        This will automatically connect to the broker,.
 
-        After the connection and registration procedures are done, the
-        'on_lifecycle_start' method is called.
+        After this, the 'on_lifecycle_start' method is called.
         :return:
         """
 
@@ -104,8 +99,6 @@ class FunctionLifecycleManager(ManoBasePlugin):
 
         super(self.__class__, self).__init__(version=ver,
                                              description=des,
-                                             auto_register=auto_register,
-                                             wait_for_registration=wait_for_registration,
                                              start_running=start_running)
 
     def __del__(self):
@@ -143,7 +136,7 @@ class FunctionLifecycleManager(ManoBasePlugin):
         # The topic on which state requests are posted.
         self.manoconn.subscribe(self.function_instance_state, t.VNF_STATE)
 
-    def on_lifecycle_start(self, ch, mthd, prop, msg):
+    def on_lifecycle_start(self):
         """
         This event is called when the plugin has successfully registered itself
         to the plugin manager and received its lifecycle.start event from the
@@ -155,30 +148,12 @@ class FunctionLifecycleManager(ManoBasePlugin):
         :param message: RabbitMQ message content
         :return:
         """
-        super(self.__class__, self).on_lifecycle_start(ch, mthd, prop, msg)
+        super(self.__class__, self).on_lifecycle_start()
         LOG.info("FLM started and operational.")
 
         LOG.info("configured vnfd path: " + str(t.vnfd_path))
         LOG.info("configured vnfr path: " + str(t.vnfr_path))
         LOG.info("configured monitoring path: " + str(t.monitoring_path))
-
-
-    def deregister(self):
-        """
-        Send a deregister request to the plugin manager.
-        """
-        LOG.info('Deregistering FLM with uuid ' + str(self.uuid))
-        message = {"uuid": self.uuid}
-        self.manoconn.notify("platform.management.plugin.deregister",
-                             json.dumps(message))
-        os._exit(0)
-
-    def on_registration_ok(self):
-        """
-        This method is called when the FLM is registered to the plugin mananger
-        """
-        super(self.__class__, self).on_registration_ok()
-        LOG.debug("Received registration ok event.")
 
 ##########################
 # FLM Threading management

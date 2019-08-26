@@ -33,7 +33,17 @@
 FROM python:3.4-slim
 MAINTAINER SONATA
 
-RUN apt-get update && apt-get install -y gcc && apt-get install -y git
+# install broker with fix
+RUN apt-get update && apt-get install -y git && git clone --single-branch --branch feature/reuse_channels https://github.com/eandersson/amqpstorm.git && apt-get purge -y git
+WORKDIR /amqpstorm
+RUN python setup.py install
+
+# add generic project files
+ADD son-mano-base /son-mano-base
+
+# install son-mano-base to be able to use the plugin base class etc.
+WORKDIR /son-mano-base
+RUN python setup.py install
 
 # define plugin name once
 ENV PLUGIN_BASE son-mano-service-lifecycle-management
@@ -55,19 +65,7 @@ ENV vnfr_collection vnfr/vnf-instances
 # Monitoring information
 # ENV monitoring_path http://son-monitor-manager:8000/api/v1
 
-RUN pip install git+git://github.com/eandersson/amqpstorm.git@feature/reuse_channels
-# RUN pip install git+git://github.com/eandersson/amqpstorm.git
-
-# add generic project files
-ADD son-mano-base /son-mano-base
-ADD utils/delayedstart.sh /delayedstart.sh
-
-# install son-mano-base to be able to use the plugin base class etc.
-WORKDIR /son-mano-base
-RUN python setup.py install
-
 # add plugin related files
-WORKDIR /
 ADD plugins/${PLUGIN_BASE} /plugins/${PLUGIN_BASE}
 
 # install actual plugin

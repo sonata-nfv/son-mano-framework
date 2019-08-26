@@ -35,7 +35,6 @@ import uuid
 import yaml
 import json
 import base64
-from Crypto.PublicKey import RSA
 
 
 def convert_corr_id(corr_id):
@@ -209,21 +208,6 @@ def build_nsr(request_status, nsd, vnfr_ids, serv_id, vls, flavour=None, sid=Non
         nsr['flavour'] = flavour
 
     return nsr
-
-
-def get_platform_public_key(url):
-    """
-    This method gets the public key from the platform
-    """
-#    try:
-    response = requests.get(url, verify=False)
-    parsed_key = json.loads(response.text)
-    parsed_key = parsed_key['items']['public-key']
-    platform_public_key = "-----BEGIN PUBLIC KEY-----\n"
-    platform_public_key += parsed_key
-    platform_public_key += "\n-----END PUBLIC KEY-----\n"
-
-    return RSA.importKey(platform_public_key).exportKey('PEM')
 
 
 def client_register(url, module_id, password):

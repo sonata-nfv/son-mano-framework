@@ -38,47 +38,42 @@ from os import path
 
 here = path.abspath(path.dirname(__file__))
 
-# configure plugin name here
-PLUGIN_NAME = "son-mano-service-lifecycle-management"
-
-# generate a name without dashes
-PLUGIN_NAME_CLEAR = "son_mano_slm"
-
 # Get the long description from the README file
 with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name=PLUGIN_NAME_CLEAR,
+    name='son_mano_specific_manager_registry',
 
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.9',
+    version='v0.2',
 
-    description='SONATA service lifecycle management plugin',
+    description='SONATA MANO framework SSM/FSM manager',
     long_description=long_description,
 
     # The project's main homepage.
-    url='https://github.com/sonata-nfv/son-mano-framework/',
+    url='https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-specificmanager',
 
     # Author details
-    author='SONATA',
-    author_email='info@sonata-nfv.eu',
+    author='Hadi Razzaghi Kouchaksaraei',
+    author_email='hadi.razzaghi@upb.de',
 
     # Choose your license
     license='Apache 2.0',
 
+    # What does your project relate to?
+    keywords='NFV orchestrator',
+
     packages=find_packages(),
-    install_requires=[],
-    setup_requires=[],
+    install_requires=['pytest', 'requests', 'docker-py==1.9.0', 'rabbitmq-admin'],
+    setup_requires=['pytest-runner'],
 
     # To provide executable scripts, use entry points in preference to the
     # "scripts" keyword. Entry points provide cross-platform support and allow
     # pip to create the appropriate form of executable for the target platform.
     entry_points={
-        'console_scripts': [
-            '%s=%s.__main__:main' % (PLUGIN_NAME, PLUGIN_NAME_CLEAR),
-        ],
+        'console_scripts': ['son-mano-specific-manager-registry=son_mano_specific_manager_registry.__main__:main'],
     },
 )

@@ -1,0 +1,21 @@
+---
+# Running the Sonata REPOSITORIES (Docker container)
+- debug: msg="##### SP REPOs DEPLOYMENT {{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}"
+- name: deploy REPOSITORIES as a Docker container (from the Registry to the SP VM appliance)
+  docker_container:
+    name: tng-rep
+    image: sonatanfv/tng-rep:dev
+    state: started
+    recreate: yes
+    pull: false
+    restart_policy: "always"
+    network_mode: bridge
+    networks:
+      - name: "{{ docker_network_name }}"
+        aliases:
+          - tng-rep
+    dns_servers: "8.8.8.8"
+    published_ports: "4012:4012"
+  async: 20
+  poll: 0
+  register: rep_install

@@ -33,23 +33,20 @@
 FROM python:3.4-slim
 MAINTAINER SONATA
 
+# install broker with fix
+RUN apt-get update && apt-get install -y git && git clone --single-branch --branch feature/reuse_channels https://github.com/eandersson/amqpstorm.git && apt-get purge -y git
+WORKDIR /amqpstorm
+RUN python setup.py install
+
+# add generic project files
+ADD son-mano-base /son-mano-base
+
+# install son-mano-base to be able to use the plugin base class etc.
+WORKDIR /son-mano-base
+RUN python setup.py install
+
 # Configuration
 ENV broker_host amqp://guest:guest@broker:5672/%2F
 ENV broker_exchange son-kernel
 
-RUN apt-get update && apt-get install -y glpk-utils && apt-get install -y python3-pip
-RUN apt-get install -y git
-RUN pip install git+git://github.com/eandersson/amqpstorm.git@feature/reuse_channels
-
-ADD son-mano-base /son-mano-base
-ADD utils/delayedstart.sh /delayedstart.sh
-ADD test/misc /son-mano-base/test/misc
-
-WORKDIR /son-mano-base
-
-# we need to install in develop mode in order to use py.test
-RUN python setup.py develop
-# run all discovered unittests
 CMD ["py.test",  "-v"]
-
-

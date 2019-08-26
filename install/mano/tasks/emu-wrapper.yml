@@ -1,0 +1,24 @@
+---
+# Running the Sonata Infrastructure abstraction Emulator Wrapper (Docker container)
+- debug: msg="##### IA Emulator Wrapper {{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}"
+- name: Infrastructure abstraction Emulator Wrapper (Docker container)
+  docker_container:
+    name: tng-sp-ia-emu
+    image: "tsoenen/sonmano-emuwrapper"
+    env:
+      broker_host: amqp://guest:guest@son-broker:5672/%2F
+      # broker_exchange: son-kernel-ia
+      # topic_prefix: "emu"
+      # path_to_nbi: "http://pre-int-sp-ath.5gtango.eu:8083/api/ia/v1"
+      emulator_path: "http://vim-emu:5001/restapi/"
+    restart_policy: "always"
+    network_mode: bridge
+    networks:
+      - name: "{{ docker_network_name }}"
+        aliases:
+          - tng-sp-ia-emu
+    state: started
+    recreate: yes
+    pull: false
+  async: 20
+  poll: 0

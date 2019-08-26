@@ -30,38 +30,4 @@
 # acknowledge the contributions of their colleagues of the 5GTANGO
 # partner consortium (www.5gtango.eu).
 
-FROM python:3.4-slim
-MAINTAINER SONATA
-
-# install required packages
-RUN apt-get update && apt-get install -y git && apt-get install -y glpk-utils
-RUN git clone --single-branch --branch feature/reuse_channels https://github.com/eandersson/amqpstorm.git && git clone https://github.com/coin-or/pulp.git
-WORKDIR /pulp
-RUN git checkout tags/1.6.10 && apt-get purge -y git && python setup.py install
-WORKDIR /amqpstorm
-RUN python setup.py install
-
-# add generic project files
-ADD son-mano-base /son-mano-base
-
-# install son-mano-base to be able to use the plugin base class etc.
-WORKDIR /son-mano-base
-RUN python setup.py install
-
-# define plugin name once
-ENV PLUGIN_BASE son-mano-placement
-
-# Configuration
-ENV broker_host amqp://guest:guest@broker:5672/%2F
-ENV broker_exchange son-kernel
-
-# add plugin related files
-ADD plugins/${PLUGIN_BASE} /plugins/${PLUGIN_BASE}
-
-# install actual plugin
-WORKDIR /plugins/${PLUGIN_BASE}
-RUN python setup.py develop
-
-CMD ["son-mano-placement"]
-
-
+from sonmano.consume import *
