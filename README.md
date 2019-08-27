@@ -83,7 +83,7 @@ To contribute, go through these steps:
 2. Work on your proposed changes, preferably through submiting [issues](https://github.com/sonata-nfv/son-mano-framework/issues);
 3. Push changes on your fork;
 3. Submit a Pull Request;
-4. Follow/answer related [issues](https://github.com/sonata-nfv/son-mano-framework/issues) (see Feedback-Chanel, below).
+4. Follow/answer related [issues](https://github.com/sonata-nfv/son-mano-framework/issues) (see Feedback-Channel, below).
 
 ## License
 
