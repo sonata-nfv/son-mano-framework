@@ -70,7 +70,7 @@ When installing for the first time, run the following command to download the co
 ./install/pull_containers.sh
 ```
 
-At this point, you are running the MANO Framework locally, orchestrating on locally emulated resources. It is possible to orchestrate resources that are being managed by other virtual infrastructure managers (e.g. OpenStack, Kubernetes, etc.) if you replace the Emulator Wrapper with a dedicated wrapper for your VIM. Instructions on how to create such a wrapper can be found [here]().
+At this point, you are running the MANO Framework locally, orchestrating on locally emulated resources. It is possible to orchestrate resources that are being managed by other virtual infrastructure managers (e.g. OpenStack, Kubernetes, etc.) if you replace the Emulator Wrapper with a dedicated wrapper for your VIM. Instructions on how to create such a wrapper can be found [here](https://github.com/sonata-nfv/son-mano-framework/wiki/Vim-And-Wim-Wrappers).
 
 To start using the standalone MANO Framework, you can use the `sonmano` Python3 library which consumes the MANO Framework API. You can install this library with
 
