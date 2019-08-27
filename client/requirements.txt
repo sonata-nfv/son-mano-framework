@@ -2,5 +2,4 @@ setuptools
 requests
 pyaml
 amqpstorm
-git+https://github.com/yumimobi/graylog.py.git#egg=graylog
-git+https://github.com/sonata-nfv/tng-sdk-package.git#egg=tngsdk.package
+tngsdk.package

@@ -1194,13 +1194,12 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Retrieve the service uuid
         serv_id = tools.servid_from_corrid(self.services, prop.correlation_id)
 
-        if type(message) == dict:
+        if 'wim_list' in message.keys():
+            LOG.info("Service " + serv_id + ": WIM topology received from IA.")
+            self.services[serv_id]['infrastructure']['wims'] = message['wim_list']
+        else:
             LOG.info("Service " + serv_id + ": VIM topology received from IA.")
             self.services[serv_id]['infrastructure']['vims'] = message
-
-        if type(message) == list:
-            LOG.info("Service " + serv_id + ": WIM topology received from IA.")
-            self.services[serv_id]['infrastructure']['wims'] = message
 
         # Deduct from the number of topo responses to expect
         self.services[serv_id]['topo_responses'] -= 1
