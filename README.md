@@ -64,7 +64,11 @@ Dependencies for this installation are:
 * Docker > 17.12.0-ce
 * Python3 Docker package > 3.4.1 (`pip3 install docker`)
 
-When installing for the first time, run `./install/pull_containers.sh` to download the container images.
+When installing for the first time, run the following command to download the container images
+
+```bash
+./install/pull_containers.sh
+```
 
 At this point, you are running the MANO Framework locally, orchestrating on locally emulated resources. It is possible to orchestrate resources that are being managed by other virtual infrastructure managers (e.g. OpenStack, Kubernetes, etc.) if you replace the Emulator Wrapper with a dedicated wrapper for your VIM. Instructions on how to create such a wrapper can be found [here]().
 
