@@ -8,12 +8,11 @@ The MANO Framework is at the core of [**SONATA's (powered by 5GTANGO)**](https:/
 * instantiate a service,
 * scale out/in a service instance,
 * migrate (part of) a service instance,
-* reconfigure a service instance based on monitoring data
 * and terminate a service instance.
 
-It is possible for the network serivce and VNF developers to customise the workflows associated to the above supported requests. Through a mechanism of specific managers, the behaviour of the MANO Framework can be altered on a per service/vnf basis. More information on this can be found in the [wiki](https://github.com/sonata-nfv/son-mano-framework/wiki/Service-and-Function-Specific-Managers).
+It is possible for network service and VNF developers to customise the workflows associated to the supported requests. Through a mechanism of specific managers, the behaviour of the MANO Framework can be altered on a per service/vnf basis. More information on this can be found in the [wiki](https://github.com/sonata-nfv/son-mano-framework/wiki/Service-and-Function-Specific-Managers).
 
-The MANO Framework functionaity is build from a set of loosely coupled components (micro-services) that use a message broker to communicate, thus providing a highly flexible orchestration system. The main orchestration functionalities are currently implemented in the [service lifecycle management plugin (SLM)](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-service-lifecycle-management). The SLM uses the [function lifecycle management plugin (FLM)](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-function-lifecycle-management) to perform tasks on the level of the vnf and the [specific manager registry (SMR)](https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-specificmanager) for customised events that are embedded in service specific managers (SSMs) and function specific managers (FSMs). The [Placement Plugin](https://github.com/sonata-nfv/son-mano-framework/wiki/Placement-Plugin) performs all calculations related to optimising the resources usage.
+The MANO Framework functionaity is build from a set of loosely coupled components (micro-services) which use a message broker to communicate. The main orchestration functionalities are currently implemented in the [service lifecycle management plugin (SLM)](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-service-lifecycle-management). The SLM uses the [function lifecycle management plugin (FLM)](https://github.com/sonata-nfv/son-mano-framework/tree/master/plugins/son-mano-function-lifecycle-management) to perform orchestration tasks on the level of the VNF and the [specific manager registry (SMR)](https://github.com/sonata-nfv/son-mano-framework/tree/master/son-mano-specificmanager) for customised events that are embedded in service specific managers (SSMs) and function specific managers (FSMs). The [Placement Plugin](https://github.com/sonata-nfv/son-mano-framework/wiki/Placement-Plugin) performs all calculations related to optimising the resources usage.
 
 Some useful links:
 
@@ -23,17 +22,17 @@ Some useful links:
 
 # Development
 
-Each MANO Framework component is developed in python. For flexibility reasons, they can be packaged as a Docker container. Their Docker images can be build using
+Each MANO Framework component is written in Python, and can be packaged as a Docker container. To build the respective Docker containers, use
 
-```
+```bash
 docker build -f plugins/son-mano-service-lifecycle-management/Dockerfile .
 docker build -f plugins/son-mano-function-lifecycle-management/Dockerfile .
 docker build -f plugins/son-mano-placement/Dockerfile .
 docker build -f plugins/son-mano-specific-registry/Dockerfile .
 ```
-or pulled from
+or pull them from
 
-```
+```bash
 docker pull tsoenen/sonmano-slm
 docker pull tsoenen/sonmano-flm
 docker pull tsoenen/sonmano-smr
@@ -42,30 +41,32 @@ docker pull tsoenen/sonmano-plm
 
 # Installation and usage
 
-This MANO Framework was developed in the scope of the **SONATA's (powered by 5GTANGO)** Service Platform. To install the entire platform, follow directions in [tng-devops](https://github.com/sonata-nfv/tng-devops).
+The MANO Framework was developed in the scope of the **SONATA's (powered by 5GTANGO)** Service Platform. To install the entire platform, follow directions listed in [tng-devops](https://github.com/sonata-nfv/tng-devops).
 
-It is possible to use a standalone version of the MANO Framework, without the other 5GTANGO components. `/install` contains an ansible-playbook that deploys the MANO Framework locally, together with its dependencies:
+It is possible to use a standalone version of the MANO Framework, without the other 5GTANGO components. `/install` contains an ansible-playbook that deploys a standalone version of the MANO Framework locally, together with its dependencies:
 
 * A RabbitMQ message broker, used by the MANO components to communicate
-* The 5GTANGO catalogue and repository, which are used by the MANO Framework to store descriptors and records
-* A Mongo DB, for the catalogue and repository to use
-* [The emulator](https://github.com/sonata-nfv/son-emu), which uses local resources to emulate computing and networking resources
-* [The emulator wrapper](https://github.com/sonata-nfv/tng-sp-ia-emu), to attach the emulator to the MANO Framework
+* The Catalogue and a Repository, which are used by the MANO Framework to store and fetch descriptors and records
+* A Mongo DB, for the Catalogue and Repository to use
+* [The Emulator](https://github.com/sonata-nfv/son-emu), which uses local resources to emulate computing and networking resources
+* [The Emulator Wrapper](https://github.com/sonata-nfv/tng-sp-ia-emu), to attach the emulator to the MANO Framework
 
 To deploy the standalone MANO Framework, run
 
 ```bash
+git clone https://github.com/sonata-nfv/son-mano-framework.git
+cd son-mano-framework
 ansible-playbook install/mano.yml -e "docker_network_name=tango"
 ```
 Dependencies for this installation are:
 
 * Ansible > 2.4
 * Docker > 17.12.0-ce
-* Python3 Docker package > 3.4.1 (`pip3 install docker==3.4.1`)
+* Python3 Docker package > 3.4.1 (`pip3 install docker`)
 
-At this point, you are running the MANO Framework locally, orchestrating on locally emulated resources. It is possible to orchestrate on other virtual infrastructure managers (e.g. OpenStack, Kubernetes, etc.) if you replace the emulator wrapper with a dedicated wrapper for your VIM.
+At this point, you are running the MANO Framework locally, orchestrating on locally emulated resources. It is possible to orchestrate resources that are being managed by other virtual infrastructure managers (e.g. OpenStack, Kubernetes, etc.) if you replace the Emulator Wrapper with a dedicated wrapper for your VIM. Instructions on how to create such a wrapper can be found [here]().
 
-To start orchestrating, you can use the `sonmano` Python3 library, which consumes the MANO Framework API. You can install this library with
+To start using the standalone MANO Framework, you can use the `sonmano` Python3 library which consumes the MANO Framework API. You can install this library with
 
 ```bash
 cd client
