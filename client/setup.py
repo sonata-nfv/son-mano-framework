@@ -65,7 +65,7 @@ pkgs, new_links = install_deps()
 
 setup(name='sonmano',
       license='Apache License, Version 2.0',
-      version='0.1',
+      version='1.0',
       url='https://github.com/sonata-nfv/son-mano-framework',
       author='Thomas Soenen',
       author_email='thomas.soenen@ugent.be',
