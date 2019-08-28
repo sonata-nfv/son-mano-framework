@@ -1,4 +1,4 @@
-Welcome to 5GTANGO's CLI tool's documentation!
+Welcome to the sonmano documentation!
 ==============================================
 
 Installation
@@ -22,4 +22,4 @@ Usage
   :hidden:
   :maxdepth: 2
 
-  ManoConsumer
+  consume

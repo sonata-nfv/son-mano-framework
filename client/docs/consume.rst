@@ -1,4 +1,4 @@
-ManoConsumer
+Consume
 =============================
 
 .. py:module:: sonmano.consume
