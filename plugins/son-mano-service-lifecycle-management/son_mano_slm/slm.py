@@ -1187,7 +1187,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
     def resp_topo(self, ch, method, prop, payload):
         """
         This function handles responses to topology requests made to the
-        infrastructure adaptor.
+        infrastructure adaptor.r
         """
         message = yaml.load(payload)
 
@@ -1197,7 +1197,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         if 'wim_list' in message.keys():
             LOG.info("Service " + serv_id + ": WIM topology received from IA.")
             self.services[serv_id]['infrastructure']['wims'] = message['wim_list']
-        else:
+        elif 'vim_list' in message.keys():
             LOG.info("Service " + serv_id + ": VIM topology received from IA.")
             self.services[serv_id]['infrastructure']['vims'] = message
 
