@@ -78,7 +78,7 @@ To start using the standalone MANO Framework, you can use the `sonmano` Python3 
 cd client
 python3 setup.py install
 ```
-Documentation for this library can be found [here]().
+Documentation for this library can be found [here](https://sonmano.readthedocs.io/en/latest/index.html).
 
 # Contributing
 
