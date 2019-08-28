@@ -1,7 +1,7 @@
 ManoConsumer
 =============================
 
-.. py:module:: sonmano.consume
+.. py:module:: client.sonmano.consume
 
 ManoConsumer
 ________________________
