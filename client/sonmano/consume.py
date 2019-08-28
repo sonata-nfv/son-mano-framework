@@ -43,7 +43,9 @@ import tngsdk.package as tngpkg
 
 class ManoConsumer():
     """
-    This class interacts with the MANO setup.
+    This class serves as a MANO Framework Consumer object. It sets up 
+    a connection with the MANO Framework message broker, and provides
+    a range of methods to interact with it.
     """
 
     def __init__(self,
@@ -51,9 +53,14 @@ class ManoConsumer():
                  broker_exchange='son-kernel',
                  cat_url='http://localhost:4011/api/v2/'):
         """
-        Instantiate the Mano Consumer
+        Initiate the MANO Consumer
 
-        :return:
+        :param broker_host: URL of the broker associated with the MANO 
+            Framework you want to connect with.
+        :param broker_exchange: The exchange on the RabbitMQ broker that 
+            is being used by the MANO Framework.
+        :param cat_url: URL to the catalogue that is being used by the 
+            MANO Framework.
         """
 
         self.ledger = {}
@@ -66,28 +73,21 @@ class ManoConsumer():
                                                        broker_exchange)
 
         # subscribe to relevant topics
-        self.manoconn.subscribe(self.on_mano_reply,
+        self.manoconn.subscribe(self._on_mano_reply,
                                 'service.instances.create')
 
-        self.manoconn.subscribe(self.on_mano_reply,
+        self.manoconn.subscribe(self._on_mano_reply,
                                 'service.instance.scale')
 
-        self.manoconn.subscribe(self.on_mano_reply,
+        self.manoconn.subscribe(self._on_mano_reply,
                                 'service.instance.migrate')
 
-        self.manoconn.subscribe(self.on_mano_reply,
+        self.manoconn.subscribe(self._on_mano_reply,
                                 'service.instance.terminate')
 
-    def on_mano_reply(self, ch, method, prop, payload):
+    def _on_mano_reply(self, ch, method, prop, payload):
         """
         Processing MANO replies and updating status of each request
-
-        :param ch: todo
-        :param method: todo
-        :param prop: dictionary with properties of the message
-        :param payload: yaml formatted string with the payload
-
-        :returns:
         """
 
         # Ignore if the message is self sent
@@ -119,9 +119,13 @@ class ManoConsumer():
 
     def instantiate_service(self, pkg_path):
         """
-        This method instantiates a service on the local MANO setup
+        This method instantiates a service, packaged in a 5GTANGO package, on
+        the selected MANO Framework.
 
-        :param pkg: a path to a package on the local file system.
+        :param pkg_path: path to the tgo package containing the service that
+            needs to be instantiated.
+        :returns: A tuple. tuple[0] is a bool indicating the outcome of the 
+            request, tuple[1] contains the response message by the MANO.
         """
 
         # Unpackage the package
@@ -136,7 +140,6 @@ class ManoConsumer():
 
         nsd = mes[0]
 
-        print(nsd)
         res, vnfds = self._store_descriptors_in_catalogue(vnfds, 'vnfd')
 
         if not res:
@@ -182,13 +185,17 @@ class ManoConsumer():
 
     def scale_out_service(self, service_instance_uuid, vnfd_uuid, num=1):
         """
-        Make a scale out request to the MANO Framework
+        This method scales out a service instance that is running on the 
+        selected MANO Framework.
 
-        :param service_instance_uuid: The instance uuid of the service
-        :param vnfd_uuid: the vnfd that requires additional instance
-        :param num_inst: number of extra instances
+        :param service_instance_uuid: The instance uuid of the service that
+            needs to be scaled out.
+        :param vnfd_uuid: the vnfd of the VNF that requires additional 
+            instances to be deployed
+        :param num_inst: number of required extra instances
 
-        :returns: tuple. [0] is bool, [1] message about result
+        :returns: A tuple. tuple[0] is a bool indicating the outcome of the 
+            request, tuple[1] contains the response message by the MANO.
         """
 
         # Build message
@@ -201,12 +208,16 @@ class ManoConsumer():
 
     def scale_in_service(self, service_instance_uuid, vnf_uuid):
         """
-        Make a scale in request to the MANO Framework based on vnf
+        This method makes a request to scale in a running service instance 
+        on the selected MANO Framework. The VNF that needs to be scaled in
+        is selected by its VNF instance id.
 
-        :param service_instance_uuid: The instance uuid of the service
-        :param vnf_uuid: the vnf instance that needs to be scaled in
+        :param service_instance_uuid: The instance uuid of the service that
+            needs to be scaled in.
+        :param vnf_uuid: the VNJF instance id that needs to be scaled in.
 
-        :returns: tuple. [0] is bool, [1] message about result
+        :returns: A tuple. tuple[0] is a bool indicating the outcome of the 
+            request, tuple[1] contains the response message by the MANO.
         """
 
         # Build message
@@ -218,12 +229,20 @@ class ManoConsumer():
         
     def scale_in_service_vnfd(self, service_instance_uuid, vnfd_uuid, num=1):
         """
-        Make a scale in request to the MANO Framework based on vnfd
+        This method makes a request to scale in a running service instance 
+        on the selected MANO Framework. The VNF that needs to be scaled in
+        is selected by its VNFD id.
 
-        :param service_instance_uuid: The instance uuid of the service
-        :param vnf_uuid: the vnf instance that needs to be scaled in
+        :param service_instance_uuid: The instance uuid of the service that
+            needs to be scaled in.
+        :param vnfd_uuid: the id of the VNFD that needs to be scaled in. If 
+            multiple instances of this VNFD are running, the MANO will decide 
+            which get removed.
+        :param num: The number of VNFs associated to this VNFD that need to
+            be removed.
 
-        :returns: tuple. [0] is bool, [1] message about result
+        :returns: A tuple. tuple[0] is a bool indicating the outcome of the 
+            request, tuple[1] contains the response message by the MANO.
         """
 
         # Build message
@@ -236,13 +255,17 @@ class ManoConsumer():
 
     def migrate_service(self, service_instance_uuid, vim_uuid, vnf_uuid):
         """
-        Make a migration request to the MANO Framework
+        This method makes a migration request for a running service instance 
+        on the selected MANO Framework
 
-        :param service_instance_uuid: The instance uuid of the service
-        :param vim_uuid: the uuid of the vim that vnf needs to be migrated to
-        :param vnf_uuid: the vnf instance that needs to be migrated
+        :param service_instance_uuid: The instance uuid of the service that
+            needs to be migrated.
+        :param vim_uuid: the id of the VIM that the VNF needs to be migrated 
+            to.
+        :param vnf_uuid: the id of the vnf instance that needs to be migrated.
 
-        :returns: tuple. [0] is bool, [1] message about result
+        :returns: A tuple. tuple[0] is a bool indicating the outcome of the 
+            request, tuple[1] contains the response message by the MANO.
         """
 
         # Build message
@@ -254,11 +277,14 @@ class ManoConsumer():
         
     def terminate_service(self, service_instance_uuid):
         """
-        Make a termination request to the MANO Framework
+        This method makes a termination request for a running service instance 
+        on the selected MANO Framework
 
-        :param service_instance_uuid: The instance uuid of the service
+        :param service_instance_uuid: The instance uuid of the service that
+            needs to be terminated.
 
-        :returns: tuple. [0] is bool, [1] message about result
+        :returns: A tuple. tuple[0] is a bool indicating the outcome of the 
+            request, tuple[1] contains the response message by the MANO.
         """
 
         # Build message
