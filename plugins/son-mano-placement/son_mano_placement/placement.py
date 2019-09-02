@@ -606,6 +606,9 @@ class PlacementPlugin(ManoBasePlugin):
         if not isinstance(const['cu_constraint'], dict):
             return "Customer policies are not a dictionary", "ERROR"
 
+        if len(vims) < 1:
+            return "No attached VIMs", "ERROR"
+
         LOG.info("Placement calculation started")
 
         # There are three types of decision vars: eps, dus and vls. They need
