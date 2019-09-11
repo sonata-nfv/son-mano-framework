@@ -98,7 +98,7 @@ def replace_old_corr_id_by_new(dictionary, old_correlation_id):
     return new_correlation_id, dictionary
 
 
-def build_nsr(request_status, nsd, vnfr_ids, serv_id, vls, flavour=None, sid=None, pid=None):
+def build_nsr(request_status, nsd, vnfr_ids, serv_id, vls, flavour=None, sid=None, pid=None, params=None):
     """
     This method builds the whole NSR from the payload (stripped nsr and vnfrs)
     returned by the Infrastructure Adaptor (IA).
@@ -206,6 +206,8 @@ def build_nsr(request_status, nsd, vnfr_ids, serv_id, vls, flavour=None, sid=Non
 
     if flavour:
         nsr['flavour'] = flavour
+    if params:
+        nsr['params'] = params
 
     return nsr
 

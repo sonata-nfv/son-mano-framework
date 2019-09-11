@@ -76,11 +76,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Create the ledger that saves state
         self.services = {}
 
-        self.publickey = None
-        self.token = None
-        self.password = '1234'
-        self.clientId = 'son-slm'
-
         self.thrd_pool = pool.ThreadPoolExecutor(max_workers=10)
 
         self.ssm_connections = {}
@@ -89,10 +84,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         base = 'amqp://' + self.ssm_user + ':' + self.ssm_pass
         broker = os.environ.get("broker_host").split("@")[-1].split("/")[0]
         self.ssm_url_base = base + '@' + broker + '/'
-
-        # The following can be removed once transition is done
-        self.service_requests_being_handled = {}
-        self.service_updates_being_handled = {}
 
         ver = "0.1-dev"
         des = "This is the SLM plugin"
@@ -118,11 +109,11 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # The topic on which deploy requests are posted.
         self.manoconn.subscribe(self.service_instance_create, t.GK_CREATE)
 
-        # The topic on which pause requests are posted.
-        self.manoconn.subscribe(self.service_instance_pause, t.GK_PAUSE)
+        # # The topic on which pause requests are posted.
+        # self.manoconn.subscribe(self.service_instance_pause, t.GK_PAUSE)
 
-        # The topic on which resume requests are posted.
-        self.manoconn.subscribe(self.service_instance_resume, t.GK_RESUME)
+        # # The topic on which resume requests are posted.
+        # self.manoconn.subscribe(self.service_instance_resume, t.GK_RESUME)
 
         # The topic on which termination requests are posted.
         self.manoconn.subscribe(self.service_instance_kill, t.GK_KILL)
@@ -130,8 +121,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # Fake policy manager for now
         self.manoconn.subscribe(self.policy_faker, 'policy.operator')
 
-        # The topic on which update requests are posted.
-        self.manoconn.subscribe(self.service_update, t.GK_UPDATE)
+        # # The topic on which update requests are posted.
+        # self.manoconn.subscribe(self.service_update, t.GK_UPDATE)
 
         # The topic on which monitoring information is received
         self.manoconn.subscribe(self.monitoring_feedback, t.MON_RECEIVE)
@@ -202,7 +193,6 @@ class ServiceLifecycleManager(ManoBasePlugin):
         when a task is finished, or when the first task should begin.
 
         :param serv_id: the instance uuid of the service that is being handled.
-        :param first: indicates whether this is the first task in a chain.
         """
 
         # If the kill field is active, the chain is killed
@@ -1922,6 +1912,10 @@ class ServiceLifecycleManager(ManoBasePlugin):
                             else:
                                 pass
 
+        # Add injected envs, if provided:
+        if self.services[serv_id]['params']:
+            g_envs.update(self.services[serv_id]['params'])
+
         msg = ': Generic envs: ' + str(g_envs)
         LOG.info("Service " + serv_id + msg)
 
@@ -2294,7 +2288,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         vls = self.services[serv_id]['mapping']['service']['vl']
         status = 'normal operation'
 
-        nsr = tools.build_nsr(status, nsd, vnfr_ids, serv_id, vls, self.services[serv_id]['flavour'], sid, pid)
+        nsr = tools.build_nsr(status, nsd, vnfr_ids, serv_id, vls, self.services[serv_id]['flavour'], sid, pid, self.services[serv_id]['params'])
 
         nsr['id'] = serv_id
         nsr['version'] = version
@@ -2378,7 +2372,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
         sid = self.services[serv_id]['sla_id']
         pid = self.services[serv_id]['policy_id']
         vls = self.services[serv_id]['mapping']['service']['vl']
-        nsr = tools.build_nsr(status, nsd, vnfr_ids, serv_id, vls, self.services[serv_id]['flavour'], sid, pid)
+        nsr = tools.build_nsr(status, nsd, vnfr_ids, serv_id, vls, self.services[serv_id]['flavour'], sid, pid, self.services[serv_id]['params'])
         LOG.info("NSR to be stored: " + yaml.dump(nsr))
 
         error = None
@@ -3410,6 +3404,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
                 if payload['ingresses'] != '[]':
                     self.services[serv_id]['egress'] = payload['egresses']
 
+        # Add params
+        self.services[serv_id]['params'] = payload.get('params')
+
         # Add user data to ledger
         self.services[serv_id]['user_data'] = payload['user_data']
 
@@ -3628,6 +3625,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         LOG.info("Serice " +
                  serv_id + ": Recreating ledger: VNFDs retrieved.")
+
+        # Retrieve the params
+        self.services[serv_id]['params'] = nsr.get('params')
 
         # Retrieve the deployed SSMs based on the NSD
         nsd = self.services[serv_id]['nsd']
