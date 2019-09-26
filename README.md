@@ -3,6 +3,8 @@
  
  <p align="center"><img src="https://github.com/sonata-nfv/tng-api-gtw/wiki/images/sonata-5gtango-logo-500px.png" /></p>
 
+# son-mano-framework
+
 The MANO Framework is at the core of [**SONATA's (powered by 5GTANGO)**](https://5gtango.eu/) service platform. It manages and orchestrates the available compute and networking resources to satisfy the requests it receives. As of now, the supported requests are (API description can be found in the [wiki]())
 
 * instantiate a service,
@@ -20,7 +22,7 @@ Some useful links:
 * [5GTANGO Service Platform Deliverable 5.1](https://5gtango.eu/project-outcomes/deliverables/43-d5-1-service-platform-operational-first-prototype.html)
 * [SONATA Architecture Deliverable 2.3](https://5gtango.eu/project-outcomes/deliverables/61-d2-3-updated-requirements,-architecture-design-and-v-v-elements)
 
-# Development
+## Development
 
 Each MANO Framework component is written in Python, and can be packaged as a Docker container. To build the respective Docker containers, use
 
@@ -39,7 +41,7 @@ docker pull tsoenen/sonmano-smr
 docker pull tsoenen/sonmano-plm
 ```
 
-# Installation and usage
+## Installation and usage
 
 The MANO Framework was developed in the scope of the **SONATA's (powered by 5GTANGO)** Service Platform. To install the entire platform, follow directions listed in [tng-devops](https://github.com/sonata-nfv/tng-devops).
 
@@ -80,7 +82,7 @@ python3 setup.py install
 ```
 Documentation for this library can be found [here](https://sonmano.readthedocs.io/en/latest/index.html).
 
-# Contributing
+## Contributing
 
 To contribute, go through these steps:
 
@@ -90,11 +92,10 @@ To contribute, go through these steps:
 3. Submit a Pull Request;
 4. Follow/answer related [issues](https://github.com/sonata-nfv/son-mano-framework/issues) (see Feedback-Channel, below).
 
-# License
+## License
 
 Son-mano-framework is published under Apache 2.0 license. Please see the LICENSE file for more details.
 
----
 #### Lead Developers
 
 The following lead developers are responsible for this repository and have admin rights. They can, for example, merge pull requests.
@@ -105,4 +106,5 @@ The following lead developers are responsible for this repository and have admin
 
 #### Feedback-Channel
 
-* [GitHub issues](https://github.com/sonata-nfv/son-mano-framework/issues)
+* Mailing list [sonata-dev-list](mailto:sonata-dev@lists.atosresearch.eu)
+* Gitter room [![Gitter](https://badges.gitter.im/sonata-nfv/Lobby.svg)](https://gitter.im/sonata-nfv/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
