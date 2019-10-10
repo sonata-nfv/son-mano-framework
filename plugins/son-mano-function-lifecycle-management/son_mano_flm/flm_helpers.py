@@ -145,7 +145,7 @@ def build_vnfr(ia_vnfr, vnfd, vim_id, flavour=None):
     vnfr['name'] = vnfd.get("name")
     # Building the vnfr makes it the first version of this vnfr.
     vnfr['version'] = '1'
-    vnfr['status'] = ia_vnfr['status']
+    vnfr['status'] = "normal operation"
     vnfr['descriptor_reference'] = ia_vnfr['descriptor_reference']
 
     # deployment flavour

@@ -59,6 +59,7 @@ MANO_CONFIG = "mano.function.configure"
 MANO_STOP = "mano.function.stop"
 MANO_SCALE = "service.instance.scale"
 MANO_MIGRATE = "service.instance.migrate"
+MANO_RECONFIGURE = "service.instance.reconfigure"
 MANO_STATE = "mano.function.state"
 
 # With gatekeeper or other SLM

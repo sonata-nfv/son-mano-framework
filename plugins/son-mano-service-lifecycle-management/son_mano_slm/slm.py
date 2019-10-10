@@ -133,6 +133,9 @@ class ServiceLifecycleManager(ManoBasePlugin):
         # The topic on which the the SLM receives life cycle migrate events
         self.manoconn.subscribe(self.service_instance_migrate, t.MANO_MIGRATE)
 
+        # The topic on which the the SLM receives life cycle migrate events
+        self.manoconn.subscribe(self.service_instance_reconfigure, t.MANO_RECONFIGURE)
+
     def on_lifecycle_start(self):
         """
         This event is called when the plugin has successfully started.
@@ -431,19 +434,101 @@ class ServiceLifecycleManager(ManoBasePlugin):
                                 t.GK_KILL,
                                 orig='GK')
 
-    def reconfigure_workflow(self, serv_id):
+    def service_instance_reconfigure(self, ch, method, prop, payload):
+        """
+        callback for reconfigure request
+        """
+
+        def send_response(error, serv_id):
+            response = {}
+            response['error'] = error
+
+            if error is None:
+                response['status'] = 'RECONFIGURING'
+            else:
+                response['status'] = 'ERROR'
+
+            msg = ' Response on reconfiguration request: ' + str(response)
+            LOG.info('Service ' + str(serv_id) + msg)
+            self.manoconn.notify(t.MANO_RECONFIGURE,
+                                 yaml.dump(response),
+                                 correlation_id=corr_id)
+
+        # Check if the message doesn't come from SLM itself
+        if prop.app_id == self.name:
+            return
+
+        message = yaml.load(payload)
+
+        # Check if payload is ok
+        error = None
+
+        corr_id = prop.correlation_id
+        if corr_id is None:
+            error = 'No correlation id provided in header of request'
+            send_response(error, None)
+            return
+
+        if not isinstance(message, dict):
+            error = 'Payload is not a dictionary'
+            send_response(error, None)
+            return
+
+        if 'service_instance_uuid' in message.keys():
+            serv_id = message['service_instance_uuid']
+            msg = ": Received reconfiguration request"
+            LOG.info('Service ' + str(serv_id) + msg)
+            LOG.info('Service ' + str(serv_id) + ": " + str(payload))
+
+            if serv_id in self.services.keys():
+                error = "Workflow for service still going on, rejected"
+                send_response(error, serv_id)
+                return
+        else:
+            error = 'Missing \'service_instance_id\' in request'
+            send_response(error, None)
+            return
+
+        if 'reconfiguration_payload' not in message.keys():
+            error = "Missing reconfiguration payload"
+            send_response(error, serv_id)
+            return
+
+        # sending response to requesting party
+        send_response(error, serv_id)
+
+        LOG.info("accepting migration request")
+        self.reconfigure_workflow(serv_id,
+                                  message['reconfiguration_payload'],
+                                  prop.correlation_id)
+
+    def reconfigure_workflow(self, serv_id, payload, corr_id=None):
         """
         This method triggers a reconfiguration workflow.
         """
 
-        LOG.info('Service ' + str(serv_id) + ': reconfigure workflow request')
-        self.services[serv_id]['status'] = 'reconfigurating'
+        LOG.info('Service ' + str(serv_id) + ": Starting reconfigure workflow")
+        # Check if the ledger has an entry for this instance
+        if serv_id not in self.services.keys():
+            # Based on the received payload, the ledger entry is recreated.
+            LOG.info("Recreating ledger.")
+            self.recreate_ledger(corr_id, serv_id)
+
+        self.services[serv_id]['start_time'] = time.time()
+        self.services[serv_id]['topic'] = t.MANO_RECONFIGURE
         self.services[serv_id]["current_workflow"] = 'reconfigure'
+        self.services[serv_id]['status'] = 'RECONFIGURING'
+        self.services[serv_id]["reconfiguration_payload"] = payload
+
+        LOG.info('Service ' + str(serv_id) + ': reconfigure workflow request')
 
         add_schedule = []
+        add_schedule.append('vnfs_generic_envs')
         add_schedule.append("configure_ssm")
         add_schedule.append("vnfs_config")
-        add_schedule.append("inform_config_ssm")
+        if corr_id:
+            add_schedule.append("inform_gk")
+
 
         self.services[serv_id]['schedule'].extend(add_schedule)
 
@@ -1152,7 +1237,8 @@ class ServiceLifecycleManager(ManoBasePlugin):
             if content['workflow'] == 'pause':
                 pass
             if content['workflow'] == 'reconfigure':
-                self.reconfigure_workflow(serv_id)
+                self.reconfigure_workflow(serv_id,
+                                          content['reconfiguration_payload'])
             if content['workflow'] == 'rechain':
                 self.rechain_workflow(serv_id, content['data'])
             if content['workflow'] == 'migrate':
