@@ -1838,7 +1838,14 @@ class ServiceLifecycleManager(ManoBasePlugin):
 
         for vnf_id in mapping['function']:
             vnf = mapping['function'][vnf_id]
+            for function in vnfs:
+                if function['id'] == vnf_id:
+                    vnfd = function['vnfd']
+                    break
             for vl_desc_id in vnf['vl']:
+                for function_vl in vnfd['virtual_links']:
+                    if function_vl['id'] == vl_desc_id:
+                        break
                 vl = vnf['vl'][vl_desc_id]
                 if vl['new'] and 'vim_id' in vl.keys():
                     if vl['vim_id'] not in vims.keys():
@@ -1847,6 +1854,16 @@ class ServiceLifecycleManager(ManoBasePlugin):
                     vl_dict = {'id': vl['id'],
                                'access': True,
                                'vl_id': vl_desc_id}
+
+                    if 'dhcp' in function_vl:
+                        vl_dict['dhcp'] = function_vl['dhcp']
+                    if 'cidr' in function_vl:
+                        vl_dict['cidr'] = function_vl['cidr']
+                    if 'qos' in function_vl:
+                        vl_dict['qos'] = function_vl['qos']
+                    if 'qos_requirements' in function_vl:
+                        vl_dict['qos_requirements'] = function_vl['qos_requirements']
+                        
                     vims[vl['vim_id']]['virtual_links'].append(vl_dict)
 
         # Create the VIM list
