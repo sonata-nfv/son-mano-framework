@@ -2027,7 +2027,7 @@ class ServiceLifecycleManager(ManoBasePlugin):
                         pass 
                     try:
                         copy_g_envs.update(self.services[serv_id]['params'])
-                    except KeyError:
+                    except:
                         pass 
                     list_g_envs.append({'cdu_id': cdu['id'],
                                        'envs': copy_g_envs})
