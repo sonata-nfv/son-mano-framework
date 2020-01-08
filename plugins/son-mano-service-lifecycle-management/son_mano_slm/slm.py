@@ -2015,21 +2015,26 @@ class ServiceLifecycleManager(ManoBasePlugin):
                             else:
                                 pass
 
-        # Add injected envs, if provided:
-        if self.services[serv_id]['params']:
-            g_envs.update(self.services[serv_id]['params'])
-
-        msg = ': Generic envs: ' + str(g_envs)
-        LOG.info("Service " + serv_id + msg)
-
         for vnf in vnfs:
             vnfd = vnf['vnfd']
             if 'cloudnative_deployment_units' in vnfd:
                 list_g_envs = []
                 for cdu in vnfd['cloudnative_deployment_units']:
+                    copy_g_envs = copy.copy(g_envs)
+                    try:
+                        copy_g_envs.update(cdu['parameters']['env'])
+                    except KeyError:
+                        pass 
+                    try:
+                        copy_g_envs.update(self.services[serv_id]['params'])
+                    except KeyError:
+                        pass 
                     list_g_envs.append({'cdu_id': cdu['id'],
-                                       'envs': g_envs})
+                                       'envs': copy_g_envs})
                 vnf['generic_envs'] = list_g_envs
+
+                msg = ': Generic envs per vnf: ' + str(list_g_envs)
+                LOG.info("Service " + serv_id + msg)
 
         return
 
